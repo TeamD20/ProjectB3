@@ -4,6 +4,7 @@
 #include "NativeGameplayTags.h"
 
 // 프로젝트 전용 Native GameplayTag 선언 모음. 태그 추가 시 이 네임스페이스 안에 선언.
+// UI 관련 태그는 UI/PBUITags에 분리.
 namespace PBGameplayTags
 {
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(System_Test);
