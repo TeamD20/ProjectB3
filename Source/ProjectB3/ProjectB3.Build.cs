@@ -20,23 +20,16 @@ public class ProjectB3 : ModuleRules
 			"GameplayStateTreeModule",
 			"Niagara",
 			"UMG",
-			"Slate"
+			"GameplayTags",
+			"GameplayAbilities",
+			"GameplayTasks"
 		});
-
-		PrivateDependencyModuleNames.AddRange(new string[] { });
-
-		PublicIncludePaths.AddRange(new string[] {
-			"ProjectB3",
-			"ProjectB3/Variant_Strategy",
-			"ProjectB3/Variant_Strategy/UI",
-			"ProjectB3/Variant_TwinStick",
-			"ProjectB3/Variant_TwinStick/AI",
-			"ProjectB3/Variant_TwinStick/Gameplay",
-			"ProjectB3/Variant_TwinStick/UI"
+		
+		PrivateDependencyModuleNames.AddRange(new string[] 
+		{
+			"Slate", 
+			"SlateCore"
 		});
-
-		// Uncomment if you are using Slate UI
-		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 
 		// Uncomment if you are using online features
 		// PrivateDependencyModuleNames.Add("OnlineSubsystem");

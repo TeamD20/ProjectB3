@@ -3,8 +3,8 @@
 
 #include "StrategyHUD.h"
 #include "StrategyUI.h"
-#include "Template/Variant_Strategy/StrategyPlayerController.h"
-#include "Template/Variant_Strategy/StrategyUnit.h"
+#include "ProjectB3/Template/Variant_Strategy/StrategyPlayerController.h"
+#include "ProjectB3/Template/Variant_Strategy/StrategyUnit.h"
 
 void AStrategyHUD::BeginPlay()
 {

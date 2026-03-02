@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "ProjectB3.h"
 #include "Modules/ModuleManager.h"

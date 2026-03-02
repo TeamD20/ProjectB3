@@ -3,15 +3,12 @@
 #include "ProjectB3PlayerController.h"
 #include "GameFramework/Pawn.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
-#include "NiagaraSystem.h"
 #include "NiagaraFunctionLibrary.h"
-#include "ProjectB3Character.h"
 #include "Engine/World.h"
 #include "EnhancedInputComponent.h"
-#include "InputActionValue.h"
 #include "EnhancedInputSubsystems.h"
 #include "Engine/LocalPlayer.h"
-#include "ProjectB3.h"
+#include "ProjectB3/ProjectB3.h"
 
 AProjectB3PlayerController::AProjectB3PlayerController()
 {
