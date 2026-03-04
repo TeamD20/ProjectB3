@@ -168,5 +168,5 @@ void APBGameplayPlayerController::RequestNavPathDisplay(const FVector& TargetLoc
 		return;
 	}
 
-	PathDisplayComponent->DisplayPath(NavPath->PathPoints);
+	PathDisplayComponent->DisplayPath(NavPath->PathPoints,true);
 }

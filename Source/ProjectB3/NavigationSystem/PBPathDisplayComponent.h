@@ -16,6 +16,8 @@ struct FPBPathDrawData
 {
 	// 선분 렌더링에 사용할 포인트 배열 (terrain-snap 보정 포인트 포함)
 	TArray<FVector> PathPoints;
+	// 전체 이동 경로 거리
+	float TotalDistance  = 0.f;
 	// InRange/OutOfRange 색상 분기 거리
 	float SplitDistance = 0.f;
 	// 원본 Nav Path 포인트
@@ -41,7 +43,7 @@ public:
 	void SetPathDisplayEnabled(bool bEnabled);
 
 	// 외부에서 쿼리된 경로 포인트를 받아 시각화
-	void DisplayPath(const TArray<FVector>& PathPoints);
+	void DisplayPath(const TArray<FVector>& PathPoints, bool bDisplayDistance);
 
 	// 경로 시각화를 초기화하고 모든 세그먼트를 숨김
 	void ClearPath();
@@ -63,15 +65,21 @@ private:
 	// PathPoints 배열을 기반으로 OutDrawData.PathPoints와 OutDrawData.SnappedCorrectionPoints를 삽입
 	// 긴 세그먼트에 terrain-snapped 중간 보정 포인트를 생성
 	void BuildTerrainSnappedPoints(const TArray<FVector>& NavPathPoints, FPBPathDrawData& OutDrawData) const;
-
+	
+	// OutDrawData.BasePathPoints를 기반으로 OutDrawData.TotalDistance를 계산
+	void CalculateTotalDistance(FPBPathDrawData& InOutDrawData) const;
+	
 	// OutDrawData.PathPoints를 기반으로 OutDrawData.SplitDistance를 계산
 	void CalculateSplitDistance(FPBPathDrawData& InOutDrawData) const;
 
 	// 풀의 모든 세그먼트를 숨김
 	void HideAllSegments();
 
+	// 거리 표시
+	void DisplayDistance(const FPBPathDrawData& InDrawData) const;
+	
 	// Debug Line으로 경로를 시각화
-	void DrawDebugPath(const FPBPathDrawData& DrawData) const;
+	void DrawDebugPath(const FPBPathDrawData& InDrawData) const;
 
 public:
 	/*~ PathDisplay Settings ~*/
