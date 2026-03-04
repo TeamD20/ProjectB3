@@ -3,14 +3,27 @@
 #pragma once
 
 #include "AIController.h"
+#include "CoreMinimal.h"
 #include "PBAIController.generated.h"
 
-// AI 캐릭터 제어를 담당하는 기반 컨트롤러. AI 공통 로직을 여기서 관리.
-UCLASS()
-class PROJECTB3_API APBAIController : public AAIController
-{
-	GENERATED_BODY()
 
+class UStateTreeComponent;
+
+UCLASS()
+class PROJECTB3_API APBAIController : public AAIController {
+  GENERATED_BODY()
+
+  /*~ 생성자 ~*/
 public:
-	APBAIController();
+  APBAIController();
+
+  /*~ AController Interface ~*/
+protected:
+  virtual void OnPossess(APawn *InPawn) override;
+
+  /*~ 컴포넌트 ~*/
+protected:
+  // AI 행동 트리를 구동하는 StateTree 컴포넌트
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI|StateTree")
+  TObjectPtr<UStateTreeComponent> StateTreeComponent;
 };
