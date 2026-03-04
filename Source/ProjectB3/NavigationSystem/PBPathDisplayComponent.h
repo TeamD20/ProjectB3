@@ -6,7 +6,6 @@
 #include "Components/ActorComponent.h"
 #include "PBPathDisplayComponent.generated.h"
 
-class USplineComponent;
 class USplineMeshComponent;
 class UMaterialInterface;
 class UStaticMesh;
@@ -57,6 +56,7 @@ public:
 protected:
 	/*~ UActorComponent Interface ~*/
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	
 private:
 	// 필수 프로퍼티 검증 및 로그
@@ -72,12 +72,18 @@ private:
 	// OutDrawData.PathPoints를 기반으로 OutDrawData.SplitDistance를 계산
 	void CalculateSplitDistance(FPBPathDrawData& InOutDrawData) const;
 
+	// 풀에서 Index번째 세그먼트를 가져오거나 새로 생성한다.
+	USplineMeshComponent* GetOrCreateSegment(int32 Index);
+
+	// SplineMeshComponent 풀로 경로 메시를 재구성한다.
+	void RebuildLineSegments(const FPBPathDrawData& DrawData);
+
 	// 풀의 모든 세그먼트를 숨김
 	void HideAllSegments();
 
 	// 거리 표시
 	void DisplayDistance(const FPBPathDrawData& InDrawData) const;
-	
+
 	// Debug Line으로 경로를 시각화
 	void DrawDebugPath(const FPBPathDrawData& InDrawData) const;
 
@@ -124,9 +130,9 @@ public:
 	TObjectPtr<UStaticMesh> LineMesh;
 
 private:
-	// 경로 곡선을 저장하는 스플라인 컴포넌트
-	UPROPERTY(VisibleAnywhere, Category = "Components")
-	TObjectPtr<USplineComponent> PathSpline;
+	// 경로 시각화 전용 액터. SplineMeshComponent 풀을 소유
+	UPROPERTY()
+	TObjectPtr<AActor> VisualActor;
 
 	// SplineMeshComponent 재사용 풀. 반복 생성/파괴를 방지
 	UPROPERTY()

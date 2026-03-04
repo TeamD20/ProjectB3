@@ -1,7 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBPathDisplayComponent.h"
-#include "Components/SplineComponent.h"
 #include "Components/SplineMeshComponent.h"
 #include "DrawDebugHelpers.h"
 #include "ProjectB3/Utils/PBDebugUtils.h"
@@ -17,13 +16,20 @@ void UPBPathDisplayComponent::BeginPlay()
 
 	ValidateProperties();
 
-	if (IsValid(GetOwner()) && IsValid(GetOwner()->GetRootComponent()))
+	// 경로 시각화 전용 액터 소환 (월드 원점에 배치, SplineMeshComponent 풀 소유)
+	VisualActor = GetWorld()->SpawnActor<AActor>();
+}
+
+void UPBPathDisplayComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// VisualActor는 월드에 독립적으로 소환되었으므로 명시적으로 파괴
+	if (IsValid(VisualActor))
 	{
-		// PathSpline 생성 및 오너 액터에 등록
-		PathSpline = NewObject<USplineComponent>(GetOwner(), TEXT("PathSpline"));
-		PathSpline->RegisterComponent();
-		PathSpline->AttachToComponent(GetOwner()->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+		VisualActor->Destroy();
+		VisualActor = nullptr;
 	}
+
+	Super::EndPlay(EndPlayReason);
 }
 
 void UPBPathDisplayComponent::SetPathDisplayEnabled(bool bEnabled)
@@ -52,8 +58,9 @@ void UPBPathDisplayComponent::DisplayPath(const TArray<FVector>& PathPoints, boo
 	BuildTerrainSnappedPoints(PathPoints, DrawData);
 	CalculateTotalDistance(DrawData);
 	CalculateSplitDistance(DrawData);
-	DrawDebugPath(DrawData);
-	
+	// DrawDebugPath(DrawData);
+	RebuildLineSegments(DrawData);
+
 	if (bDisplayDistance)
 	{
 		DisplayDistance(DrawData);
@@ -177,7 +184,6 @@ void UPBPathDisplayComponent::CalculateSplitDistance(FPBPathDrawData& InOutDrawD
 	InOutDrawData.SplitDistance = AccumulatedDist;
 }
 
-
 void UPBPathDisplayComponent::HideAllSegments()
 {
 	for (TObjectPtr<USplineMeshComponent>& Segment : SegmentPool)
@@ -255,4 +261,121 @@ void UPBPathDisplayComponent::DrawDebugPath(const FPBPathDrawData& InDrawData) c
 	}
 }
 
+void UPBPathDisplayComponent::RebuildLineSegments(const FPBPathDrawData& DrawData)
+{
+	if (!IsValid(LineMesh) || !IsValid(VisualActor))
+	{
+		HideAllSegments();
+		return;
+	}
 
+	const TArray<FVector>& Points = DrawData.PathPoints;
+	const int32 N = Points.Num();
+
+	// Catmull-Rom 탄젠트 계산: 인접 포인트 방향 평균으로 부드러운 곡선 생성
+	TArray<FVector> Tangents;
+	Tangents.SetNum(N);
+	for (int32 i = 0; i < N; ++i)
+	{
+		if (i == 0)
+		{
+			Tangents[i] = Points[1] - Points[0];
+		}
+		else if (i == N - 1)
+		{
+			Tangents[i] = Points[N - 1] - Points[N - 2];
+		}
+		else
+		{
+			Tangents[i] = 0.5f * (Points[i + 1] - Points[i - 1]);
+		}
+	}
+
+	int32 NextIndex = 0;
+	float AccumDist = 0.f;
+
+	auto SetupSegment = [&](USplineMeshComponent* Seg,
+		const FVector& WStart, const FVector& WStartTangent,
+		const FVector& WEnd,   const FVector& WEndTangent,
+		bool bInRange)
+	{
+		Seg->SetStaticMesh(LineMesh);
+		Seg->SetMaterial(0, bInRange ? InRangeMaterial : OutOfRangeMaterial);
+		Seg->SetStartAndEnd(WStart, WStartTangent, WEnd, WEndTangent);
+		Seg->SetVisibility(true);
+	};
+
+	for (int32 i = 1; i < N; ++i)
+	{
+		const FVector& SegStart = Points[i - 1];
+		const FVector& SegEnd   = Points[i];
+		const float SegDist     = FVector::Dist(SegStart, SegEnd);
+
+		if (AccumDist >= DrawData.SplitDistance)
+		{
+			// 세그먼트 전체가 이동 범위 밖
+			if (USplineMeshComponent* Seg = GetOrCreateSegment(NextIndex++))
+			{
+				SetupSegment(Seg, SegStart, Tangents[i - 1], SegEnd, Tangents[i], false);
+			}
+		}
+		else if (AccumDist + SegDist <= DrawData.SplitDistance)
+		{
+			// 세그먼트 전체가 이동 범위 안
+			if (USplineMeshComponent* Seg = GetOrCreateSegment(NextIndex++))
+			{
+				SetupSegment(Seg, SegStart, Tangents[i - 1], SegEnd, Tangents[i], true);
+			}
+		}
+		else
+		{
+			// 분기점 포함 세그먼트: Lerp로 분기 위치/탄젠트 계산
+			const float T           = (SegDist > 0.f) ? ((DrawData.SplitDistance - AccumDist) / SegDist) : 0.f;
+			const FVector SplitPos  = FMath::Lerp(SegStart, SegEnd, T);
+			const FVector SplitTang = FMath::Lerp(Tangents[i - 1], Tangents[i], T);
+
+			if (USplineMeshComponent* SegA = GetOrCreateSegment(NextIndex++))
+			{
+				SetupSegment(SegA, SegStart, Tangents[i - 1], SplitPos, SplitTang, true);
+			}
+			if (USplineMeshComponent* SegB = GetOrCreateSegment(NextIndex++))
+			{
+				SetupSegment(SegB, SplitPos, SplitTang, SegEnd, Tangents[i], false);
+			}
+		}
+
+		AccumDist += SegDist;
+	}
+
+	// 이번 갱신에서 사용하지 않은 세그먼트 숨기기
+	for (int32 i = NextIndex; i < SegmentPool.Num(); ++i)
+	{
+		if (IsValid(SegmentPool[i]))
+		{
+			SegmentPool[i]->SetVisibility(false);
+		}
+	}
+}
+
+USplineMeshComponent* UPBPathDisplayComponent::GetOrCreateSegment(int32 Index)
+{
+	if (SegmentPool.IsValidIndex(Index) && IsValid(SegmentPool[Index]))
+	{
+		return SegmentPool[Index];
+	}
+
+	if (SegmentPool.Num() >= MaxSegmentPoolSize)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[PBPathDisplayComponent] 세그먼트 풀이 가득 찼습니다. (%s)"), *GetOwner()->GetName());
+		return nullptr;
+	}
+
+	// VisualActor가 월드 원점에 위치하므로 world 좌표 = local 좌표
+	USplineMeshComponent* NewSegment = NewObject<USplineMeshComponent>(VisualActor);
+	NewSegment->SetMobility(EComponentMobility::Movable);
+	NewSegment->RegisterComponent();
+	NewSegment->AttachToComponent(VisualActor->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+
+	SegmentPool.Add(NewSegment);
+	return NewSegment;
+}
