@@ -62,17 +62,15 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
         Clearinghouse->GetNormalizedDistanceToTarget(PotentialTarget);
     float VulnerabilityScore =
         Clearinghouse->GetTargetVulnerabilityScore(PotentialTarget);
-    float HighGroundScore =
-        Clearinghouse->EvaluateHighGroundAdvantage(PotentialTarget);
 
-    float TotalScore = DistanceScore + VulnerabilityScore + HighGroundScore;
+    // 퍼지 논리(AND 교집합 연산) 적용: 거리와 체력 조건 중 더 낮은(불리한)
+    // 점수를 최종 타겟 매력도로 산정
+    float TotalScore = FMath::Min(DistanceScore, VulnerabilityScore);
 
-    UE_LOG(
-        LogPBStateTree, Log,
-        TEXT(
-            "Target [%s] 평가됨 -> 총 점수: %f (Dist: %f, Vuln: %f, High: %f)"),
-        *PotentialTarget->GetName(), TotalScore, DistanceScore,
-        VulnerabilityScore, HighGroundScore);
+    UE_LOG(LogPBStateTree, Log,
+           TEXT("Target [%s] 평가됨 -> 퍼지 총 점수: %f (Dist: %f, Vuln: %f)"),
+           *PotentialTarget->GetName(), TotalScore, DistanceScore,
+           VulnerabilityScore);
 
     if (TotalScore > BestTotalScore) {
       UE_LOG(LogPBStateTree, Log,
