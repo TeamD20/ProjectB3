@@ -37,7 +37,7 @@ float UPBUtilityClearinghouse::GetNormalizedDistanceToTarget(
   // TODO: 실제 맵(NavMesh) 스플라인 기반 경로 길이를 기반으로 0.0 ~ 1.0으로
   // 정규화 하는 로직
 
-  float DummyDistanceScore = 0.5f;
+  float DummyDistanceScore = 0.9f;
 
   UE_LOG(
       LogPBUtility, Log,

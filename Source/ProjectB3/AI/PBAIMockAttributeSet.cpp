@@ -5,5 +5,8 @@
 UPBAIMockAttributeSet::UPBAIMockAttributeSet() {
   // 초기화
   InitHealth(100.0f);
-  InitActionPoints(1.0f);
+  InitAction(1.0f);
+  InitBonusAction(1.0f);
+  InitMovement(0.0f);
+  InitMaxMovement(900.0f);
 }

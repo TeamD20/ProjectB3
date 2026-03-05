@@ -25,7 +25,7 @@ void UPBAIMockAbility_Attack::ActivateAbility(
     const UPBAIMockAttributeSet *MockSet = Cast<UPBAIMockAttributeSet>(
         ASC->GetAttributeSet(UPBAIMockAttributeSet::StaticClass()));
     if (MockSet) {
-      float CurrentAP = MockSet->GetActionPoints();
+      float CurrentAP = MockSet->GetAction();
       if (CurrentAP >= 1.0f) {
         // 단순 로깅 (공격 성공)
         UE_LOG(LogTemp, Display,
@@ -34,7 +34,7 @@ void UPBAIMockAbility_Attack::ActivateAbility(
 
         // ApplyModToAttribute를 통한 강제 직접 감산
         ASC->ApplyModToAttribute(
-            UPBAIMockAttributeSet::GetActionPointsAttribute(),
+            UPBAIMockAttributeSet::GetActionAttribute(),
             EGameplayModOp::Additive, -1.0f);
       } else {
         UE_LOG(LogTemp, Warning,
