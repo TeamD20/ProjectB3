@@ -6,7 +6,6 @@
 #include "Components/ActorComponent.h"
 #include "PBPathDisplayComponent.generated.h"
 
-class USplineComponent;
 class USplineMeshComponent;
 class UMaterialInterface;
 class UStaticMesh;
@@ -16,6 +15,8 @@ struct FPBPathDrawData
 {
 	// 선분 렌더링에 사용할 포인트 배열 (terrain-snap 보정 포인트 포함)
 	TArray<FVector> PathPoints;
+	// 전체 이동 경로 거리
+	float TotalDistance  = 0.f;
 	// InRange/OutOfRange 색상 분기 거리
 	float SplitDistance = 0.f;
 	// 원본 Nav Path 포인트
@@ -41,7 +42,7 @@ public:
 	void SetPathDisplayEnabled(bool bEnabled);
 
 	// 외부에서 쿼리된 경로 포인트를 받아 시각화
-	void DisplayPath(const TArray<FVector>& PathPoints);
+	void DisplayPath(const TArray<FVector>& PathPoints, bool bDisplayDistance);
 
 	// 경로 시각화를 초기화하고 모든 세그먼트를 숨김
 	void ClearPath();
@@ -55,6 +56,7 @@ public:
 protected:
 	/*~ UActorComponent Interface ~*/
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	
 private:
 	// 필수 프로퍼티 검증 및 로그
@@ -63,15 +65,27 @@ private:
 	// PathPoints 배열을 기반으로 OutDrawData.PathPoints와 OutDrawData.SnappedCorrectionPoints를 삽입
 	// 긴 세그먼트에 terrain-snapped 중간 보정 포인트를 생성
 	void BuildTerrainSnappedPoints(const TArray<FVector>& NavPathPoints, FPBPathDrawData& OutDrawData) const;
-
+	
+	// OutDrawData.BasePathPoints를 기반으로 OutDrawData.TotalDistance를 계산
+	void CalculateTotalDistance(FPBPathDrawData& InOutDrawData) const;
+	
 	// OutDrawData.PathPoints를 기반으로 OutDrawData.SplitDistance를 계산
 	void CalculateSplitDistance(FPBPathDrawData& InOutDrawData) const;
+
+	// 풀에서 Index번째 세그먼트를 가져오거나 새로 생성한다.
+	USplineMeshComponent* GetOrCreateSegment(int32 Index);
+
+	// SplineMeshComponent 풀로 경로 메시를 재구성한다.
+	void RebuildLineSegments(const FPBPathDrawData& DrawData);
 
 	// 풀의 모든 세그먼트를 숨김
 	void HideAllSegments();
 
+	// 거리 표시
+	void DisplayDistance(const FPBPathDrawData& InDrawData) const;
+
 	// Debug Line으로 경로를 시각화
-	void DrawDebugPath(const FPBPathDrawData& DrawData) const;
+	void DrawDebugPath(const FPBPathDrawData& InDrawData) const;
 
 public:
 	/*~ PathDisplay Settings ~*/
@@ -80,10 +94,18 @@ public:
 	UPROPERTY(EditAnywhere, Category = "PathDisplay")
 	int32 MaxSegmentPoolSize = 60;
 
-	// 모든 경로 포인트에 공통 적용할 Z 오프셋 (Z-파이팅 및 지형 매몰 방지용)
+	// NavigationSystem이 계산한 경로 포인트에 적용할 Z 오프셋
 	UPROPERTY(EditAnywhere, Category = "PathDisplay")
-	float PathZOffset = 2.0f;
+	float BasePathZOffset = -2.0f;
 
+	// 보정 경로 포인트에 공통 적용할 Z 오프셋 (지형 매몰 방지 및 NaviMesh 높이와 맞추기 위함)
+	UPROPERTY(EditAnywhere, Category = "PathDisplay")
+	float CorrectionPathZOffset = 15.0f;
+	
+	UPROPERTY(EditAnywhere, Category = "PathDisplay")
+	float TangentTension = 0.3f;
+
+	
 	/*~ Terrain Snap Settings ~*/
 
 	// 이 수평 거리 이상인 세그먼트에만 terrain-snap 보정 포인트 생성
@@ -116,9 +138,9 @@ public:
 	TObjectPtr<UStaticMesh> LineMesh;
 
 private:
-	// 경로 곡선을 저장하는 스플라인 컴포넌트
-	UPROPERTY(VisibleAnywhere, Category = "Components")
-	TObjectPtr<USplineComponent> PathSpline;
+	// 경로 시각화 전용 액터. SplineMeshComponent 풀을 소유
+	UPROPERTY()
+	TObjectPtr<AActor> VisualActor;
 
 	// SplineMeshComponent 재사용 풀. 반복 생성/파괴를 방지
 	UPROPERTY()

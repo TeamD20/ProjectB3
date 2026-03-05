@@ -6,6 +6,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
+#include "NiagaraFunctionLibrary.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "ProjectB3/NavigationSystem/PBPathDisplayComponent.h"
 
@@ -56,11 +57,11 @@ void APBGameplayPlayerController::SetupInputComponent()
 
 	if (IsValid(MoveCommandAction))
 	{
-		EnhancedInput->BindAction(MoveCommandAction, ETriggerEvent::Triggered, this, &APBGameplayPlayerController::OnMoveCommandTriggered);
+		EnhancedInput->BindAction(MoveCommandAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnMoveCommand);
 	}
 }
 
-void APBGameplayPlayerController::OnMoveCommandTriggered(const FInputActionValue& Value)
+void APBGameplayPlayerController::OnMoveCommand(const FInputActionValue& Value)
 {
 	FHitResult HitResult;
 	if (!GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
@@ -91,6 +92,11 @@ void APBGameplayPlayerController::OnMoveCommandTriggered(const FInputActionValue
 	const FVector Destination = CalculateClampedDestination(NavPath->PathPoints);
 	UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, Destination);
 	PathDisplayComponent->ClearPath();
+	
+	if (CursorVFX)
+	{
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, CursorVFX, HitResult.Location, FRotator::ZeroRotator, FVector(1.f, 1.f, 1.f), true, true, ENCPoolMethod::None, true);	
+	}
 }
 
 FVector APBGameplayPlayerController::CalculateClampedDestination(const TArray<FVector>& PathPoints) const
@@ -99,7 +105,13 @@ FVector APBGameplayPlayerController::CalculateClampedDestination(const TArray<FV
 	{
 		return FVector::ZeroVector;
 	}
-
+	
+	// 거리 제한이 없으면 목적지(경로의 마지막 점)를 바로 반환
+	if (MaxMoveDistance <= -1.0f)
+	{
+		return PathPoints.Last();
+	}
+	
 	const float MaxDist = MaxMoveDistance;
 	float AccumulatedDist = 0.0f;
 
@@ -168,5 +180,5 @@ void APBGameplayPlayerController::RequestNavPathDisplay(const FVector& TargetLoc
 		return;
 	}
 
-	PathDisplayComponent->DisplayPath(NavPath->PathPoints);
+	PathDisplayComponent->DisplayPath(NavPath->PathPoints,true);
 }
