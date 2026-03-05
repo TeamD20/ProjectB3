@@ -58,7 +58,7 @@ void UPBPathDisplayComponent::DisplayPath(const TArray<FVector>& PathPoints, boo
 	BuildTerrainSnappedPoints(PathPoints, DrawData);
 	CalculateTotalDistance(DrawData);
 	CalculateSplitDistance(DrawData);
-	// DrawDebugPath(DrawData);
+	//DrawDebugPath(DrawData);
 	RebuildLineSegments(DrawData);
 
 	if (bDisplayDistance)
@@ -110,10 +110,11 @@ void UPBPathDisplayComponent::ValidateProperties()
 void UPBPathDisplayComponent::BuildTerrainSnappedPoints(const TArray<FVector>& NavPathPoints,
 	FPBPathDrawData& OutDrawData) const
 {
-	const FVector ZOffsetVec(0.f, 0.f, PathZOffset);
-
+	const FVector BaseOffsetVec(0.f, 0.f, BasePathZOffset);
+	const FVector CorrectionOffsetVec(0.f,0.f,CorrectionPathZOffset);
+	
 	OutDrawData.PathPoints.Reset();
-	OutDrawData.PathPoints.Add(NavPathPoints[0] + ZOffsetVec);
+	OutDrawData.PathPoints.Add(NavPathPoints[0] + BaseOffsetVec);
 
 	UWorld* World = GetWorld();
 
@@ -144,14 +145,14 @@ void UPBPathDisplayComponent::BuildTerrainSnappedPoints(const TArray<FVector>& N
 				// TODO: Visibility 대신 Ground 채널 활용
 				if (World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, QueryParams))
 				{
-					const FVector SnappedPoint = HitResult.ImpactPoint + ZOffsetVec;
+					const FVector SnappedPoint = HitResult.ImpactPoint + CorrectionOffsetVec;
 					OutDrawData.PathPoints.Add(SnappedPoint);
 					OutDrawData.SnappedCorrectionPoints.Add(SnappedPoint);
 				}
 			}
 		}
 
-		OutDrawData.PathPoints.Add(SegEnd + ZOffsetVec);
+		OutDrawData.PathPoints.Add(SegEnd + BaseOffsetVec);
 	}
 }
 
@@ -218,41 +219,41 @@ void UPBPathDisplayComponent::DrawDebugPath(const FPBPathDrawData& InDrawData) c
 	const FColor OutOfRangeColor = FColor::Red;
 	constexpr float LineThickness = 5.0f;
 
-	float AccumulatedDist = 0.0f;
-	for (int32 i = 1; i < InDrawData.PathPoints.Num(); ++i)
-	{
-		const FVector& SegStart = InDrawData.PathPoints[i - 1];
-		const FVector& SegEnd   = InDrawData.PathPoints[i];
-		const float SegDist     = FVector::Dist(SegStart, SegEnd);
-
-		if (AccumulatedDist >= InDrawData.SplitDistance)
-		{
-			// 세그먼트 전체가 이동 범위 밖
-			DrawDebugLine(World, SegStart, SegEnd, OutOfRangeColor, true, -1.0f, 0, LineThickness);
-		}
-		else if (AccumulatedDist + SegDist <= InDrawData.SplitDistance)
-		{
-			// 세그먼트 전체가 이동 범위 안
-			DrawDebugLine(World, SegStart, SegEnd, InRangeColor, true, -1.0f, 0, LineThickness);
-		}
-		else
-		{
-			// 세그먼트 중간에 분기점이 위치할 경우 두 조각으로 분할
-			const float RemainingInRange = InDrawData.SplitDistance - AccumulatedDist;
-			const float T = (SegDist > 0.0f) ? (RemainingInRange / SegDist) : 0.0f;
-			const FVector SplitPoint = FMath::Lerp(SegStart, SegEnd, T);
-
-			DrawDebugLine(World, SegStart, SplitPoint, InRangeColor,    true, -1.0f, 0, LineThickness);
-			DrawDebugLine(World, SplitPoint, SegEnd,   OutOfRangeColor, true, -1.0f, 0, LineThickness);
-		}
-
-		AccumulatedDist += SegDist;
-	}
+	// float AccumulatedDist = 0.0f;
+	// for (int32 i = 1; i < InDrawData.PathPoints.Num(); ++i)
+	// {
+	// 	const FVector& SegStart = InDrawData.PathPoints[i - 1];
+	// 	const FVector& SegEnd   = InDrawData.PathPoints[i];
+	// 	const float SegDist     = FVector::Dist(SegStart, SegEnd);
+	//
+	// 	if (AccumulatedDist >= InDrawData.SplitDistance)
+	// 	{
+	// 		// 세그먼트 전체가 이동 범위 밖
+	// 		DrawDebugLine(World, SegStart, SegEnd, OutOfRangeColor, true, -1.0f, 0, LineThickness);
+	// 	}
+	// 	else if (AccumulatedDist + SegDist <= InDrawData.SplitDistance)
+	// 	{
+	// 		// 세그먼트 전체가 이동 범위 안
+	// 		DrawDebugLine(World, SegStart, SegEnd, InRangeColor, true, -1.0f, 0, LineThickness);
+	// 	}
+	// 	else
+	// 	{
+	// 		// 세그먼트 중간에 분기점이 위치할 경우 두 조각으로 분할
+	// 		const float RemainingInRange = InDrawData.SplitDistance - AccumulatedDist;
+	// 		const float T = (SegDist > 0.0f) ? (RemainingInRange / SegDist) : 0.0f;
+	// 		const FVector SplitPoint = FMath::Lerp(SegStart, SegEnd, T);
+	//
+	// 		DrawDebugLine(World, SegStart, SplitPoint, InRangeColor,    true, -1.0f, 0, LineThickness);
+	// 		DrawDebugLine(World, SplitPoint, SegEnd,   OutOfRangeColor, true, -1.0f, 0, LineThickness);
+	// 	}
+	//
+	// 	AccumulatedDist += SegDist;
+	// }
 
 	// 기본 포인트 시각화: 파랑
 	for (const FVector& Point : InDrawData.BasePathPoints)
 	{
-		DrawDebugSphere(World, Point + FVector(0.f, 0.f, PathZOffset), 7.f, 8, FColor::Blue, true, -1.f);
+		DrawDebugSphere(World, Point + FVector(0.f, 0.f, BasePathZOffset), 7.f, 8, FColor::Blue, true, -1.f);
 	}
 	// 보정 포인트 시각화: 초록
 	for (const FVector& Point : InDrawData.SnappedCorrectionPoints)
@@ -299,9 +300,23 @@ void UPBPathDisplayComponent::RebuildLineSegments(const FPBPathDrawData& DrawDat
 		const FVector& WEnd,   const FVector& WEndTangent,
 		bool bInRange)
 	{
+		// 현재 세그먼트의 실제 거리 계산
+		const float SegmentDistance = FVector::Dist(WStart, WEnd);
+		// 방향은 유지하되, 크기가 세그먼트 거리를 과도하게 초과하지 않도록 정규화 후 스케일링
+		FVector SafeStartTangent = WStartTangent;
+		if (!SafeStartTangent.IsNearlyZero())
+		{
+			SafeStartTangent = SafeStartTangent.GetSafeNormal() * (SegmentDistance * TangentTension);
+		}
+		FVector SafeEndTangent = WEndTangent;
+		if (!SafeEndTangent.IsNearlyZero())
+		{
+			SafeEndTangent = SafeEndTangent.GetSafeNormal() * (SegmentDistance * TangentTension);
+		}
+
 		Seg->SetStaticMesh(LineMesh);
 		Seg->SetMaterial(0, bInRange ? InRangeMaterial : OutOfRangeMaterial);
-		Seg->SetStartAndEnd(WStart, WStartTangent, WEnd, WEndTangent);
+		Seg->SetStartAndEnd(WStart, SafeStartTangent, WEnd, SafeEndTangent);
 		Seg->SetVisibility(true);
 	};
 

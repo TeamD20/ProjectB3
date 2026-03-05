@@ -94,10 +94,18 @@ public:
 	UPROPERTY(EditAnywhere, Category = "PathDisplay")
 	int32 MaxSegmentPoolSize = 60;
 
-	// 모든 경로 포인트에 공통 적용할 Z 오프셋 (Z-파이팅 및 지형 매몰 방지용)
+	// NavigationSystem이 계산한 경로 포인트에 적용할 Z 오프셋
 	UPROPERTY(EditAnywhere, Category = "PathDisplay")
-	float PathZOffset = 2.0f;
+	float BasePathZOffset = -2.0f;
 
+	// 보정 경로 포인트에 공통 적용할 Z 오프셋 (지형 매몰 방지 및 NaviMesh 높이와 맞추기 위함)
+	UPROPERTY(EditAnywhere, Category = "PathDisplay")
+	float CorrectionPathZOffset = 15.0f;
+	
+	UPROPERTY(EditAnywhere, Category = "PathDisplay")
+	float TangentTension = 0.3f;
+
+	
 	/*~ Terrain Snap Settings ~*/
 
 	// 이 수평 거리 이상인 세그먼트에만 terrain-snap 보정 포인트 생성
