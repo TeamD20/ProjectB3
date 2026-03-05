@@ -20,7 +20,7 @@ class PROJECTB3_API UPBAIMockAttributeSet : public UAttributeSet {
   /*~ 생성자 ~*/
 public:
   UPBAIMockAttributeSet();
-  
+
   /*~ Attributes ~*/
 public:
   UPROPERTY(BlueprintReadOnly, Category = "Mock Attributes")
@@ -32,8 +32,16 @@ public:
   ATTRIBUTE_ACCESSORS(UPBAIMockAttributeSet, Action)
 
   UPROPERTY(BlueprintReadOnly, Category = "Attributes_Economy")
+  FGameplayAttributeData MaxAction;
+  ATTRIBUTE_ACCESSORS(UPBAIMockAttributeSet, MaxAction)
+
+  UPROPERTY(BlueprintReadOnly, Category = "Attributes_Economy")
   FGameplayAttributeData BonusAction;
   ATTRIBUTE_ACCESSORS(UPBAIMockAttributeSet, BonusAction)
+
+  UPROPERTY(BlueprintReadOnly, Category = "Attributes_Economy")
+  FGameplayAttributeData MaxBonusAction;
+  ATTRIBUTE_ACCESSORS(UPBAIMockAttributeSet, MaxBonusAction)
 
   UPROPERTY(BlueprintReadOnly, Category = "Attributes_Economy")
   FGameplayAttributeData Movement;
