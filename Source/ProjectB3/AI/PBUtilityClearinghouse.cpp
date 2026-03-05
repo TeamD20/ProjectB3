@@ -37,7 +37,7 @@ float UPBUtilityClearinghouse::GetNormalizedDistanceToTarget(
   // TODO: 실제 맵(NavMesh) 스플라인 기반 경로 길이를 기반으로 0.0 ~ 1.0으로
   // 정규화 하는 로직
 
-  float DummyDistanceScore = 0.5f;
+  float DummyDistanceScore = 0.9f;
 
   UE_LOG(
       LogPBUtility, Log,
@@ -65,7 +65,7 @@ float UPBUtilityClearinghouse::GetTargetVulnerabilityScore(
     if (const UPBAIMockAttributeSet *AttrSet = MockTarget->GetAttributeSet()) {
       float CurrentHP = AttrSet->GetHealth();
       float MaxHP = 100.0f;
-           // 방금 추가된 PBAIMockCharacter의 속성 사용
+      // 방금 추가된 PBAIMockCharacter의 속성 사용
 
       if (MaxHP > 0.0f) {
         // HP가 낮을수록 취약성(Vulnerability) 점수는 높아짐 (0.0 ~ 1.0)
@@ -158,4 +158,36 @@ void UPBUtilityClearinghouse::ClearCache() {
 
   UE_LOG(LogPBUtility, Log,
          TEXT("클리어링하우스 메모리 캐시가 성공적으로 비워졌습니다."));
+}
+
+void UPBUtilityClearinghouse::RestoreTurnResources(AActor *CurrentTurnActor) {
+  if (!IsValid(CurrentTurnActor)) {
+    return;
+  }
+
+  APBAIMockCharacter *MockChar = Cast<APBAIMockCharacter>(CurrentTurnActor);
+  if (!MockChar)
+    return;
+
+  UAbilitySystemComponent *ASC = MockChar->GetAbilitySystemComponent();
+  const UPBAIMockAttributeSet *AttrSet = MockChar->GetAttributeSet();
+
+  if (ASC && AttrSet) {
+    // Action, BonusAction 복구
+    ASC->ApplyModToAttribute(UPBAIMockAttributeSet::GetActionAttribute(),
+                             EGameplayModOp::Override, AttrSet->GetMaxAction());
+    ASC->ApplyModToAttribute(UPBAIMockAttributeSet::GetBonusActionAttribute(),
+                             EGameplayModOp::Override,
+                             AttrSet->GetMaxBonusAction());
+    // 이동력 복구
+    ASC->ApplyModToAttribute(UPBAIMockAttributeSet::GetMovementAttribute(),
+                             EGameplayModOp::Override,
+                             AttrSet->GetMaxMovement());
+
+    UE_LOG(LogPBUtility, Display,
+           TEXT(">> [Turn Restore] %s 의 턴 자원이 모두 회복되었습니다! "
+                "(Action: %f, Movement: %f)"),
+           *CurrentTurnActor->GetName(), AttrSet->GetMaxAction(),
+           AttrSet->GetMaxMovement());
+  }
 }

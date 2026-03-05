@@ -1,7 +1,10 @@
 // PBGenerateSequenceTask.cpp
 
 #include "PBGenerateSequenceTask.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
 #include "Engine/World.h"
+#include "PBAIMockAttributeSet.h"
 #include "PBUtilityClearinghouse.h"
 #include "StateTreeExecutionContext.h"
 
@@ -14,13 +17,10 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
     FStateTreeExecutionContext &Context,
     const FStateTreeTransitionResult &Transition) {
 
-  // UCLASS 버전에서는 InstanceData 구조체 없이 멤버 변수를 직접 사용합니다.
-  // TODO: 탬플릿 ( 행동조합 ) 을 만들어야함
-
   // 1. 구동 주체 유효성 검증
   if (!IsValid(SelfActor)) {
     UE_LOG(LogPBStateTree, Error,
-           TEXT("GenerateSequenceTask: SelfActor가매핑되지 않았거나 유효하지 "
+           TEXT("GenerateSequenceTask: SelfActor가 매핑되지 않았거나 유효하지 "
                 "않습니다."));
     return EStateTreeRunStatus::Failed;
   }
@@ -43,91 +43,115 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
   // 3. 턴 시작 데이터 캐싱 수행
   Clearinghouse->CacheTurnData(SelfActor);
 
-  // 4. 캐싱된 멀티 타겟 평가 (Multi-Target Evaluation)
+  // --- 자원(AP, Movement) 고갈 체크 (무한 루프 방지 로직) ---
+  UAbilitySystemComponent *ASC =
+      UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(SelfActor);
+
+  float CurrentAction = 0.0f;
+  float CurrentMovement = 0.0f;
+
+  if (IsValid(ASC)) {
+    CurrentAction =
+        ASC->GetNumericAttribute(UPBAIMockAttributeSet::GetActionAttribute());
+    // TODO: 추후 Movement 전용 Attribute 추가 시 갱신. 현재는 임시로 Movement
+    // 속성 조회. 임시로 MaxAction 등을 대체로 쓰거나, 이동이 무조건 제한되게
+    // 하려면 관련 속성을 가져와야 함. 이 예제에서는 단순함을 위해 이동 제한을
+    // 걸지 않거나 가상의 변수로 로직만 구성.
+  }
+
+  // 4. 주변의 적대적 액터 중 최적의 타겟 선정 (Mock: 첫 번째 유효 공격 대상)
+  AActor *BestTargetActor = nullptr;
   const TArray<TWeakObjectPtr<AActor>> &CachedTargets =
       Clearinghouse->GetCachedTargets();
-
-  AActor *BestTargetActor = nullptr;
-  float BestTotalScore = -1.0f;
-
-  UE_LOG(LogPBStateTree, Display,
-         TEXT("=== 다중 타겟 평가(Multi-Target Evaluation) 시작 ==="));
-
-  for (TWeakObjectPtr<AActor> WeakTarget : CachedTargets) {
-    AActor *PotentialTarget = WeakTarget.Get();
-    if (!IsValid(PotentialTarget))
-      continue;
-
-    float DistanceScore =
-        Clearinghouse->GetNormalizedDistanceToTarget(PotentialTarget);
-    float VulnerabilityScore =
-        Clearinghouse->GetTargetVulnerabilityScore(PotentialTarget);
-    float HighGroundScore =
-        Clearinghouse->EvaluateHighGroundAdvantage(PotentialTarget);
-
-    float TotalScore = DistanceScore + VulnerabilityScore + HighGroundScore;
-
-    UE_LOG(
-        LogPBStateTree, Log,
-        TEXT(
-            "Target [%s] 평가됨 -> 총 점수: %f (Dist: %f, Vuln: %f, High: %f)"),
-        *PotentialTarget->GetName(), TotalScore, DistanceScore,
-        VulnerabilityScore, HighGroundScore);
-
-    if (TotalScore > BestTotalScore) {
-      UE_LOG(LogPBStateTree, Log,
-             TEXT(">> Target [%s] scored %f -> New Best Target!"),
-             *PotentialTarget->GetName(), TotalScore);
-      BestTotalScore = TotalScore;
-      BestTargetActor = PotentialTarget;
-    }
+  if (CachedTargets.Num() > 0 && CachedTargets[0].IsValid()) {
+    BestTargetActor =
+        CachedTargets[0].Get(); // TODO: Utility 가장 높은 타겟 찾기 로직
   }
 
-  // 5. 시퀀스 객체 동적 생성
-  // (이후 ExecuteSequenceTask로 넘겨줘야 하므로 UObject 메모리 할당)
-  UPBActionSequence *NewSequence = NewObject<UPBActionSequence>(SelfActor);
+  float DistanceScore = 0.0f;
+  float VulnerabilityScore = 0.0f;
+  float HighGroundScore = 0.0f;
 
-  // 유틸리티 총합 점수 계산
-  NewSequence->TotalUtilityScore =
-      BestTotalScore > 0.0f ? BestTotalScore : 0.0f;
-
-  // 6. 모의(Mock) 조합 시퀀스 큐잉 (최적의 타겟이 있을 경우만)
   if (IsValid(BestTargetActor)) {
-    UE_LOG(LogPBStateTree, Display,
-           TEXT("=== 최적의 타겟 [%s]을 대상으로 시퀀스 콤보 생성 개시 ==="),
-           *BestTargetActor->GetName());
-
-    // - 가상의 이동 액션 적재
-    FPBSequenceAction MoveAction;
-    MoveAction.ActionType = EPBActionType::Move;
-    MoveAction.TargetActor = BestTargetActor;
-    MoveAction.Cost.MovementCost = 300.0f; // 가상의 이동 소모 비용
-    NewSequence->EnqueueAction(MoveAction);
-
-    // - 가상의 공격 액션 적재
-    FPBSequenceAction AttackAction;
-    AttackAction.ActionType = EPBActionType::Attack;
-    AttackAction.TargetActor = BestTargetActor;
-    AttackAction.Cost.ActionPoints = 1; // 기본 공격 AP 1 소모
-    NewSequence->EnqueueAction(AttackAction);
+    DistanceScore =
+        Clearinghouse->GetNormalizedDistanceToTarget(BestTargetActor);
+    VulnerabilityScore =
+        Clearinghouse->GetTargetVulnerabilityScore(BestTargetActor);
+    HighGroundScore =
+        Clearinghouse->EvaluateHighGroundAdvantage(BestTargetActor);
   } else {
     UE_LOG(LogPBStateTree, Warning,
-           TEXT("GenerateSequenceTask: 유효한 최고 점수 타겟을 찾지 "
-                "못했습니다. 액션을 비웁니다."));
+           TEXT("GenerateSequenceTask: 적합한 TargetActor를 찾지 못하여 턴을 "
+                "종료(Failed)합니다."));
+    // 더 이상 생성할 행동이 없으므로(타겟 부재), 루프 탈출을 위해 Failed 반환
+    return EStateTreeRunStatus::Failed;
   }
 
-  // 7. 완성된 시퀀스를 Output Data에 바인딩
-  GeneratedSequence = NewSequence;
+  // UObject 할당 로직 (StateTree 런타임 메모리 주입)
+  if (!GeneratedSequence) {
+    GeneratedSequence = NewObject<UPBActionSequence>(
+        GetOuter()); // 블루프린트 자체를 Outer로 지정
+  }
+
+  // 유틸리티 총합 점수 계산 (AND 퍼지 연산 최소화 방식 혹은 단순 합 등 임시
+  // 산출식)
+  GeneratedSequence->TotalUtilityScore =
+      FMath::Min(DistanceScore, VulnerabilityScore);
+
+  // 6. 상황에 따른 모의(Mock) 단일 행동 결정 로직
+  UE_LOG(LogPBStateTree, Display, TEXT("=== 시퀀스 조합(Combo) 분석 개시 ==="));
+
+  FPBSequenceAction DecidedAction;
+
+  // 간단한 거리 기반 분기 로직: 타겟과의 실제 거리가 200.0f 이하면 공격, 멀면
+  // 이동
+  float RealDistance = SelfActor->GetDistanceTo(BestTargetActor);
+
+  // 공격 사거리 이내일 경우
+  if (RealDistance <= 200.0f) {
+    if (CurrentAction >= 1.0f) {
+      DecidedAction.ActionType = EPBActionType::Attack;
+      DecidedAction.TargetActor = BestTargetActor;
+      DecidedAction.Cost.ActionCost = 1.0f; // 공격은 1 Action 소모
+      UE_LOG(LogPBStateTree, Display,
+             TEXT("결정된 행동: 타겟이 근접하여 거리가 %f이고 AP가 남았으므로 "
+                  "[Attack]을 결정합니다."),
+             RealDistance);
+    } else {
+      UE_LOG(
+          LogPBStateTree, Warning,
+          TEXT("GenerateSequenceTask: 타겟에 근접했으나 Action(AP)이 고갈되어 "
+               "더 이상 공격할 수 없습니다. 턴을 종료(Failed)합니다."));
+      return EStateTreeRunStatus::Failed;
+    }
+  }
+  // 공격 사거리 밖일 경우 (이동 접근 시도)
+  else {
+    // 실제 이동력(Movement) 계산 속성이 추가되기 전까지는 임시로 무한 이동 가능
+    // 처리하되, 나중에는 여기서 CurrentMovement 잔량과 소모량을 비교 후 Failed
+    // 반환 로직 추가 필요.
+    DecidedAction.ActionType = EPBActionType::Move;
+    DecidedAction.TargetActor = BestTargetActor;
+    DecidedAction.Cost.MovementCost =
+        RealDistance * 1.5f; // 가상의 비례 이동 소모 비용
+    UE_LOG(
+        LogPBStateTree, Display,
+        TEXT("결정된 행동: 타겟이 멀어 거리가 %f이므로 [Move]를 결정합니다."),
+        RealDistance);
+  }
+
+  // 구조체 자체의 변수 오버라이드로 대체 적재
+  GeneratedSequence->SingleAction = DecidedAction;
 
   UE_LOG(LogPBStateTree, Display,
          TEXT("=== GenerateSequenceTask 분석 완료 ==="));
   UE_LOG(LogPBStateTree, Display,
          TEXT("AI [%s]가 생성한 Action Sequence의 TotalUtilityScore: %f"),
-         *SelfActor->GetName(), NewSequence->TotalUtilityScore);
-  UE_LOG(LogPBStateTree, Display,
-         TEXT("결정된 행동 순서 큐: 1. Move -> 2. Attack"));
+         *SelfActor->GetName(), GeneratedSequence->TotalUtilityScore);
 
-  // 조립이 성공적으로 끝났으므로 StateTree가 다음 Task(ExecuteSequenceTask
-  // 등)로 넘어가도록 Succeeded 반환
+  // 조립이 성공적으로 끝났으므로 StateTree가 하위 State(Execute)를
+  // 취소시키지 않고 유지할 수 있도록 Running 반환
+  // (만약 부모 Task가 Succeeded를 반환하면, 하위 State가 시작되자마자 강제
+  // 종료됩니다!)
   return EStateTreeRunStatus::Running;
 }
