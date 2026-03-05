@@ -21,16 +21,33 @@ class PROJECTB3_API UPBAIMockAttributeSet : public UAttributeSet {
 public:
   UPBAIMockAttributeSet();
 
-  /*~ Attribute Accessors ~*/
-public:
-  ATTRIBUTE_ACCESSORS(UPBAIMockAttributeSet, Health)
-  ATTRIBUTE_ACCESSORS(UPBAIMockAttributeSet, ActionPoints)
-
   /*~ Attributes ~*/
 public:
   UPROPERTY(BlueprintReadOnly, Category = "Mock Attributes")
   FGameplayAttributeData Health;
+  ATTRIBUTE_ACCESSORS(UPBAIMockAttributeSet, Health)
 
-  UPROPERTY(BlueprintReadOnly, Category = "Mock Attributes")
-  FGameplayAttributeData ActionPoints;
+  UPROPERTY(BlueprintReadOnly, Category = "Attributes_Economy")
+  FGameplayAttributeData Action;
+  ATTRIBUTE_ACCESSORS(UPBAIMockAttributeSet, Action)
+
+  UPROPERTY(BlueprintReadOnly, Category = "Attributes_Economy")
+  FGameplayAttributeData MaxAction;
+  ATTRIBUTE_ACCESSORS(UPBAIMockAttributeSet, MaxAction)
+
+  UPROPERTY(BlueprintReadOnly, Category = "Attributes_Economy")
+  FGameplayAttributeData BonusAction;
+  ATTRIBUTE_ACCESSORS(UPBAIMockAttributeSet, BonusAction)
+
+  UPROPERTY(BlueprintReadOnly, Category = "Attributes_Economy")
+  FGameplayAttributeData MaxBonusAction;
+  ATTRIBUTE_ACCESSORS(UPBAIMockAttributeSet, MaxBonusAction)
+
+  UPROPERTY(BlueprintReadOnly, Category = "Attributes_Economy")
+  FGameplayAttributeData Movement;
+  ATTRIBUTE_ACCESSORS(UPBAIMockAttributeSet, Movement)
+
+  UPROPERTY(BlueprintReadOnly, Category = "Attributes_Economy")
+  FGameplayAttributeData MaxMovement;
+  ATTRIBUTE_ACCESSORS(UPBAIMockAttributeSet, MaxMovement)
 };

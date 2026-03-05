@@ -2,13 +2,14 @@
 
 #include "PBExecuteSequenceTask.h"
 
-#include "AbilitySystemComponent.h"
 #include "AIController.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
 #include "Navigation/PathFollowingComponent.h"
-#include "AbilitySystemGlobals.h"
 #include "StateTreeExecutionContext.h"
+
 
 // StateTree 디버깅을 위한 독립적인 로그 카테고리
 DEFINE_LOG_CATEGORY_STATIC(LogPBStateTreeExec, Log, All);
@@ -16,8 +17,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogPBStateTreeExec, Log, All);
 UPBExecuteSequenceTask::UPBExecuteSequenceTask(
     const FObjectInitializer &ObjectInitializer)
     : Super(ObjectInitializer) {
-  
-  
+
   bShouldCallTick = true;
   bShouldCallTickOnlyOnEvents = false;
 }
@@ -150,8 +150,8 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessNextAction() {
     case EPBActionType::Attack: {
       UE_LOG(LogPBStateTreeExec, Display,
              TEXT("[Step %d] Executing: Attacking Target [%s]. Consuming "
-                  "AP: %d"),
-             ActionStep, *TargetName, CurrentAction.Cost.ActionPoints);
+                  "AP: %f"),
+             ActionStep, *TargetName, CurrentAction.Cost.ActionCost);
 
       // UE 5.6: Initialize ASC access
       UAbilitySystemComponent *ASC =

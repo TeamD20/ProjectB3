@@ -1,9 +1,13 @@
 // PBGenerateSequenceTask.cpp
 
 #include "PBGenerateSequenceTask.h"
+#include "AbilitySystemComponent.h"
 #include "Engine/World.h"
+#include "PBAIMockAttributeSet.h"
+#include "PBAIMockCharacter.h"
 #include "PBUtilityClearinghouse.h"
 #include "StateTreeExecutionContext.h"
+
 
 // StateTree 디버깅을 위한 독립적인 로그 카테고리
 DEFINE_LOG_CATEGORY_STATIC(LogPBStateTree, Log, All);
@@ -62,17 +66,15 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
         Clearinghouse->GetNormalizedDistanceToTarget(PotentialTarget);
     float VulnerabilityScore =
         Clearinghouse->GetTargetVulnerabilityScore(PotentialTarget);
-    float HighGroundScore =
-        Clearinghouse->EvaluateHighGroundAdvantage(PotentialTarget);
 
-    float TotalScore = DistanceScore + VulnerabilityScore + HighGroundScore;
+    // 퍼지 논리(AND 교집합 연산) 적용: 거리와 체력 조건 중 더 낮은(불리한)
+    // 점수를 최종 타겟 매력도로 산정
+    float TotalScore = FMath::Min(DistanceScore, VulnerabilityScore);
 
-    UE_LOG(
-        LogPBStateTree, Log,
-        TEXT(
-            "Target [%s] 평가됨 -> 총 점수: %f (Dist: %f, Vuln: %f, High: %f)"),
-        *PotentialTarget->GetName(), TotalScore, DistanceScore,
-        VulnerabilityScore, HighGroundScore);
+    UE_LOG(LogPBStateTree, Log,
+           TEXT("Target [%s] 평가됨 -> 퍼지 총 점수: %f (Dist: %f, Vuln: %f)"),
+           *PotentialTarget->GetName(), TotalScore, DistanceScore,
+           VulnerabilityScore);
 
     if (TotalScore > BestTotalScore) {
       UE_LOG(LogPBStateTree, Log,
@@ -97,19 +99,55 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
            TEXT("=== 최적의 타겟 [%s]을 대상으로 시퀀스 콤보 생성 개시 ==="),
            *BestTargetActor->GetName());
 
-    // - 가상의 이동 액션 적재
-    FPBSequenceAction MoveAction;
-    MoveAction.ActionType = EPBActionType::Move;
-    MoveAction.TargetActor = BestTargetActor;
-    MoveAction.Cost.MovementCost = 300.0f; // 가상의 이동 소모 비용
-    NewSequence->EnqueueAction(MoveAction);
+    APBAIMockCharacter *MockSelf = Cast<APBAIMockCharacter>(SelfActor);
+    if (MockSelf && MockSelf->GetAttributeSet()) {
+      float CurrentAction = MockSelf->GetAttributeSet()->GetAction();
+      float CurrentMovement = MockSelf->GetAttributeSet()->GetMovement();
 
-    // - 가상의 공격 액션 적재
-    FPBSequenceAction AttackAction;
-    AttackAction.ActionType = EPBActionType::Attack;
-    AttackAction.TargetActor = BestTargetActor;
-    AttackAction.Cost.ActionPoints = 1; // 기본 공격 AP 1 소모
-    NewSequence->EnqueueAction(AttackAction);
+      UE_LOG(LogPBStateTree, Log,
+             TEXT("현재 가용 자원 - Action: %f, Movement: %f"), CurrentAction,
+             CurrentMovement);
+
+      // - 가상의 이동 액션 적재 (이동력이 충분할 때만)
+      float EstimatedDistance = SelfActor->GetDistanceTo(BestTargetActor);
+      if (CurrentMovement >= EstimatedDistance &&
+          EstimatedDistance > 150.0f) { // 150.0f는 임의의 공격 사거리
+        FPBSequenceAction MoveAction;
+        MoveAction.ActionType = EPBActionType::Move;
+        MoveAction.TargetActor = BestTargetActor;
+        MoveAction.Cost.MovementCost = EstimatedDistance;
+        NewSequence->EnqueueAction(MoveAction);
+        CurrentMovement -= EstimatedDistance;
+        UE_LOG(LogPBStateTree, Log,
+               TEXT("-> 이동 액션 추가됨 (예상 이동 거리: %f)"),
+               EstimatedDistance);
+      } else if (EstimatedDistance <= 150.0f) {
+        UE_LOG(LogPBStateTree, Log,
+               TEXT("-> 대상이 이미 사거리(150) 내에 존재하여 이동 생략"));
+      } else {
+        UE_LOG(LogPBStateTree, Warning,
+               TEXT("-> 이동력 부족! 필요: %f, 현재: %f"), EstimatedDistance,
+               CurrentMovement);
+      }
+
+      // - 가상의 공격 액션 적재 (액션이 충분할 때만)
+      if (CurrentAction >= 1.0f) {
+        FPBSequenceAction AttackAction;
+        AttackAction.ActionType = EPBActionType::Attack;
+        AttackAction.TargetActor = BestTargetActor;
+        AttackAction.Cost.ActionCost = 1.0f;
+        NewSequence->EnqueueAction(AttackAction);
+        UE_LOG(LogPBStateTree, Log,
+               TEXT("-> 공격 액션 추가됨 (Cost: 1 Action)"));
+      } else {
+        UE_LOG(LogPBStateTree, Warning,
+               TEXT("-> 액션(Action) 부족! 공격 실패"));
+      }
+    } else {
+      UE_LOG(LogPBStateTree, Error,
+             TEXT("SelfActor를 PBAIMockCharacter로 캐스팅할 수 없거나 "
+                  "AttributeSet이 없습니다."));
+    }
   } else {
     UE_LOG(LogPBStateTree, Warning,
            TEXT("GenerateSequenceTask: 유효한 최고 점수 타겟을 찾지 "
