@@ -6,6 +6,7 @@
 #include "InputActionValue.h"
 #include "PBGameplayPlayerController.generated.h"
 
+class UNiagaraSystem;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnViewDataPropertyChangedSiganture);
 
 class UPBPathDisplayComponent;
@@ -35,7 +36,7 @@ protected:
 
 private:
 	// 마우스 클릭 시 폰을 해당 위치로 이동 명령
-	void OnMoveCommandTriggered(const FInputActionValue& Value);
+	void OnMoveCommand(const FInputActionValue& Value);
 
 	// 매 틱마다 커서 아래 위치로 경로 미리보기를 갱신
 	void UpdateHoverPathDisplay();
@@ -66,7 +67,12 @@ public:
 	// 경로 갱신을 트리거하는 최소 커서 이동 거리
 	UPROPERTY(EditAnywhere, Category = "PathDisplay")
 	float PathUpdateMinDistance = 20.0f;
+	
+	/*~ FX Settings ~*/
+	UPROPERTY(EditAnywhere, Category="Input")
+	UNiagaraSystem* CursorVFX;
 
+	
 private:
 	// 이동 경로 시각화 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "Components")

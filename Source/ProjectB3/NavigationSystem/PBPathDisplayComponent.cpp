@@ -113,10 +113,46 @@ void UPBPathDisplayComponent::BuildTerrainSnappedPoints(const TArray<FVector>& N
 	const FVector BaseOffsetVec(0.f, 0.f, BasePathZOffset);
 	const FVector CorrectionOffsetVec(0.f,0.f,CorrectionPathZOffset);
 	
-	OutDrawData.PathPoints.Reset();
-	OutDrawData.PathPoints.Add(NavPathPoints[0] + BaseOffsetVec);
-
 	UWorld* World = GetWorld();
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(GetOwner());
+
+	OutDrawData.PathPoints.Reset();
+
+	// 0번(시작) 포인트 지면 보정 (캐릭터가 경사면에 있을 때 경로의 첫 번째 점이 지면 아래로 떨어지는 현상 방지)
+	FVector StartPoint = NavPathPoints[0];
+	bool bSnapepd = false;
+
+	if (IsValid(World) && NavPathPoints.Num() > 1)
+	{
+		const FVector& NextPoint = NavPathPoints[1];
+		const float HeightDiff = FMath::Abs(NextPoint.Z - StartPoint.Z);
+
+		// 다음 포인트와의 높이 차이가 TerrainSnapHeightThreshold 이상일 경우 보정
+		if (HeightDiff > TerrainSnapHeightThreshold)
+		{
+			const float StartZ = FMath::Max(StartPoint.Z, NextPoint.Z) + TerrainTraceStartOffset;
+			const float EndZ = FMath::Min(StartPoint.Z, NextPoint.Z) - TerrainTraceEndOffset;
+			
+			const FVector TraceStart = FVector(StartPoint.X, StartPoint.Y, StartZ);
+			const FVector TraceEnd   = FVector(StartPoint.X, StartPoint.Y, EndZ);
+
+			FHitResult HitResult;
+			// TODO: Visibility 대신 Ground 채널 활용
+			if (World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, ECC_Visibility, QueryParams))
+			{
+				StartPoint = HitResult.ImpactPoint + CorrectionOffsetVec;
+				bSnapepd = true;
+			}
+		}
+	}
+
+	if (!bSnapepd)
+	{
+		StartPoint += BaseOffsetVec;
+	}
+
+	OutDrawData.PathPoints.Add(StartPoint);
 
 	for (int32 i = 1; i < NavPathPoints.Num(); ++i)
 	{
@@ -130,9 +166,6 @@ void UPBPathDisplayComponent::BuildTerrainSnappedPoints(const TArray<FVector>& N
 			const int32 SubdivCount = FMath::FloorToInt(SegDist2D / TerrainSnapLengthThreshold);
 			const float StartZ      = FMath::Max(SegStart.Z, SegEnd.Z) + TerrainTraceStartOffset;
 			const float EndZ        = FMath::Min(SegStart.Z, SegEnd.Z) - TerrainTraceEndOffset;
-
-			FCollisionQueryParams QueryParams;
-			QueryParams.AddIgnoredActor(GetOwner());
 
 			for (int32 j = 1; j < SubdivCount; ++j)
 			{
