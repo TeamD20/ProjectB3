@@ -2,8 +2,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "PBAITypes.generated.h"
 #include "UObject/NoExportTypes.h"
+#include "PBAITypes.generated.h"
 
 
 // 단일 행동의 종류를 정의하는 열거형
