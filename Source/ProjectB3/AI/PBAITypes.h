@@ -2,9 +2,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/NoExportTypes.h"
 #include "PBAITypes.generated.h"
-
+#include "UObject/NoExportTypes.h"
 
 // 단일 행동의 종류를 정의하는 열거형
 UENUM(BlueprintType)
@@ -15,11 +14,11 @@ USTRUCT(BlueprintType)
 struct FPBCostData {
   GENERATED_BODY()
 
-  // 소모할 행동 (발더스 3 식 Action)
+  // 소모할 행동
   UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
   float ActionCost = 0.0f;
 
-  // 소모할 보조 행동 (발더스 3 식 Bonus Action)
+  // 소모할 보조 행동
   UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
   float BonusActionCost = 0.0f;
 
@@ -64,43 +63,25 @@ struct FPBSequenceAction {
   FPBCostData Cost;
 };
 
-// 조합 점수를 관리하고, 큐 방식으로 행동을 순차 실행하는 객체
+// 조합 점수를 관리하고, 단일 행동(Single Action) 결과를 담는 객체
 UCLASS(BlueprintType, Blueprintable)
-class UPBActionSequence : public UObject {
+class PROJECTB3_API UPBActionSequence : public UObject {
   GENERATED_BODY()
 
 public:
-  /*~ 큐 조작 함수 ~*/
-
-  // 큐에 새로운 행동을 추가한다.
-  UFUNCTION(BlueprintCallable, Category = "AI|Sequence")
-  void EnqueueAction(const FPBSequenceAction &Action) {
-    ActionQueue.Add(Action);
+  // 결정된 행동이 아무것도 없는지(턴 종료 상황인지) 확인
+  UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AI|Sequence")
+  bool IsEmpty() const {
+    return SingleAction.ActionType == EPBActionType::None;
   }
-
-  // 다음 행동을 뽑아낸다 (성공 시 true 반환).
-  UFUNCTION(BlueprintCallable, Category = "AI|Sequence")
-  bool DequeueAction(FPBSequenceAction &OutAction) {
-    if (IsEmpty()) {
-      return false;
-    }
-
-    OutAction = ActionQueue[0];
-    ActionQueue.RemoveAt(0);
-    return true;
-  }
-
-  // 대기 중인 콤보 작업이 비었는지 확인한다.
-  UFUNCTION(BlueprintPure, Category = "AI|Sequence")
-  bool IsEmpty() const { return ActionQueue.IsEmpty(); }
 
 public:
   // 이 턴 행동 조합(Combo)이 갖는 최종 유틸리티 결산 점수
   UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
   float TotalUtilityScore = 0.0f;
+  /*~ 단일 행동 데이터 제공 ~*/
 
-protected:
-  // 행동들을 보관하는 배열 (이동 -> 행동 -> 추가행동 등 순차 적재)
-  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI|Sequence")
-  TArray<FPBSequenceAction> ActionQueue;
+  // 결정된 단 1개의 행동 데이터
+  UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
+  FPBSequenceAction SingleAction;
 };
