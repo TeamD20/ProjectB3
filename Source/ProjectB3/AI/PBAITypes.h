@@ -5,6 +5,7 @@
 #include "PBAITypes.generated.h"
 #include "UObject/NoExportTypes.h"
 
+
 // 단일 행동의 종류를 정의하는 열거형
 UENUM(BlueprintType)
 enum class EPBActionType : uint8 { None, Move, Attack, UseItem };

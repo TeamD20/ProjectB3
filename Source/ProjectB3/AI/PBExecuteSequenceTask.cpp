@@ -1,5 +1,6 @@
 // PBExecuteSequenceTask.cpp
 
+#include "PBExecuteSequenceTask.h"
 #include "AIController.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
