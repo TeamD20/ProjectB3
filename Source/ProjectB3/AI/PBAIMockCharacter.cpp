@@ -4,6 +4,8 @@
 #include "AbilitySystemComponent.h"
 #include "GameplayEffect.h"
 #include "PBAIMockAttributeSet.h"
+#include "PBGE_RestoreTurnResources.h"
+
 
 /*~ 생성자 ~*/
 
@@ -114,6 +116,19 @@ void APBAIMockCharacter::BeginPlay() {
     MovementModInfo.ModifierMagnitude =
         FGameplayEffectModifierMagnitude(MovementScalableFloat);
     InitGE->Modifiers.Add(MovementModInfo);
+
+    // HP, Max 스탯 기본 초기치 부여
+    AbilitySystemComponent->ApplyGameplayEffectToSelf(
+        InitGE, 1.0f, AbilitySystemComponent->MakeEffectContext());
+
+    // 턴 자원 초기화 전용 GE 발동 (가득 채우기)
+    UGameplayEffect *RestoreGE = NewObject<UPBGE_RestoreTurnResources>(
+        GetTransientPackage(), UPBGE_RestoreTurnResources::StaticClass());
+
+    if (RestoreGE) {
+      AbilitySystemComponent->ApplyGameplayEffectToSelf(
+          RestoreGE, 1.0f, AbilitySystemComponent->MakeEffectContext());
+    }
 
     AbilitySystemComponent->ApplyGameplayEffectToSelf(
         InitGE, 1.0f, AbilitySystemComponent->MakeEffectContext());
