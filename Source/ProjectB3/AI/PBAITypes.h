@@ -5,7 +5,6 @@
 #include "UObject/NoExportTypes.h"
 #include "PBAITypes.generated.h"
 
-
 // 단일 행동의 종류를 정의하는 열거형
 UENUM(BlueprintType)
 enum class EPBActionType : uint8 { None, Move, Attack, UseItem };
@@ -65,24 +64,22 @@ struct FPBSequenceAction {
 };
 
 // 조합 점수를 관리하고, 단일 행동(Single Action) 결과를 담는 객체
-UCLASS(BlueprintType, Blueprintable)
-class PROJECTB3_API UPBActionSequence : public UObject {
+USTRUCT(BlueprintType)
+struct PROJECTB3_API FPBActionSequence {
   GENERATED_BODY()
 
-public:
   // 결정된 행동이 아무것도 없는지(턴 종료 상황인지) 확인
-  UFUNCTION(BlueprintCallable, BlueprintPure, Category = "AI|Sequence")
   bool IsEmpty() const {
     return SingleAction.ActionType == EPBActionType::None;
   }
 
-public:
   // 이 턴 행동 조합(Combo)이 갖는 최종 유틸리티 결산 점수
-  UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
   float TotalUtilityScore = 0.0f;
+
   /*~ 단일 행동 데이터 제공 ~*/
 
   // 결정된 단 1개의 행동 데이터
-  UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
   FPBSequenceAction SingleAction;
 };

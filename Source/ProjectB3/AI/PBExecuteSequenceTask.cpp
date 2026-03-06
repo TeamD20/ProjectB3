@@ -32,10 +32,10 @@ EStateTreeRunStatus UPBExecuteSequenceTask::EnterState(
     return EStateTreeRunStatus::Failed;
   }
 
-  if (!IsValid(SequenceToExecute) || SequenceToExecute->IsEmpty()) {
+  if (SequenceToExecute.IsEmpty()) {
     UE_LOG(LogPBStateTreeExec, Warning,
            TEXT("ExecuteSequenceTask: 전달받은 Sequence 데이터 구조체가 "
-                "유효하지 않거나 비어있어 실행을 즉시 종료합니다."));
+                "비어있어 실행을 즉시 종료합니다."));
     return EStateTreeRunStatus::Succeeded;
   }
 
@@ -53,12 +53,12 @@ EStateTreeRunStatus UPBExecuteSequenceTask::EnterState(
   UE_LOG(LogPBStateTreeExec, Display, TEXT("AI [%s] 행동 시퀀스 실행 시작!"),
          *SelfActor->GetName());
   UE_LOG(LogPBStateTreeExec, Display, TEXT("기대 총합 유틸리티 점수: %f"),
-         SequenceToExecute->TotalUtilityScore);
+         SequenceToExecute.TotalUtilityScore);
   UE_LOG(LogPBStateTreeExec, Display,
          TEXT("============================================="));
 
   bIsActionInProgress = false;
-  CurrentAction = SequenceToExecute->SingleAction;
+  CurrentAction = SequenceToExecute.SingleAction;
 
   return ProcessSingleAction();
 }
