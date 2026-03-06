@@ -8,6 +8,8 @@
 #include "InputMappingContext.h"
 #include "NiagaraFunctionLibrary.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "ProjectB3/Camera/PBCameraControlComponent.h"
+#include "ProjectB3/Characters/PBPlayerCharacter.h"
 #include "ProjectB3/NavigationSystem/PBPathDisplayComponent.h"
 
 APBGameplayPlayerController::APBGameplayPlayerController()
@@ -15,6 +17,7 @@ APBGameplayPlayerController::APBGameplayPlayerController()
 	PrimaryActorTick.bCanEverTick = true;
 
 	PathDisplayComponent = CreateDefaultSubobject<UPBPathDisplayComponent>(TEXT("PathDisplayComponent"));
+	CameraControlComponent = CreateDefaultSubobject<UPBCameraControlComponent>(TEXT("CameraControlComponent"));
 }
 
 void APBGameplayPlayerController::BeginPlay()
@@ -33,15 +36,39 @@ void APBGameplayPlayerController::BeginPlay()
 		{
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
+		if (IsValid(CameraMappingContext))
+		{
+			Subsystem->AddMappingContext(CameraMappingContext, 1);
+		}
 	}
 
 	PathDisplayComponent->SetPathDisplayEnabled(true);
+
+	BindCameraToCharacter();
 }
 
 void APBGameplayPlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	float MouseX = 0.0f;
+	float MouseY = 0.0f;
+
+	if (bIsMouseRotationHeld || bIsFreeLookHeld)
+	{
+		GetInputMouseDelta(MouseX, MouseY);
+	}
+
+	if (bIsMouseRotationHeld && FMath::Abs(MouseX) > 0.0f)
+	{
+		CameraControlComponent->AddMouseRotationInput(MouseX);
+	}
+
+	if (bIsFreeLookHeld && (FMath::Abs(MouseX) > 0.0f || FMath::Abs(MouseY) > 0.0f))
+	{
+		CameraControlComponent->AddFreeLookInput(FVector2D(MouseX, MouseY));
+	}
+	
 	UpdateHoverPathDisplay();
 }
 
@@ -59,7 +86,93 @@ void APBGameplayPlayerController::SetupInputComponent()
 	{
 		EnhancedInput->BindAction(MoveCommandAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnMoveCommand);
 	}
+	if (IsValid(CameraZoomAction))
+	{
+		EnhancedInput->BindAction(CameraZoomAction, ETriggerEvent::Triggered, this, &APBGameplayPlayerController::OnCameraZoom);
+	}
+	if (IsValid(CameraRotateAction))
+	{
+		EnhancedInput->BindAction(CameraRotateAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnCameraRotate);
+	}
+	if (IsValid(CameraMouseRotateAction))
+	{
+		EnhancedInput->BindAction(CameraMouseRotateAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnCameraMouseRotateStart);
+		EnhancedInput->BindAction(CameraMouseRotateAction, ETriggerEvent::Completed, this, &APBGameplayPlayerController::OnCameraMouseRotateStop);
+		EnhancedInput->BindAction(CameraMouseRotateAction, ETriggerEvent::Canceled, this, &APBGameplayPlayerController::OnCameraMouseRotateStop);
+	}
+	if (IsValid(CameraFreeLookAction))
+	{
+		EnhancedInput->BindAction(CameraFreeLookAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnCameraFreeLookStart);
+		EnhancedInput->BindAction(CameraFreeLookAction, ETriggerEvent::Completed, this, &APBGameplayPlayerController::OnCameraFreeLookStop);
+		EnhancedInput->BindAction(CameraFreeLookAction, ETriggerEvent::Canceled, this, &APBGameplayPlayerController::OnCameraFreeLookStop);
+	}
+	if (IsValid(CameraResetAction))
+	{
+		EnhancedInput->BindAction(CameraResetAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnCameraReset);
+	}
 }
+
+void APBGameplayPlayerController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+
+	BindCameraToCharacter();
+
+	// 캐릭터 전환 시 카메라 오프셋을 새 캐릭터 중심으로 리셋
+	CameraControlComponent->ResetOffset();
+}
+
+// ============================================================================
+// Camera Control
+// ============================================================================
+
+void APBGameplayPlayerController::OnCameraZoom(const FInputActionValue& Value)
+{
+	CameraControlComponent->AddZoomInput(Value.Get<float>());
+}
+
+void APBGameplayPlayerController::OnCameraRotate(const FInputActionValue& Value)
+{
+	CameraControlComponent->AddRotationStepInput(Value.Get<float>());
+}
+
+void APBGameplayPlayerController::OnCameraMouseRotateStart(const FInputActionValue& Value)
+{
+	bIsMouseRotationHeld = true;
+}
+
+void APBGameplayPlayerController::OnCameraMouseRotateStop(const FInputActionValue& Value)
+{
+	bIsMouseRotationHeld = false;
+}
+
+void APBGameplayPlayerController::OnCameraFreeLookStart(const FInputActionValue& Value)
+{
+	bIsFreeLookHeld = true;
+}
+
+void APBGameplayPlayerController::OnCameraFreeLookStop(const FInputActionValue& Value)
+{
+	bIsFreeLookHeld = false;
+}
+
+void APBGameplayPlayerController::OnCameraReset(const FInputActionValue& Value)
+{
+	CameraControlComponent->ResetOffset();
+}
+
+void APBGameplayPlayerController::BindCameraToCharacter()
+{
+	APBPlayerCharacter* PlayerChar = Cast<APBPlayerCharacter>(GetPawn());
+	if (IsValid(PlayerChar))
+	{
+		CameraControlComponent->SetSpringArm(PlayerChar->GetSpringArm());
+	}
+}
+
+// ============================================================================
+// Movement & Path Display
+// ============================================================================
 
 void APBGameplayPlayerController::OnMoveCommand(const FInputActionValue& Value)
 {
@@ -92,10 +205,10 @@ void APBGameplayPlayerController::OnMoveCommand(const FInputActionValue& Value)
 	const FVector Destination = CalculateClampedDestination(NavPath->PathPoints);
 	UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, Destination);
 	PathDisplayComponent->ClearPath();
-	
+
 	if (CursorVFX)
 	{
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, CursorVFX, HitResult.Location, FRotator::ZeroRotator, FVector(1.f, 1.f, 1.f), true, true, ENCPoolMethod::None, true);	
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, CursorVFX, HitResult.Location, FRotator::ZeroRotator, FVector(1.f, 1.f, 1.f), true, true, ENCPoolMethod::None, true);
 	}
 }
 
@@ -105,23 +218,21 @@ FVector APBGameplayPlayerController::CalculateClampedDestination(const TArray<FV
 	{
 		return FVector::ZeroVector;
 	}
-	
-	// 거리 제한이 없으면 목적지(경로의 마지막 점)를 바로 반환
+
 	if (MaxMoveDistance <= -1.0f)
 	{
 		return PathPoints.Last();
 	}
-	
+
 	const float MaxDist = MaxMoveDistance;
 	float AccumulatedDist = 0.0f;
 
 	for (int32 i = 1; i < PathPoints.Num(); ++i)
 	{
-		const float SegDist = FVector::Dist(PathPoints[i - 1], PathPoints[i]); // 두 점 사이의 거리
+		const float SegDist = FVector::Dist(PathPoints[i - 1], PathPoints[i]);
 
 		if (AccumulatedDist + SegDist >= MaxDist)
 		{
-			// MaxMoveDistance에 해당하는 지점을 선형 보간으로 계산
 			const float Remaining = MaxDist - AccumulatedDist;
 			const float T = (SegDist > 0.0f) ? (Remaining / SegDist) : 0.0f;
 			return FMath::Lerp(PathPoints[i - 1], PathPoints[i], T);
@@ -130,7 +241,6 @@ FVector APBGameplayPlayerController::CalculateClampedDestination(const TArray<FV
 		AccumulatedDist += SegDist;
 	}
 
-	// 전체 경로가 MaxMoveDistance보다 짧으면 마지막 지점 (목적지) 그대로 반환
 	return PathPoints.Last();
 }
 
@@ -180,5 +290,5 @@ void APBGameplayPlayerController::RequestNavPathDisplay(const FVector& TargetLoc
 		return;
 	}
 
-	PathDisplayComponent->DisplayPath(NavPath->PathPoints,true);
+	PathDisplayComponent->DisplayPath(NavPath->PathPoints, true);
 }
