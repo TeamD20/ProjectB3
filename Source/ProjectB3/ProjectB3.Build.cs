@@ -28,7 +28,7 @@ public class ProjectB3 : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[] 
 		{
 			"Slate", 
-			"SlateCore"
+			"SlateCore", "OpenSubdiv"
 		});
 
 		// Uncomment if you are using online features
