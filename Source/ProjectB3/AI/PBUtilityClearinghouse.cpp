@@ -6,6 +6,11 @@
 #include "PBAIMockAttributeSet.h"
 #include "PBAIMockCharacter.h"
 
+#include "Kismet/GameplayStatics.h"
+#include "PBAIMockAttributeSet.h"
+#include "PBAIMockCharacter.h"
+#include "PBGE_RestoreTurnResources.h"
+
 // 임시 로깅을 위한 로그 카테고리 정의
 DEFINE_LOG_CATEGORY_STATIC(LogPBUtility, Log, All);
 
@@ -173,16 +178,13 @@ void UPBUtilityClearinghouse::RestoreTurnResources(AActor *CurrentTurnActor) {
   const UPBAIMockAttributeSet *AttrSet = MockChar->GetAttributeSet();
 
   if (ASC && AttrSet) {
-    // Action, BonusAction 복구
-    ASC->ApplyModToAttribute(UPBAIMockAttributeSet::GetActionAttribute(),
-                             EGameplayModOp::Override, AttrSet->GetMaxAction());
-    ASC->ApplyModToAttribute(UPBAIMockAttributeSet::GetBonusActionAttribute(),
-                             EGameplayModOp::Override,
-                             AttrSet->GetMaxBonusAction());
-    // 이동력 복구
-    ASC->ApplyModToAttribute(UPBAIMockAttributeSet::GetMovementAttribute(),
-                             EGameplayModOp::Override,
-                             AttrSet->GetMaxMovement());
+    // GE_RestoreTurnResources 에셋을 생성하여 턴 시작 자원을 최대치로 초기화
+    UGameplayEffect *RestoreGE = NewObject<UPBGE_RestoreTurnResources>(
+        GetTransientPackage(), UPBGE_RestoreTurnResources::StaticClass());
+
+    if (RestoreGE) {
+      ASC->ApplyGameplayEffectToSelf(RestoreGE, 1.0f, ASC->MakeEffectContext());
+    }
 
     UE_LOG(LogPBUtility, Display,
            TEXT(">> [Turn Restore] %s 의 턴 자원이 모두 회복되었습니다! "

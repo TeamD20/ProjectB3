@@ -1,12 +1,14 @@
 // PBGenerateSequenceTask.cpp
 
 #include "PBGenerateSequenceTask.h"
+#include "Abilities/GameplayAbility.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
 #include "Engine/World.h"
 #include "PBAIMockAttributeSet.h"
 #include "PBUtilityClearinghouse.h"
 #include "StateTreeExecutionContext.h"
+
 
 // StateTree 디버깅을 위한 독립적인 로그 카테고리
 DEFINE_LOG_CATEGORY_STATIC(LogPBStateTree, Log, All);
@@ -43,20 +45,34 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
   // 3. 턴 시작 데이터 캐싱 수행
   Clearinghouse->CacheTurnData(SelfActor);
 
-  // --- 자원(AP, Movement) 고갈 체크 (무한 루프 방지 로직) ---
+  // --- 어빌리티 및 자원 체크 (Phase 1: Filter) ---
   UAbilitySystemComponent *ASC =
       UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(SelfActor);
 
-  float CurrentAction = 0.0f;
-  float CurrentMovement = 0.0f;
+  if (!IsValid(ASC)) {
+    return EStateTreeRunStatus::Failed;
+  }
 
-  if (IsValid(ASC)) {
-    CurrentAction =
-        ASC->GetNumericAttribute(UPBAIMockAttributeSet::GetActionAttribute());
-    // TODO: 추후 Movement 전용 Attribute 추가 시 갱신. 현재는 임시로 Movement
-    // 속성 조회. 임시로 MaxAction 등을 대체로 쓰거나, 이동이 무조건 제한되게
-    // 하려면 관련 속성을 가져와야 함. 이 예제에서는 단순함을 위해 이동 제한을
-    // 걸지 않거나 가상의 변수로 로직만 구성.
+  UE_LOG(LogPBStateTree, Display,
+         TEXT("=== 어빌리티 필터링 (Phase 1) 개시 ==="));
+  TArray<UGameplayAbility *> ValidAbilities;
+  const TArray<FGameplayAbilitySpec> &ActivatableAbilities =
+      ASC->GetActivatableAbilities();
+
+  for (const FGameplayAbilitySpec &Spec : ActivatableAbilities) {
+    if (Spec.Ability != nullptr) {
+      // CanActivateAbility 기본 검사 (쿨다운, 코스트 등)
+      if (Spec.Ability->CanActivateAbility(Spec.Handle,
+                                           ASC->AbilityActorInfo.Get())) {
+        ValidAbilities.Add(Spec.Ability);
+        UE_LOG(LogPBStateTree, Log, TEXT("어빌리티 필터 통과: [%s]"),
+               *Spec.Ability->GetName());
+      } else {
+        UE_LOG(LogPBStateTree, Log,
+               TEXT("어빌리티 필터 제외 (조건 미달): [%s]"),
+               *Spec.Ability->GetName());
+      }
+    }
   }
 
   // 4. 주변의 적대적 액터 중 최적의 타겟 선정 (Mock: 첫 번째 유효 공격 대상)
@@ -87,15 +103,9 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
     return EStateTreeRunStatus::Failed;
   }
 
-  // UObject 할당 로직 (StateTree 런타임 메모리 주입)
-  if (!GeneratedSequence) {
-    GeneratedSequence = NewObject<UPBActionSequence>(
-        GetOuter()); // 블루프린트 자체를 Outer로 지정
-  }
-
   // 유틸리티 총합 점수 계산 (AND 퍼지 연산 최소화 방식 혹은 단순 합 등 임시
   // 산출식)
-  GeneratedSequence->TotalUtilityScore =
+  GeneratedSequence.TotalUtilityScore =
       FMath::Min(DistanceScore, VulnerabilityScore);
 
   // 6. 상황에 따른 모의(Mock) 단일 행동 결정 로직
@@ -109,19 +119,20 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 
   // 공격 사거리 이내일 경우
   if (RealDistance <= 200.0f) {
-    if (CurrentAction >= 1.0f) {
+    if (ValidAbilities.Num() > 0) {
       DecidedAction.ActionType = EPBActionType::Attack;
       DecidedAction.TargetActor = BestTargetActor;
       DecidedAction.Cost.ActionCost = 1.0f; // 공격은 1 Action 소모
       UE_LOG(LogPBStateTree, Display,
-             TEXT("결정된 행동: 타겟이 근접하여 거리가 %f이고 AP가 남았으므로 "
-                  "[Attack]을 결정합니다."),
-             RealDistance);
+             TEXT("결정된 행동: 타겟이 근접하여 거리가 %f이고 발동 가능한 "
+                  "스킬이 있으므로 "
+                  "[%s] 등 Attack을 결정합니다."),
+             RealDistance, *ValidAbilities[0]->GetName());
     } else {
-      UE_LOG(
-          LogPBStateTree, Warning,
-          TEXT("GenerateSequenceTask: 타겟에 근접했으나 Action(AP)이 고갈되어 "
-               "더 이상 공격할 수 없습니다. 턴을 종료(Failed)합니다."));
+      UE_LOG(LogPBStateTree, Warning,
+             TEXT("GenerateSequenceTask: 타겟에 근접했으나 발동 가능한 "
+                  "어빌리티(Action/AP 부족 등)가 "
+                  "없어 턴을 종료(Failed)합니다."));
       return EStateTreeRunStatus::Failed;
     }
   }
@@ -141,13 +152,13 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
   }
 
   // 구조체 자체의 변수 오버라이드로 대체 적재
-  GeneratedSequence->SingleAction = DecidedAction;
+  GeneratedSequence.SingleAction = DecidedAction;
 
   UE_LOG(LogPBStateTree, Display,
          TEXT("=== GenerateSequenceTask 분석 완료 ==="));
   UE_LOG(LogPBStateTree, Display,
          TEXT("AI [%s]가 생성한 Action Sequence의 TotalUtilityScore: %f"),
-         *SelfActor->GetName(), GeneratedSequence->TotalUtilityScore);
+         *SelfActor->GetName(), GeneratedSequence.TotalUtilityScore);
 
   // 조립이 성공적으로 끝났으므로 StateTree가 하위 State(Execute)를
   // 취소시키지 않고 유지할 수 있도록 Running 반환
