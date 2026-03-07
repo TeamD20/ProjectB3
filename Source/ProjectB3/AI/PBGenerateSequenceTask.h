@@ -24,7 +24,7 @@ public:
   // 이 테스크가 뱉어낼 최종 콤보 시퀀스 결과물 데이터 (부모 방향으로 출력 배출
   // 허용을 위해 Output 카테고리 유지)
   UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Output")
-  TObjectPtr<UPBActionSequence> GeneratedSequence = nullptr;
+  FPBActionSequence GeneratedSequence;
 
   /*~ UStateTreeTaskBlueprintBase Interface ~*/
 protected:
