@@ -25,6 +25,9 @@ public:
 	FText GetCharacterLevel() const;
 	
 	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
+	FText GetCharacterClass() const;
+	
+	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
 	FText GetCharacterHPText() const;
 	
 	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
@@ -40,6 +43,7 @@ public:
 	// 세터
 	void SetCharacterName(FText InCharacterName);
 	void SetLevel(int32 InCharacterLevel);
+	void SetCharacterClass(FText InCharacterClass);
 	void SetHP(int32 InCurrentHP, int32 InMaxHP);
 	void SetPortrait(TSoftObjectPtr<UTexture2D> InPortrait);
 	void SetIsMyTurn(bool InMyTurn);
@@ -51,6 +55,7 @@ public:
 	// 델리게이트 변수
 	FOnTextChangedSignature OnNameChanged;
 	FOnTextChangedSignature OnLevelChanged;
+	FOnTextChangedSignature OnClassChanged;
 	FOnTextChangedSignature OnHPChanged;
 	FOnImageChangedSignature OnPortraitChanged;
 	FOnFloatValueChangedSignature OnHPPercentValueChanged;
@@ -58,6 +63,7 @@ public:
 	
 private:
 	FText CharacterName;
+	FText CharacterClass;
 	
 	//초상화 
 	TSoftObjectPtr<UTexture2D> Portrait;

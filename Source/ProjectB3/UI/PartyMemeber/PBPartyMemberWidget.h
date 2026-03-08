@@ -55,6 +55,6 @@ public:
 	UPROPERTY(meta = (BindWidget))
 	UOverlay* TurnOverlay;
 	
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ViewModel")
 	UPBPartyMemberViewModel* MemberViewModel;
 };
