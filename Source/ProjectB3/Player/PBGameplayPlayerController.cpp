@@ -11,7 +11,6 @@
 #include "ProjectB3/Camera/PBCameraControlComponent.h"
 #include "ProjectB3/Characters/PBPlayerCharacter.h"
 #include "ProjectB3/NavigationSystem/PBPathDisplayComponent.h"
-
 APBGameplayPlayerController::APBGameplayPlayerController()
 {
 	PrimaryActorTick.bCanEverTick = true;
