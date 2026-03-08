@@ -15,6 +15,11 @@ FText UPBPartyMemberViewModel::GetCharacterLevel() const
 	return FText::AsNumber(Level);
 }
 
+FText UPBPartyMemberViewModel::GetCharacterClass() const
+{
+	return CharacterClass;
+}
+
 FText UPBPartyMemberViewModel::GetCharacterHPText() const
 {
 	FText Current = FText::AsNumber(CurrentHP);
@@ -66,6 +71,19 @@ void UPBPartyMemberViewModel::SetLevel(int32 InCharacterLevel)
 		if (OnLevelChanged.IsBound())
 		{
 			OnLevelChanged.Broadcast(GetCharacterLevel());
+		}
+	}
+}
+
+void UPBPartyMemberViewModel::SetCharacterClass(FText InCharacterClass)
+{
+	if (!CharacterClass.EqualTo(InCharacterClass))
+	{
+		CharacterClass = InCharacterClass;
+	
+		if (OnClassChanged.IsBound())
+		{
+			OnClassChanged.Broadcast(GetCharacterClass());
 		}
 	}
 }

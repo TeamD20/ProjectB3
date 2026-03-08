@@ -58,9 +58,21 @@ void APBUITestGameMode::SetupDummyCharacterData()
 		
 		if (VM)
 		{
+			// 클래스 풀 설정 (임시 4직업)
+			TArray<FText> DummyClasses = {
+				FText::FromString(TEXT("Warrior")),
+				FText::FromString(TEXT("Ranger")),
+				FText::FromString(TEXT("Mage")),
+				FText::FromString(TEXT("Cleric"))
+			};
+			
 			// 이름 풀에서 가져오거나 기본 이름 설정
 			FText Name = DummyNamesPool.IsValidIndex(i) ? DummyNamesPool[i] : FText::Format(NSLOCTEXT("Test", "DefaultName", "Member_{0}"), i);
 			VM->SetCharacterName(Name);
+			
+			// 직업 배정 (순서대로, 4명이 넘을 경우 사이클)
+			FText CharClass = DummyClasses[i % DummyClasses.Num()];
+			VM->SetCharacterClass(CharClass);
 			
 			// 기본 레벨 및 HP 설정
 			VM->SetLevel(FMath::RandRange(1, 5));
