@@ -74,25 +74,22 @@ AntiGravityReadMe.txt를 말하기 편하게 그냥 지침으로 명명하겠습
 75번째 라인부터 작성해주시면 됩니다. 앞으로 추가적인 PR메세지를 작성할때는 덮어쓰기 하여 무조건 75번째 라인부터 작성 부탁드립니다.
 
 제목: 
-feat: 파티 멤버 리스트 툴팁 UI 및 직업 정보 표기 기능 추가
+feat: 파티 멤버 리스트 위젯 배경 이미지 추가 및 C++ 제어 기능 구현
 
 본문:
 ## 개요
-- 게임 내 파티 멤버 프로필에 마우스를 올렸을 때(Hover) 캐릭터의 이름, 레벨, 직업 정보를 표시하는 툴팁 UI를 동적으로 생성하고 뷰모델 데이터를 바인딩하는 시스템을 구축했습니다.
-- 캐릭터 정보를 그리는 파티 위젯과 툴팁 위젯이 같은 데이터를 바라보도록 기존의 단일 ViewModel(`PBPartyMemberViewModel`) 구조를 확장하여 데이터 관리를 최적화했습니다.
+- 파티 멤버 리스트 위젯에 독립적인 배경 이미지 기능을 추가하고, 이를 블루프린트가 아닌 C++ 코드 레벨에서 효과적으로 관리 및 제어할 수 있는 구조를 구축했습니다.
 
 ## 주요 변경사항
 
 ### 코드 변경사항
-- **PBPartyMemberViewModel** — 캐릭터 직업 정보를 보관할 `FText CharacterClass` 변수와 `Get/Set` 메서드를 추가하고, 변경 시 UI를 갱신할 `OnClassChanged` 델리게이트를 선언 및 바인딩했습니다.
-- **PBPartyMemberTooltipWidget** — `UPBWidgetBase`를 상속받은 툴팁 전용 위젯 기초 클래스입니다. 이름, 레벨, 직업을 위한 텍스트 블록 컴포넌트를 정의하고, `InitializeTooltip()` 메서드에서 ViewModel 데이터를 전달받아 일정한 양식(`Name : {0}`, `Lv. {0}`, ` / Class : {0}`)으로 UI에 초기화 및 갱신하도록 구현했습니다.
-- **PBPartyMemberWidget** — 블루프린트에서 툴팁 위젯 생성 시 ViewModel을 전달할 수 있도록 기존에 존재하던 `MemberViewModel` 멤버 변수 속성에 `BlueprintReadWrite` 및 `EditAnywhere`를 추가하여 접근을 허용했습니다.
-- **PBUITestGameMode** — 테스트 환경에서 툴팁이 제대로 동작하는지 확인하기 위해, 4인의 더미 캐릭터가 생성될 때 차례대로 "Warrior", "Ranger", "Mage", "Cleric" 직업 정보가 순환 할당되도록 임시 부여 로직을 추가했습니다.
+- **PBPartyMemberListWidget** — 블루프린트에서 배경 위젯을 매칭할 수 있는 `BackgroundImage` (`UImage`) 변수를 추가하였으며, 필수 바인딩으로 인한 크래시를 방지하기 위해 `BindWidgetOptional` 매크로를 사용했습니다.
+- **PBPartyMemberListWidget** — 동적인 배경 관리를 위해 텍스처를 변경하는 `SetBackgroundImage(UTexture2D*)`와 색상 및 투명도를 조절하는 `SetBackgroundColor(FLinearColor)` 메서드를 새롭게 구현하여 기능성을 확장했습니다.
+- **PBPartyMemberListWidget** — 블루프린트에서 위젯이 바인딩되지 않은 상태에서 함수 호출이 발생할 경우를 대비해 `UE_LOG` 경고 메시지를 출력하도록 하여 디버깅 직관성을 높였습니다.
 
 ### BP, 에셋 변경사항
-- **WBP_PartyMemberTooltip** — 새롭게 제작된 툴팁 블루프린트 에셋입니다. `Size Box` 안에 `Vertical Box`를 배치하여 툴팁의 최소/최대 가로 크기를 제한하였고, C++ 클래스에서 요구하는 이름(`CharacterNameTextBlock` 등)으로 변수를 매칭하여 텍스트 UI를 배치했습니다.
-- **WBP_PartyCard** — 호버 판정을 받는 최상단 Border 컴포넌트의 `On Mouse Enter` 이벤트에 툴팁 동적 생성 로직을 추가했습니다. 마우스 진입 시 `Create Widget`으로 툴팁을 인스턴스화하고 현재의 `MemberViewModel`을 삽입한 뒤, `Set Tool Tip Widget` 노드를 통해 카드의 툴팁 속성으로 지정되도록 변경했습니다.
+- 파티 멤버 리스트 UI를 담당하는 블루프린트 위젯(예: `WBP_PartyMemberList`)에 `BackgroundImage`라는 이름의 Image 컴포넌트를 배치하면 C++ 클래스와 자동으로 연동되도록 베이스 작업이 완료되었습니다.
 
 ## TroubleShooting
-- **발생 문제:** 블루프린트에서 `WBP_PartyCard`의 이벤트 노드 끄트머리에 `Add To Viewport` 노드를 호출하여, 툴팁이 마우스를 따라다니지 않고 화면 좌측 상단(0,0)에 고정되어 렌더링되는 버그가 발생했습니다.
-- **해결 조치:** 언리얼 엔진의 툴팁 렌더링 시스템은 `Set Tool Tip Widget`으로 대상을 연결해 주면 엔진이 알아서 커서 위치에 띄우고 지우는 생명 주기를 관리한다는 점을 확인했습니다. 따라서 강제로 화면에 그리는 `Add To Viewport` 노드를 삭제하여 마우스 포인터를 따라다니는 정상적인 툴팁 위치 표기로 수정했습니다.
+- **발생/방지된 문제:** 백그라운드 이미지를 C++ 변수와 매칭하도록 강제(`BindWidget`)할 경우, 해당 컴포넌트를 아직 추가하지 않은 기존 블루프린트 위젯 로드 시 크래시나 에러가 발생할 우려가 있었습니다.
+- **해결 조치:** `BindWidgetOptional`을 적용하여 UI 에셋 수정 여부와 관계없이 기존 에셋과의 하위 호환성을 유지시켰으며, 이후 `BackgroundImage` 포인터를 참조하는 모든 메서드에 Null 체크 로직을 포함시켜 안전성을 확보했습니다.
