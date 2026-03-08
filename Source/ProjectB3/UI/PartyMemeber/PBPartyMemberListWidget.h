@@ -10,6 +10,8 @@
 class UVerticalBox;
 class UPBPartyMemberListViewModel;
 class UPBPartyMemberViewModel;
+class UImage;
+class UTexture2D;
 
 /**
  * 파티 리스트를 표시하며 파티원 수에 따라 위젯을 동적으로 생성하는 위젯 클래스
@@ -37,6 +39,18 @@ public:
 	// 위젯 리스트가 담길 박스 (BP에서 바인딩)
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UVerticalBox> MemberListBox;
+
+	// 파티원 리스트 뒤에 표시될 배경 이미지 (BP에서 바인딩, 없어도 크래시 안 나도록 BindWidgetOptional 사용)
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> BackgroundImage;
+
+	// 배경 이미지를 C++에서 동적으로 변경하는 함수
+	UFUNCTION(BlueprintCallable, Category = "UI|Party")
+	void SetBackgroundImage(UTexture2D* NewTexture);
+
+	// 배경 이미지의 색상/투명도를 C++에서 변경하는 함수
+	UFUNCTION(BlueprintCallable, Category = "UI|Party")
+	void SetBackgroundColor(FLinearColor NewColor);
 
 	// 생성할 파티원 위젯의 클래스 (BP에서 지정)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|Party")

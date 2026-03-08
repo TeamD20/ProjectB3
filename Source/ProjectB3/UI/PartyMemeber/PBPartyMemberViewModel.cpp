@@ -26,7 +26,7 @@ FText UPBPartyMemberViewModel::GetCharacterHPText() const
 	FText Max = FText::AsNumber(MaxHP);
 	
 	FText CombinedText = FText::Format(
-		NSLOCTEXT("UI", "HPText", "{0} ({1})"), 
+		NSLOCTEXT("UI", "HPText", "{0} / {1}"), 
 		Current, 
 		Max
 	);

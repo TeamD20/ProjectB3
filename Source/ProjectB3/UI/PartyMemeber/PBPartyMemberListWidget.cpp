@@ -5,6 +5,8 @@
 #include "PBPartyMemberViewModel.h"
 #include "PBPartyMemberWidget.h"
 #include "Components/VerticalBox.h"
+#include "Components/Image.h"
+#include "Engine/Texture2D.h"
 #include "ProjectB3/UI/PBUIBlueprintLibrary.h"
 
 
@@ -92,5 +94,29 @@ void UPBPartyMemberListWidget::CreatePartyMemberWidget(UPBPartyMemberViewModel* 
 	else
 	{
 		UE_LOG(LogTemp, Error, TEXT("CreatePartyMemberWidget: Failed to CreateWidget!"));
+	}
+}
+
+void UPBPartyMemberListWidget::SetBackgroundImage(UTexture2D* NewTexture)
+{
+	if (BackgroundImage && NewTexture)
+	{
+		BackgroundImage->SetBrushFromTexture(NewTexture);
+	}
+	else if (!BackgroundImage)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SetBackgroundImage: BackgroundImage is null. Need to add Image widget named 'BackgroundImage' in BP."));
+	}
+}
+
+void UPBPartyMemberListWidget::SetBackgroundColor(FLinearColor NewColor)
+{
+	if (BackgroundImage)
+	{
+		BackgroundImage->SetColorAndOpacity(NewColor);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SetBackgroundColor: BackgroundImage is null. Need to add Image widget named 'BackgroundImage' in BP."));
 	}
 }
