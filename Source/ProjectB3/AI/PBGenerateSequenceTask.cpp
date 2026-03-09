@@ -89,14 +89,9 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
     }
   }
 
-  // 4. 주변의 적대적 액터 중 최적의 타겟 선정 (Mock: 첫 번째 유효 공격 대상)
-  AActor *BestTargetActor = nullptr;
-  const TArray<TWeakObjectPtr<AActor>> &CachedTargets =
-      Clearinghouse->GetCachedTargets();
-  if (CachedTargets.Num() > 0 && CachedTargets[0].IsValid()) {
-    BestTargetActor =
-        CachedTargets[0].Get(); // TODO: Utility 가장 높은 타겟 찾기 로직
-  }
+  // 4. 주변의 적대적 액터 중 ActionScore 기반 최적 타겟 선정
+  // (이전: CachedTargets[0] 고정 → 이후: GetBestActionScoreTarget 점수 기반)
+  AActor *BestTargetActor = Clearinghouse->GetBestActionScoreTarget();
 
   float DistanceScore = 0.0f;
   float VulnerabilityScore = 0.0f;
