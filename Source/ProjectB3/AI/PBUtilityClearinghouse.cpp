@@ -5,6 +5,11 @@
 #include "PBGE_RestoreTurnResources.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 
+#include "Kismet/GameplayStatics.h"
+#include "PBAIMockAttributeSet.h"
+#include "PBAIMockCharacter.h"
+#include "PBGE_RestoreTurnResources.h"
+
 // 임시 로깅을 위한 로그 카테고리 정의
 DEFINE_LOG_CATEGORY_STATIC(LogPBUtility, Log, All);
 
