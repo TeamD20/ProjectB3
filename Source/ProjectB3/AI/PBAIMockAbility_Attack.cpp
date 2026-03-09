@@ -1,51 +1,35 @@
 // PBAIMockAbility_Attack.cpp
 #include "PBAIMockAbility_Attack.h"
 #include "AbilitySystemComponent.h"
-#include "PBAIMockAttributeSet.h"
+#include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 
-UPBAIMockAbility_Attack::UPBAIMockAbility_Attack() {
-  InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+UPBAIMockAbility_Attack::UPBAIMockAbility_Attack()
+{
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
 
-  // 태그 설정
-  AbilityTags.AddTag(
-      FGameplayTag::RequestGameplayTag(FName("Ability.Attack.Melee")));
+	// 태그 설정
+	AbilityTags.AddTag(
+		FGameplayTag::RequestGameplayTag(FName("Ability.Attack.Melee")));
 }
 
 void UPBAIMockAbility_Attack::ActivateAbility(
-    const FGameplayAbilitySpecHandle Handle,
-    const FGameplayAbilityActorInfo *ActorInfo,
-    const FGameplayAbilityActivationInfo ActivationInfo,
-    const FGameplayEventData *TriggerEventData) {
-  Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+	const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayAbilityActivationInfo ActivationInfo,
+	const FGameplayEventData* TriggerEventData)
+{
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
-  UAbilitySystemComponent *ASC = GetAbilitySystemComponentFromActorInfo();
-  if (ASC) {
-    // Action 소모 로직
-    const UPBAIMockAttributeSet *MockSet = Cast<UPBAIMockAttributeSet>(
-        ASC->GetAttributeSet(UPBAIMockAttributeSet::StaticClass()));
-    if (MockSet) {
-      float CurrentAction = MockSet->GetAction();
-      if (CurrentAction >= 1.0f) {
-        // 단순 로깅 (공격 성공)
-        UE_LOG(
-            LogTemp, Display,
-            TEXT(">> [MOCK GAS] AI Attack! Swung weapon. Remaining Action: %f"),
-            CurrentAction - 1.0f);
+	// Action 자원 차감은 PBExecuteSequenceTask에서 이미 처리
+	// (ApplyModToAttributeUnsafe로 ActionCost만큼 차감)
+	// 여기서 중복 차감 시 Attack 1회당 -2.0f 발생하므로 제거
+	UE_LOG(LogTemp, Display,
+	       TEXT(">> [MOCK GAS] AI Attack! Swung weapon at target."));
 
-        // ApplyModToAttribute를 통한 강제 직접 감산
-        ASC->ApplyModToAttribute(UPBAIMockAttributeSet::GetActionAttribute(),
-                                 EGameplayModOp::Additive, -1.0f);
-      } else {
-        UE_LOG(LogTemp, Warning,
-               TEXT(">> [MOCK GAS] Not enough Action! Need 1, have %f"),
-               CurrentAction);
-      }
-    }
-  }
+	// 반드시 즉시 종료시켜야 StateTree가 뻗거나 꼬임 방지
 
-  // 반드시 즉시 종료시켜야 StateTree가 뻗거나 꼬임 방지
-  bool bReplicateEndAbility = true;
-  bool bWasCancelled = false;
-  EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility,
-             bWasCancelled);
+	bool bReplicateEndAbility = true;
+	bool bWasCancelled = false;
+	EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility,
+	           bWasCancelled);
 }

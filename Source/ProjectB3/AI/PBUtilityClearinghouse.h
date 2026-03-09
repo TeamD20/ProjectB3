@@ -2,9 +2,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PBAITypes.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "PBUtilityClearinghouse.generated.h"
-
 
 // 클리어링하우스 (Context Provider)
 // AI 컨트롤러가 게임 월드나 타 스탯 컴포넌트를 직접 뒤지지 않고,
@@ -17,6 +17,7 @@ class UPBUtilityClearinghouse : public UWorldSubsystem {
 public:
   /*~ USubsystem Interface ~*/
   virtual void Initialize(FSubsystemCollectionBase &Collection) override {}
+
   virtual void Deinitialize() override {}
 
   /*~ 정규화 데이터 제공 인터페이스 ~*/
@@ -33,6 +34,32 @@ public:
   // 공격자의 위치가 보유한 고지대 유리함 / 엄폐 이점을 반환 (0.0 ~ 1.0)
   UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
   float EvaluateHighGroundAdvantage(AActor *TargetActor) const;
+
+  /*~ 스코어링 (ActionScore 산출) ~*/
+
+  // 단일 타겟에 대한 ActionScore를 계산하여 FPBTargetScore로 반환
+  // AI_System.md §7.1: HitProbability x VulnerabilityWeight x ArchetypeWeight
+  UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
+  FPBTargetScore EvaluateActionScore(AActor *TargetActor);
+
+	/*~ 스코어링 (ActionScore 산출) ~*/
+
+	// 단일 타겟에 대한 ActionScore를 계산하여 FPBTargetScore로 반환
+	// AI_System.md §7.1: HitProbability x VulnerabilityWeight x ArchetypeWeight
+	UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
+	FPBTargetScore EvaluateActionScore(AActor* TargetActor);
+
+	// CachedTargets 전체 중 ActionScore가 가장 높은 타겟 반환
+	// GenerateSequenceTask에서 CachedTargets[0] 대신 사용
+	UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
+	AActor* GetBestActionScoreTarget();
+
+	// CachedTargets를 TotalScore(ActionScore + MovementScore) 기준 내림차순으로
+	// 정렬하여 상위 K개를 반환 (DFS 연산 폭발 방지 — Optimization §4.2)
+	// K가 CachedTargets.Num()보다 크면 전체 반환
+	TArray<FPBTargetScore> GetTopKTargets(int32 K = 3);
+
+	/*~ 캐싱 (라이프사이클) 관리 인터페이스 ~*/
 
   /*~ 캐싱 (라이프사이클) 관리 인터페이스 ~*/
 
@@ -73,4 +100,12 @@ protected:
   // 타겟 당 위협/취약성(Vulnerability) 정규화 점수 캐시 데이터.
   UPROPERTY(Transient)
   TMap<AActor *, float> CachedVulnerabilityMap;
+
+	// 타겟 당 위협/취약성(Vulnerability) 정규화 점수 캐시 데이터.
+	UPROPERTY(Transient)
+	TMap<AActor*, float> CachedVulnerabilityMap;
+
+	// 타겟 당 ActionScore 선가 결과 캐시 (GetBestActionScoreTarget 연산 중복
+	// 방지)
+	TMap<AActor*, FPBTargetScore> CachedActionScoreMap;
 };
