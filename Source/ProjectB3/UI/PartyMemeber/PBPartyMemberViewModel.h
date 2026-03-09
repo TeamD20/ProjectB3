@@ -3,9 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ProjectB3/UI/PBUITags.h"
+#include "ProjectB3/UI/PBUITypes.h"
 #include "ProjectB3/UI/ViewModel/PBViewModelBase.h"
 #include "PBPartyMemberViewModel.generated.h"
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnPartyMemberSelectedSignature, AActor*);
 
 using namespace PBUIDelegate;
 /**
@@ -48,6 +50,9 @@ public:
 	void SetPortrait(TSoftObjectPtr<UTexture2D> InPortrait);
 	void SetIsMyTurn(bool InMyTurn);
 	
+	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
+	void OnSelected();
+	
 private: 
 	void SetHealthPercent(float InHealthPercent);
 	
@@ -60,6 +65,7 @@ public:
 	FOnImageChangedSignature OnPortraitChanged;
 	FOnFloatValueChangedSignature OnHPPercentValueChanged;
 	FOnBoolValueChangedSignature OnIsMyTurnChanged;
+	FOnPartyMemberSelectedSignature OnPartyMemberSelected;
 	
 private:
 	FText CharacterName;
