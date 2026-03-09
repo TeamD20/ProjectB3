@@ -7,16 +7,17 @@
 
 
 UCLASS()
-class PROJECTB3_API UPBAIMockAbility_Attack : public UGameplayAbility {
-  GENERATED_BODY()
+class PROJECTB3_API UPBAIMockAbility_Attack : public UGameplayAbility
+{
+	GENERATED_BODY()
 
 public:
-  UPBAIMockAbility_Attack();
+	UPBAIMockAbility_Attack();
 
 protected:
-  virtual void
-  ActivateAbility(const FGameplayAbilitySpecHandle Handle,
-                  const FGameplayAbilityActorInfo *ActorInfo,
-                  const FGameplayAbilityActivationInfo ActivationInfo,
-                  const FGameplayEventData *TriggerEventData) override;
+	virtual void
+	ActivateAbility(const FGameplayAbilitySpecHandle Handle,
+	                const FGameplayAbilityActorInfo* ActorInfo,
+	                const FGameplayAbilityActivationInfo ActivationInfo,
+	                const FGameplayEventData* TriggerEventData) override;
 };

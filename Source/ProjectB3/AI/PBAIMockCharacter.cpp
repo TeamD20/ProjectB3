@@ -1,136 +1,225 @@
-// PBAIMockCharacter.cpp
-
 #include "PBAIMockCharacter.h"
+#include "AIController.h"
 #include "AbilitySystemComponent.h"
+#include "Components/StateTreeComponent.h"
 #include "GameplayEffect.h"
-#include "PBAIMockAttributeSet.h"
 #include "PBGE_RestoreTurnResources.h"
-
+#include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
+#include "StateTreeEvents.h"
 
 /*~ 생성자 ~*/
 
-APBAIMockCharacter::APBAIMockCharacter() {
-  PrimaryActorTick.bCanEverTick = true;
+APBAIMockCharacter::APBAIMockCharacter()
+{
+	PrimaryActorTick.bCanEverTick = true;
 
-  AbilitySystemComponent =
-      CreateDefaultSubobject<UAbilitySystemComponent>("AbilitySystemComponent");
-  AttributeSet =
-      CreateDefaultSubobject<UPBAIMockAttributeSet>(TEXT("AttributeSet"));
+	AbilitySystemComponent =
+		CreateDefaultSubobject<UAbilitySystemComponent>(
+			"AbilitySystemComponent");
+	AttributeSet =
+		CreateDefaultSubobject<UPBTurnResourceAttributeSet>(
+			TEXT("AttributeSet"));
 }
 
-UAbilitySystemComponent *APBAIMockCharacter::GetAbilitySystemComponent() const {
-  return AbilitySystemComponent;
+UAbilitySystemComponent* APBAIMockCharacter::GetAbilitySystemComponent() const
+{
+	return AbilitySystemComponent;
 }
 
-UPBAIMockAttributeSet *APBAIMockCharacter::GetAttributeSet() const {
-  return AttributeSet;
+UPBTurnResourceAttributeSet* APBAIMockCharacter::GetAttributeSet() const
+{
+	return AttributeSet;
 }
 
 /*~ AActor Interface ~*/
 
-void APBAIMockCharacter::BeginPlay() {
-  Super::BeginPlay();
+void APBAIMockCharacter::BeginPlay()
+{
+	Super::BeginPlay();
 
-  // 샌드박스 환경 구동 시작을 알리는 로그 출력
-  UE_LOG(
-      LogTemp, Display,
-      TEXT("=== PB Mock Character [%s] Spawned and Ready for AI Testing ==="),
-      *GetName());
+	// 샌드박스 환경 구동 시작을 알리는 로그 출력
+	UE_LOG(
+		LogTemp, Display,
+		TEXT("=== PB Mock Character [%s] Spawned and Ready for AI Testing ==="),
+		*GetName());
 
-  if (IsValid(AbilitySystemComponent)) {
-    // 1. ASC 초기화
-    AbilitySystemComponent->InitAbilityActorInfo(this, this);
+	if (IsValid(AbilitySystemComponent))
+	{
+		// 1. ASC 초기화
+		AbilitySystemComponent->InitAbilityActorInfo(this, this);
 
-    // 2. 공격 스킬 부여
-    if (IsValid(DefaultAttackAbility)) {
-      AbilitySystemComponent->GiveAbility(
-          FGameplayAbilitySpec(DefaultAttackAbility, 1, INDEX_NONE, this));
-    }
+		// 2. 공격 스킬 부여
+		if (IsValid(DefaultAttackAbility))
+		{
+			AbilitySystemComponent->GiveAbility(
+				FGameplayAbilitySpec(DefaultAttackAbility, 1, INDEX_NONE,
+				                     this));
+		}
 
-    // 3.GameplayEffect를 생성하여 속성 초기화
-    UGameplayEffect *InitGE = NewObject<UGameplayEffect>(
-        GetTransientPackage(), FName(TEXT("DynamicInitHealthGE")));
-    InitGE->DurationPolicy = EGameplayEffectDurationType::Instant;
+		// 3.GameplayEffect를 생성하여 속성 초기화
+		UGameplayEffect* InitGE = NewObject<UGameplayEffect>(
+			GetTransientPackage(), FName(TEXT("DynamicInitHealthGE")));
+		InitGE->DurationPolicy = EGameplayEffectDurationType::Instant;
 
-    // HP 초기화
-    FGameplayModifierInfo HPModInfo;
-    HPModInfo.Attribute = UPBAIMockAttributeSet::GetHealthAttribute();
-    HPModInfo.ModifierOp =
-        EGameplayModOp::Override; // 기존 값 무시하고 덮어쓰기
+		// Action (AP) 초기화: 1.0f
+		FGameplayModifierInfo ActionModInfo;
+		ActionModInfo.Attribute =
+			UPBTurnResourceAttributeSet::GetActionAttribute();
+		ActionModInfo.ModifierOp = EGameplayModOp::Override;
+		FScalableFloat ActionScalableFloat;
+		ActionScalableFloat.SetValue(1.0f);
+		ActionModInfo.ModifierMagnitude =
+			FGameplayEffectModifierMagnitude(ActionScalableFloat);
+		InitGE->Modifiers.Add(ActionModInfo);
 
-    FScalableFloat HPScalableFloat;
-    HPScalableFloat.SetValue(StartingHP);
-    HPModInfo.ModifierMagnitude =
-        FGameplayEffectModifierMagnitude(HPScalableFloat);
+		// BonusAction 초기화: 1.0f
+		FGameplayModifierInfo BonusActionModInfo;
+		BonusActionModInfo.Attribute =
+			UPBTurnResourceAttributeSet::GetBonusActionAttribute();
+		BonusActionModInfo.ModifierOp = EGameplayModOp::Override;
+		FScalableFloat BonusActionScalableFloat;
+		BonusActionScalableFloat.SetValue(1.0f);
+		BonusActionModInfo.ModifierMagnitude =
+			FGameplayEffectModifierMagnitude(BonusActionScalableFloat);
+		InitGE->Modifiers.Add(BonusActionModInfo);
 
-    InitGE->Modifiers.Add(HPModInfo);
+		// Reaction 초기화: 1.0f
+		FGameplayModifierInfo ReactionModInfo;
+		ReactionModInfo.Attribute =
+			UPBTurnResourceAttributeSet::GetReactionAttribute();
+		ReactionModInfo.ModifierOp = EGameplayModOp::Override;
+		FScalableFloat ReactionScalableFloat;
+		ReactionScalableFloat.SetValue(1.0f);
+		ReactionModInfo.ModifierMagnitude =
+			FGameplayEffectModifierMagnitude(ReactionScalableFloat);
+		InitGE->Modifiers.Add(ReactionModInfo);
 
-    // Action (AP) 초기화: 1.0f
-    FGameplayModifierInfo ActionModInfo;
-    ActionModInfo.Attribute = UPBAIMockAttributeSet::GetActionAttribute();
-    ActionModInfo.ModifierOp = EGameplayModOp::Override;
-    FScalableFloat ActionScalableFloat;
-    ActionScalableFloat.SetValue(1.0f);
-    ActionModInfo.ModifierMagnitude =
-        FGameplayEffectModifierMagnitude(ActionScalableFloat);
-    InitGE->Modifiers.Add(ActionModInfo);
+		// Movement 초기화: 900.0f (9m)
+		FGameplayModifierInfo MovementModInfo;
+		MovementModInfo.Attribute =
+			UPBTurnResourceAttributeSet::GetMovementAttribute();
+		MovementModInfo.ModifierOp = EGameplayModOp::Override;
+		FScalableFloat MovementScalableFloat;
+		MovementScalableFloat.SetValue(900.0f);
+		MovementModInfo.ModifierMagnitude =
+			FGameplayEffectModifierMagnitude(MovementScalableFloat);
+		InitGE->Modifiers.Add(MovementModInfo);
 
-    // MaxAction 초기화: 1.0f
-    FGameplayModifierInfo MaxActionModInfo;
-    MaxActionModInfo.Attribute = UPBAIMockAttributeSet::GetMaxActionAttribute();
-    MaxActionModInfo.ModifierOp = EGameplayModOp::Override;
-    FScalableFloat MaxActionScalableFloat;
-    MaxActionScalableFloat.SetValue(1.0f);
-    MaxActionModInfo.ModifierMagnitude =
-        FGameplayEffectModifierMagnitude(MaxActionScalableFloat);
-    InitGE->Modifiers.Add(MaxActionModInfo);
+		// 속성 초기치 부여
+		AbilitySystemComponent->ApplyGameplayEffectToSelf(
+			InitGE, 1.0f, AbilitySystemComponent->MakeEffectContext());
 
-    // BonusAction 초기화: 1.0f
-    FGameplayModifierInfo BonusActionModInfo;
-    BonusActionModInfo.Attribute =
-        UPBAIMockAttributeSet::GetBonusActionAttribute();
-    BonusActionModInfo.ModifierOp = EGameplayModOp::Override;
-    FScalableFloat BonusActionScalableFloat;
-    BonusActionScalableFloat.SetValue(1.0f);
-    BonusActionModInfo.ModifierMagnitude =
-        FGameplayEffectModifierMagnitude(BonusActionScalableFloat);
-    InitGE->Modifiers.Add(BonusActionModInfo);
+		// 턴 자원 초기화 전용 GE 발동 (가득 채우기)
+		UGameplayEffect* RestoreGE = NewObject<UPBGE_RestoreTurnResources>(
+			GetTransientPackage(), UPBGE_RestoreTurnResources::StaticClass());
 
-    // MaxBonusAction 초기화: 1.0f
-    FGameplayModifierInfo MaxBonusActionModInfo;
-    MaxBonusActionModInfo.Attribute =
-        UPBAIMockAttributeSet::GetMaxBonusActionAttribute();
-    MaxBonusActionModInfo.ModifierOp = EGameplayModOp::Override;
-    FScalableFloat MaxBonusActionScalableFloat;
-    MaxBonusActionScalableFloat.SetValue(1.0f);
-    MaxBonusActionModInfo.ModifierMagnitude =
-        FGameplayEffectModifierMagnitude(MaxBonusActionScalableFloat);
-    InitGE->Modifiers.Add(MaxBonusActionModInfo);
+		if (RestoreGE)
+		{
+			AbilitySystemComponent->ApplyGameplayEffectToSelf(
+				RestoreGE, 1.0f, AbilitySystemComponent->MakeEffectContext());
+		}
+	}
+}
 
-    // Movement 초기화: 900.0f (9m)
-    FGameplayModifierInfo MovementModInfo;
-    MovementModInfo.Attribute = UPBAIMockAttributeSet::GetMovementAttribute();
-    MovementModInfo.ModifierOp = EGameplayModOp::Override;
-    FScalableFloat MovementScalableFloat;
-    MovementScalableFloat.SetValue(900.0f);
-    MovementModInfo.ModifierMagnitude =
-        FGameplayEffectModifierMagnitude(MovementScalableFloat);
-    InitGE->Modifiers.Add(MovementModInfo);
+/*~ IPBCombatParticipant Interface ~*/
 
-    // HP, Max 스탯 기본 초기치 부여
-    AbilitySystemComponent->ApplyGameplayEffectToSelf(
-        InitGE, 1.0f, AbilitySystemComponent->MakeEffectContext());
+int32 APBAIMockCharacter::GetInitiativeModifier() const
+{
+	// 샌드박스: 임시로 0 반환
+	return 0;
+}
 
-    // 턴 자원 초기화 전용 GE 발동 (가득 채우기)
-    UGameplayEffect *RestoreGE = NewObject<UPBGE_RestoreTurnResources>(
-        GetTransientPackage(), UPBGE_RestoreTurnResources::StaticClass());
+bool APBAIMockCharacter::HasInitiativeAdvantage() const { return false; }
 
-    if (RestoreGE) {
-      AbilitySystemComponent->ApplyGameplayEffectToSelf(
-          RestoreGE, 1.0f, AbilitySystemComponent->MakeEffectContext());
-    }
+void APBAIMockCharacter::OnCombatBegin()
+{
+}
 
-    AbilitySystemComponent->ApplyGameplayEffectToSelf(
-        InitGE, 1.0f, AbilitySystemComponent->MakeEffectContext());
-  }
+void APBAIMockCharacter::OnCombatEnd()
+{
+}
+
+void APBAIMockCharacter::OnRoundBegin()
+{
+}
+
+void APBAIMockCharacter::OnTurnBegin()
+{
+	UE_LOG(LogTemp, Display,
+	       TEXT("=== %s: OnTurnBegin 호출, StateTree 이벤트 전송 ==="),
+	       *GetName());
+
+	// 턴 시작 시 StateTree에 Event.Combat.TurnStarted 이벤트 전송
+	if (AController* CharacterController = GetController())
+	{
+		if (UStateTreeComponent* StateTreeComp =
+			CharacterController->FindComponentByClass<UStateTreeComponent>())
+		{
+			FStateTreeEvent Event;
+			Event.Tag =
+				FGameplayTag::RequestGameplayTag(
+					TEXT("Event.Combat.TurnStarted"));
+			StateTreeComp->SendStateTreeEvent(Event);
+		}
+	}
+}
+
+void APBAIMockCharacter::OnTurnEnd()
+{
+}
+
+bool APBAIMockCharacter::CanReact() const { return false; }
+
+void APBAIMockCharacter::OnReactionOpportunity(
+	const FPBReactionContext& Context)
+{
+	// 추후 구현 (반응 시스템 고도화 시 연동)
+}
+
+void APBAIMockCharacter::OnActionInterrupted()
+{
+	UE_LOG(LogTemp, Display,
+	       TEXT("=== %s: OnActionInterrupted 호출, StateTree 이벤트 전송 ==="),
+	       *GetName());
+
+	// 행동 인터럽트 시 StateTree에 Event.Combat.ActionInterrupted 이벤트 전송
+	if (AController* CharacterController = GetController())
+	{
+		if (UStateTreeComponent* StateTreeComp =
+			CharacterController->FindComponentByClass<UStateTreeComponent>())
+		{
+			FStateTreeEvent Event;
+			Event.Tag = FGameplayTag::RequestGameplayTag(
+				TEXT("Event.Combat.ActionInterrupted"));
+			StateTreeComp->SendStateTreeEvent(Event);
+		}
+	}
+}
+
+bool APBAIMockCharacter::IsIncapacitated() const
+{
+	// 샌드박스: 무력화 상태 아님 처리
+	return false;
+}
+
+FGameplayTag APBAIMockCharacter::GetFactionTag() const
+{
+	// AI 테스트용 캐릭터로서 적대 진영 태그 반환
+	return FGameplayTag::RequestGameplayTag(TEXT("Combat.Faction.Enemy"));
+}
+
+float APBAIMockCharacter::GetBaseMovementSpeed() const
+{
+	// 샌드박스: 이동속도 9m 반환 (초기 이동력 900과 일치)
+	return 900.0f;
+}
+
+FText APBAIMockCharacter::GetCombatDisplayName() const
+{
+	return FText::FromString(GetName());
+}
+
+TSoftObjectPtr<UTexture2D> APBAIMockCharacter::GetCombatPortrait() const
+{
+	return nullptr;
 }
