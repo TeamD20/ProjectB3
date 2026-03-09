@@ -1,7 +1,7 @@
 // PBAIMockAbility_Attack.cpp
 #include "PBAIMockAbility_Attack.h"
 #include "AbilitySystemComponent.h"
-#include "PBAIMockAttributeSet.h"
+#include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 
 UPBAIMockAbility_Attack::UPBAIMockAbility_Attack() {
   InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
@@ -21,10 +21,11 @@ void UPBAIMockAbility_Attack::ActivateAbility(
   UAbilitySystemComponent *ASC = GetAbilitySystemComponentFromActorInfo();
   if (ASC) {
     // Action 소모 로직
-    const UPBAIMockAttributeSet *MockSet = Cast<UPBAIMockAttributeSet>(
-        ASC->GetAttributeSet(UPBAIMockAttributeSet::StaticClass()));
-    if (MockSet) {
-      float CurrentAction = MockSet->GetAction();
+    const UPBTurnResourceAttributeSet *TurnSet =
+        Cast<UPBTurnResourceAttributeSet>(
+            ASC->GetAttributeSet(UPBTurnResourceAttributeSet::StaticClass()));
+    if (TurnSet) {
+      float CurrentAction = TurnSet->GetAction();
       if (CurrentAction >= 1.0f) {
         // 단순 로깅 (공격 성공)
         UE_LOG(
@@ -33,8 +34,9 @@ void UPBAIMockAbility_Attack::ActivateAbility(
             CurrentAction - 1.0f);
 
         // ApplyModToAttribute를 통한 강제 직접 감산
-        ASC->ApplyModToAttribute(UPBAIMockAttributeSet::GetActionAttribute(),
-                                 EGameplayModOp::Additive, -1.0f);
+        ASC->ApplyModToAttribute(
+            UPBTurnResourceAttributeSet::GetActionAttribute(),
+            EGameplayModOp::Additive, -1.0f);
       } else {
         UE_LOG(LogTemp, Warning,
                TEXT(">> [MOCK GAS] Not enough Action! Need 1, have %f"),
