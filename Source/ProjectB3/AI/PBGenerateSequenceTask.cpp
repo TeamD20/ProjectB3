@@ -9,7 +9,6 @@
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "StateTreeExecutionContext.h"
 
-
 // StateTree 디버깅을 위한 독립적인 로그 카테고리
 DEFINE_LOG_CATEGORY_STATIC(LogPBStateTree, Log, All);
 
