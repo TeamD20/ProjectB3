@@ -12,19 +12,21 @@
  * 턴 구조체 트리에서 특정 이벤트를 기다리기 위한 '휴식처' 용도로 사용됩니다.
  */
 UCLASS(Blueprintable, meta = (DisplayName = "PB Task: Wait For Event (Idle)",
-                              Category = "Logic"))
-class PROJECTB3_API UPBTask_Idle : public UStateTreeTaskBlueprintBase {
-  GENERATED_BODY()
+	Category = "Logic"))
+class PROJECTB3_API UPBTask_Idle : public UStateTreeTaskBlueprintBase
+{
+	GENERATED_BODY()
 
 public:
-  UPBTask_Idle(const FObjectInitializer &ObjectInitializer);
+	UPBTask_Idle(const FObjectInitializer& ObjectInitializer);
 
 protected:
-  virtual EStateTreeRunStatus
-  EnterState(FStateTreeExecutionContext &Context,
-             const FStateTreeTransitionResult &Transition) override;
+	virtual EStateTreeRunStatus
+	EnterState(FStateTreeExecutionContext& Context,
+	           const FStateTreeTransitionResult& Transition) override;
 
-  // 외부 이벤트 발생 등으로 중단(Interrupt)될 때 호출됩니다.
-  virtual void ExitState(FStateTreeExecutionContext &Context,
-                         const FStateTreeTransitionResult &Transition) override;
+	// 외부 이벤트 발생 등으로 중단(Interrupt)될 때 호출됩니다.
+	virtual void ExitState(FStateTreeExecutionContext& Context,
+	                       const FStateTreeTransitionResult&
+	                       Transition) override;
 };

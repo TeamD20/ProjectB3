@@ -24,9 +24,15 @@ EStateTreeRunStatus UPBInitializeTurnTask::EnterState(
 		if (UPBUtilityClearinghouse* Clearinghouse =
 			World->GetSubsystem<UPBUtilityClearinghouse>())
 		{
+			// 1. 자원 복원 (Action, BonusAction, Reaction, Movement 최대치로 초기화)
 			Clearinghouse->RestoreTurnResources(SelfActor);
+
+			// 2. 턴 데이터 캐싱 (주변 타겟 탐색 등 무거운 연산 일원화)
+			// GenerateSequenceTask가 캐시를 바로 활용할 수 있도록 여기서 선처리
+			Clearinghouse->CacheTurnData(SelfActor);
+
 			UE_LOG(LogPBInitTurn, Display,
-			       TEXT("=== AI [%s]의 턴 시작. 자원 회복(Start of Turn) ==="),
+			       TEXT("=== AI [%s]의 턴 시작. 자원 회복 및 데이터 캐싱 완료 ==="),
 			       *SelfActor->GetName());
 		}
 	}

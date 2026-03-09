@@ -117,3 +117,59 @@ struct FPBTargetScore {
     return HitProbability * VulnerabilityWeight * ArchetypeWeight;
   }
 };
+
+// 타겟 1명에 대한 ActionScore 평가 결과
+// AI_System.md §7.1: ActionScore = BaseScore × HitProbability × ArchetypeWeight
+// + TargetModifiers (현재 샌드박스 단계: BaseScore=1.0f,
+// TargetModifiers=VulnerabilityWeight, SituationalBonus=0.0f)
+USTRUCT(BlueprintType)
+struct FPBTargetScore
+{
+	GENERATED_BODY()
+
+	// 평가 대상 액터
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
+	TObjectPtr<AActor> TargetActor = nullptr;
+
+	// 명중 확률 (0.05 ~ 0.95 클램프)
+	// §7.1: (d20 + 공격보정 - 대상 AC) / 20 → 추후 AC 속성 연동으로 교체
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
+	float HitProbability = 0.65f;
+
+	// 취약성 가중치 (0.0 ~ 1.0)
+	// §7.1 TargetModifiers: HP 비율 기반 → 추후 Health AS 연동으로 교체
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
+	float VulnerabilityWeight = 0.8f;
+
+	// 아키타입 공격 가중치 (§4.4 Archetype.ScoreWeights.AttackWeight)
+	// 현재 1.0f 고정 → 추후 UCurveFloat 에셋 연동
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
+	float ArchetypeWeight = 1.0f;
+
+	// 최종 ActionScore 산출
+	// §7.1: BaseScore(1.0f) × HitProbability × ArchetypeWeight +
+	// TargetModifiers(Vulnerability)
+	float GetActionScore() const
+	{
+		return HitProbability * VulnerabilityWeight * ArchetypeWeight;
+	}
+
+	// 이동 비용 기반 점수 (0.0 ~ 1.0)
+	// Phase 3: 거리가 가까울수록 높음 (=이동 낭비 없음)
+	// AI_System.md §7.2 PositionScore 경량화 버전
+	// 공식: 1.0 - (DistToTarget / MaxMovementRange), 클램프 [0.0, 1.0]
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
+	float MovementScore = 1.0f;
+
+	// MovementScore 최종 가중치 (ActionScore와 균형 조절용)
+	// 기본 0.5f → ActionScore:MovementScore = 2:1 비율
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
+	float MovementWeight = 0.5f;
+
+	// 최종 통합 점수 (타겟 선정 기준값)
+	// TotalScore = ActionScore + MovementScore × MovementWeight
+	float GetTotalScore() const
+	{
+		return GetActionScore() + MovementScore * MovementWeight;
+	}
+};
