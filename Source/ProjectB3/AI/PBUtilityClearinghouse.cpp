@@ -128,46 +128,14 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor) {
          FoundPlayers.Num());
 }
 
-void UPBUtilityClearinghouse::ClearCache() {
-  // 맵 컨테이너 요소들을 모두 비워 다음 턴이나 다른 캐릭터 연산 시 간섭이
-  // 없도록 한다.
-  CachedTargets.Empty();
-  CachedDistanceMap.Empty();
-  CachedVulnerabilityMap.Empty();
-  CachedActionScoreMap.Empty();
-
-  UE_LOG(LogPBUtility, Log,
-         TEXT("클리어링하우스 메모리 캐시가 성공적으로 비워졌습니다."));
-}
-
-void UPBUtilityClearinghouse::RestoreTurnResources(AActor *CurrentTurnActor) {
-  if (!IsValid(CurrentTurnActor)) {
-    return;
-  }
-
-  APBAIMockCharacter *MockChar = Cast<APBAIMockCharacter>(CurrentTurnActor);
-  if (!MockChar)
-    return;
-
-  UAbilitySystemComponent *ASC = MockChar->GetAbilitySystemComponent();
-  const UPBTurnResourceAttributeSet *AttrSet = MockChar->GetAttributeSet();
-
-  if (ASC && AttrSet) {
-    // GE_RestoreTurnResources 에셋을 생성하여 턴 시작 자원을 최대치로 초기화
-    UGameplayEffect *RestoreGE = NewObject<UPBGE_RestoreTurnResources>(
-        GetTransientPackage(), UPBGE_RestoreTurnResources::StaticClass());
-
-    if (RestoreGE) {
-      ASC->ApplyGameplayEffectToSelf(RestoreGE, 1.0f, ASC->MakeEffectContext());
-    }
-
-    UE_LOG(LogPBUtility, Display,
-           TEXT(">> [Turn Restore] %s 의 턴 자원이 모두 회복되었습니다! "
-                "(Action: %f, Movement: %f)"),
-           *CurrentTurnActor->GetName(), AttrSet->GetAction(),
-           AttrSet->GetMovement());
-  }
-}
+void UPBUtilityClearinghouse::ClearCache()
+{
+	// 맵 컨테이너 요소들을 모두 비워 다음 턴이나 다른 캐릭터 연산 시 간섭이
+	// 없도록 한다.
+	CachedTargets.Empty();
+	CachedDistanceMap.Empty();
+	CachedVulnerabilityMap.Empty();
+	CachedActionScoreMap.Empty();
 
 /*~ 스코어링 (ActionScore 산출) ~*/
 
@@ -251,4 +219,128 @@ AActor *UPBUtilityClearinghouse::GetBestActionScoreTarget() {
   }
 
   return BestTarget;
+}
+
+/*~ 스코어링 (ActionScore 산출) ~*/
+
+FPBTargetScore
+UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
+{
+	if (!IsValid(TargetActor))
+	{
+		return FPBTargetScore{};
+	}
+
+	// 캐시 먼저 확인 (턴 내 중복 연산 방지)
+	if (const FPBTargetScore* Cached = CachedActionScoreMap.Find(TargetActor))
+	{
+		return *Cached;
+	}
+
+	FPBTargetScore Score;
+	Score.TargetActor = TargetActor;
+
+	// --- HitProbability 산정 ---
+	// AI_System.md §7.1: (d20 + 공격보정 - 대상 AC) / 20, 클램프 [0.05, 0.95]
+	// TODO: AI AttackModifier(GAS AS) 및 대상 ArmorClass(GAS AS) 연동 후 실값
+	// 교체
+	Score.HitProbability = FMath::Clamp(0.65f, 0.05f, 0.95f);
+
+	// --- VulnerabilityWeight 산정 ---
+	// AI_System.md §7.1 TargetModifiers: HP 비율 기반
+	// GetTargetVulnerabilityScore가 Health AS 연동 후 실값 제공
+	Score.VulnerabilityWeight = GetTargetVulnerabilityScore(TargetActor);
+
+	// --- ArchetypeWeight 산정 ---
+	// AI_System.md §4.4 Archetype.ScoreWeights.AttackWeight
+	// TODO: Archetype 데이터 에셋 또는 UCurveFloat 연동 후 실값 교체
+	Score.ArchetypeWeight = 1.0f;
+
+	// --- MovementScore 산정 ---
+	// AI_System.md §7.2 PositionScore 경량화 버전
+	// 공식: 1.0 - (DistToTarget / MaxMovementRange), 클램프 [0.0, 1.0]
+	// 거리가 가까울수록 1.0, 몜수록 0.0
+	// TODO: 이동력 AttributeSet 연동 후 Movement 실값 사용
+	constexpr float MaxMovementRange = 1000.0f; // 임시 Default(10m)
+	if (IsValid(ActiveTurnActor))
+	{
+		const float DistToTarget = FVector::Dist(
+			ActiveTurnActor->GetActorLocation(),
+			TargetActor->GetActorLocation());
+		Score.MovementScore =
+			FMath::Clamp(1.0f - (DistToTarget / MaxMovementRange), 0.0f, 1.0f);
+	}
+
+	const float FinalScore = Score.GetTotalScore();
+
+	UE_LOG(LogPBUtility, Log,
+	       TEXT("[Scoring] AI [%s] → 타겟 [%s]: "
+		       "HitProb=%.2f, Vuln=%.2f, Archetype=%.2f, Move=%.2f → "
+		       "TotalScore=%.4f"),
+	       *(ActiveTurnActor ? ActiveTurnActor->GetName() : TEXT("Unknown")),
+	       *TargetActor->GetName(), Score.HitProbability,
+	       Score.VulnerabilityWeight, Score.ArchetypeWeight,
+	       Score.MovementScore,
+	       FinalScore);
+
+	// 결과 캐싱
+	CachedActionScoreMap.Add(TargetActor, Score);
+	return Score;
+}
+
+AActor* UPBUtilityClearinghouse::GetBestActionScoreTarget()
+{
+	// GetTopKTargets(1) 위임 — 중복 루프 제거, TotalScore 기준 통일
+	const TArray<FPBTargetScore> Top = GetTopKTargets(1);
+	if (Top.Num() > 0 && IsValid(Top[0].TargetActor))
+	{
+		return Top[0].TargetActor.Get();
+	}
+	return nullptr;
+}
+
+TArray<FPBTargetScore> UPBUtilityClearinghouse::GetTopKTargets(int32 K)
+{
+	TArray<FPBTargetScore> AllScores;
+
+	for (const TWeakObjectPtr<AActor>& WeakTarget : CachedTargets)
+	{
+		if (!WeakTarget.IsValid())
+		{
+			continue;
+		}
+		AllScores.Add(EvaluateActionScore(WeakTarget.Get()));
+	}
+
+	// TotalScore 내림차순 정렬 (Optimization §4.2 Top-K 필터링)
+	AllScores.Sort([](const FPBTargetScore& A, const FPBTargetScore& B)
+	{
+		return A.GetTotalScore() > B.GetTotalScore();
+	});
+
+	// 상위 K개 슬라이싱
+	const int32 ResultCount = FMath::Min(K, AllScores.Num());
+
+	UE_LOG(LogPBUtility, Display,
+	       TEXT("[TopK] CachedTargets %d명 중 상위 %d명 선정:"), AllScores.Num(),
+	       ResultCount);
+
+	for (int32 i = 0; i < ResultCount; ++i)
+	{
+		UE_LOG(LogPBUtility, Display,
+		       TEXT("  [%d] %s → TotalScore=%.4f (Action=%.4f, Move=%.4f)"),
+		       i + 1,
+		       IsValid(AllScores[i].TargetActor)
+		       ? *AllScores[i].TargetActor->GetName()
+		       : TEXT("Invalid"),
+		       AllScores[i].GetTotalScore(), AllScores[i].GetActionScore(),
+		       AllScores[i].MovementScore);
+	}
+
+	TArray<FPBTargetScore> Result;
+	for (int32 i = 0; i < ResultCount; ++i)
+	{
+		Result.Add(AllScores[i]);
+	}
+	return Result;
 }
