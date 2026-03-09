@@ -25,9 +25,9 @@ public class ProjectB3 : ModuleRules
 			"GameplayTasks"
 		});
 		
-		PrivateDependencyModuleNames.AddRange(new string[]
+		PrivateDependencyModuleNames.AddRange(new string[] 
 		{
-			"Slate",
+			"Slate", 
 			"SlateCore",
 			"FunctionalTesting"
 		});
