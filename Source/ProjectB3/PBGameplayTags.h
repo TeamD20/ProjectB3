@@ -8,4 +8,9 @@
 namespace PBGameplayTags
 {
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(System_Test);
+
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_State_InCombat);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Faction_Player);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Faction_Enemy);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Faction_Neutral);
 }
