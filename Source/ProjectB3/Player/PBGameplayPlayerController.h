@@ -50,11 +50,11 @@ public:
 	// 타겟팅 컴포넌트 반환
 	UPBTargetingComponent* GetTargetingComponent() const { return TargetingComponent; }
 
-	// 최대 이동 거리 조회
-	float GetMaxMoveDistance() const { return MaxMoveDistance; }
-
 	// 현재 컨트롤러 모드 조회
 	EPBPlayerControllerMode GetControllerMode() const { return CurrentMode; }
+
+	// PathDisplay의 이동 범위를 갱신 (이동 어빌리티 활성화 시 호출)
+	void SetPathDisplayMovementRange(float Range);
 
 	// 현재 모드를 종료하고 해당 모드로 전환
 	void SetControllerMode(EPBPlayerControllerMode NewMode);
@@ -136,10 +136,6 @@ public:
 	TObjectPtr<UInputAction> CameraResetAction;
 
 	/*~ Movement Settings ~*/
-
-	// 캐릭터의 최대 이동 가능 거리
-	UPROPERTY(EditAnywhere, Category = "Movement")
-	float MaxMoveDistance = 600.0f;
 
 	/*~ PathDisplay Settings ~*/
 

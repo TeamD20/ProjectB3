@@ -5,8 +5,10 @@
 #include "NavigationPath.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
+#include "AbilitySystemComponent.h"
 #include "ProjectB3/Player/PBGameplayPlayerController.h"
 #include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
+#include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "ProjectB3/PBGameplayTags.h"
 
 UPBGameplayAbility_Move::UPBGameplayAbility_Move()
@@ -27,11 +29,19 @@ void UPBGameplayAbility_Move::ActivateAbility(
 		return;
 	}
 
-	// PC 모드를 Movement로 전환
+	// PC 모드를 Movement로 전환하고 PathDisplay 이동 범위 전달
 	APBGameplayPlayerController* PC = Cast<APBGameplayPlayerController>(ActorInfo->PlayerController.Get());
 	if (IsValid(PC))
 	{
 		PC->SetControllerMode(EPBPlayerControllerMode::Movement);
+
+		// AttributeSet의 Movement 값을 PathDisplay에 전달
+		UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+		if (IsValid(ASC))
+		{
+			const float MovementRange = ASC->GetNumericAttribute(UPBTurnResourceAttributeSet::GetMovementAttribute());
+			PC->SetPathDisplayMovementRange(MovementRange);
+		}
 	}
 
 	// MoveCommand 이벤트를 수신
@@ -102,8 +112,11 @@ void UPBGameplayAbility_Move::HandleMoveEvent(FGameplayEventData Payload)
 		return;
 	}
 
-	// 플레이어는 MaxMoveDistance 클램핑, AI는 무제한
-	const float MaxDist = IsValid(PC) ? PC->GetMaxMoveDistance() : -1.0f;
+	// AttributeSet에서 현재 남은 이동력 취득, AI는 무제한(-1)
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+	const float MaxDist = IsValid(ASC)
+		? ASC->GetNumericAttribute(UPBTurnResourceAttributeSet::GetMovementAttribute())
+		: -1.0f;
 	const FVector Destination = CalculateClampedDestination(NavPath->PathPoints, MaxDist);
 
 	// 폰의 컨트롤러로 이동 명령 (플레이어/AI 공용)

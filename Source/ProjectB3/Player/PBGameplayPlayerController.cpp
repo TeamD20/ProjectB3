@@ -27,9 +27,6 @@ APBGameplayPlayerController::APBGameplayPlayerController()
 
 void APBGameplayPlayerController::BeginPlay()
 {
-	// ValidateProperties가 올바른 값으로 실행되도록 Super 호출 전에 동기화
-	PathDisplayComponent->SetMaxMoveDistance(MaxMoveDistance);
-
 	Super::BeginPlay();
 
 	bShowMouseCursor = true;
@@ -202,6 +199,11 @@ void APBGameplayPlayerController::SetControllerMode(EPBPlayerControllerMode NewM
 	}
 
 	CurrentMode = NewMode;
+}
+
+void APBGameplayPlayerController::SetPathDisplayMovementRange(float Range)
+{
+	PathDisplayComponent->SetMaxMoveDistance(Range);
 }
 
 void APBGameplayPlayerController::EnterTargetingMode(const FPBTargetingRequest& Request)
