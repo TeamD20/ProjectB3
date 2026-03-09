@@ -3,6 +3,7 @@
 #include "PBGameplayAbility.h"
 #include "AbilitySystemComponent.h"
 #include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
+#include "ProjectB3/AbilitySystem/Tasks/PBAbilityTask_WaitTargeting.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPBAbility, Log, All);
 
@@ -164,11 +165,26 @@ FPBAbilityTargetData UPBGameplayAbility::ExtractTargetDataFromEvent(
 	return FPBAbilityTargetData();
 }
 
+UGameplayEffect* UPBGameplayAbility::GetCooldownGameplayEffect() const
+{
+	// TODO: 턴제 쿨다운은 GAS 내장 CooldownTag GE를 사용하지 않는다.
+	// 추후 턴 종료 시점에 별도 쿨다운 카운터로 관리 예정.
+	return nullptr;
+}
 
 void UPBGameplayAbility::StartTargetingTask()
 {
-	// TODO: UPBAbilityTask_WaitTargeting 생성 및 델리게이트 바인딩
-	UE_LOG(LogPBAbility, Log, TEXT("[%s] StartTargetingTask — Phase 5에서 구현 예정."), *GetName());
+	UPBAbilityTask_WaitTargeting* Task = UPBAbilityTask_WaitTargeting::CreateTask(this);
+	if (!IsValid(Task))
+	{
+		UE_LOG(LogPBAbility, Error, TEXT("[%s] WaitTargeting Task 생성 실패."), *GetName());
+		EndAbility(CurrentSpecHandle, GetCurrentActorInfo(), CurrentActivationInfo, true, true);
+		return;
+	}
+
+	Task->OnTargetConfirmed.AddUObject(this, &UPBGameplayAbility::OnTargetingConfirmed);
+	Task->OnTargetCancelled.AddUObject(this, &UPBGameplayAbility::OnTargetingCancelled);
+	Task->ReadyForActivation();
 }
 
 void UPBGameplayAbility::OnTargetingConfirmed(const FPBAbilityTargetData& TargetData)

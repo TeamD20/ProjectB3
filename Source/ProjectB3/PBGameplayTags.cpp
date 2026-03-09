@@ -22,4 +22,7 @@ namespace PBGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Ability_Activate, "Event.Ability.Activate", "어빌리티 발동 요청 이벤트");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Ability_Confirm, "Event.Ability.Confirm", "타겟 확정 이벤트");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Ability_Cancel, "Event.Ability.Cancel", "타겟 취소 이벤트");
+
+	// 이동 이벤트 태그
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Movement_MoveCommand, "Event.Movement.MoveCommand", "이동 명령 이벤트");
 }

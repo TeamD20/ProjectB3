@@ -11,9 +11,25 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnViewDataPropertyChangedSiganture);
 
 class UPBPathDisplayComponent;
 class UPBCameraControlComponent;
+class UPBTargetingComponent;
 class UInputMappingContext;
 class UInputAction;
 struct FPBCameraModeParams;
+struct FPBTargetingRequest;
+
+/** PC 입력 처리 모드 */
+UENUM(BlueprintType)
+enum class EPBPlayerControllerMode : uint8
+{
+	// 입력 비활성 상태
+	None,
+
+	// 클릭 이동 모드
+	Movement,
+
+	// 어빌리티 타겟팅 모드
+	Targeting,
+};
 
 // 플레이어 컨트롤러 기반 클래스. 입력 처리, 플레이어 폰 제어 로직 담당.
 UCLASS()
@@ -31,6 +47,24 @@ public:
 	// 카메라 제어 컴포넌트 반환
 	UPBCameraControlComponent* GetCameraControl() const { return CameraControlComponent; }
 
+	// 타겟팅 컴포넌트 반환
+	UPBTargetingComponent* GetTargetingComponent() const { return TargetingComponent; }
+
+	// 최대 이동 거리 조회
+	float GetMaxMoveDistance() const { return MaxMoveDistance; }
+
+	// 현재 컨트롤러 모드 조회
+	EPBPlayerControllerMode GetControllerMode() const { return CurrentMode; }
+
+	// 현재 모드를 종료하고 해당 모드로 전환
+	void SetControllerMode(EPBPlayerControllerMode NewMode);
+
+	// 타겟팅 모드 진입 요청
+	void EnterTargetingMode(const FPBTargetingRequest& Request);
+
+	// 현재 모드를 None으로 종료
+	void ExitCurrentMode();
+
 protected:
 	/*~ AActor Interface ~*/
 	virtual void BeginPlay() override;
@@ -41,14 +75,14 @@ protected:
 	virtual void OnPossess(APawn* InPawn) override;
 
 private:
-	// 마우스 클릭 시 폰을 해당 위치로 이동 명령
-	void OnMoveCommand(const FInputActionValue& Value);
+	// 마우스 좌클릭 — 모드에 따라 이동 명령 또는 타겟 선택/확정 처리
+	void OnSelectCommand(const FInputActionValue& Value);
+
+	// 마우스 우클릭 — Targeting 모드에서만 동작
+	void OnRightClick(const FInputActionValue& Value);
 
 	// 매 틱마다 커서 아래 위치로 경로 미리보기를 갱신
-	void UpdateHoverPathDisplay();
-
-	// 경로 포인트 배열에서 MaxMoveDistance 기준으로 실제 이동 목적지를 계산
-	FVector CalculateClampedDestination(const TArray<FVector>& PathPoints) const;
+	void UpdateHoverPathDisplay(const FHitResult& HitResult);
 
 	/*~ Camera Control ~*/
 	void OnCameraZoom(const FInputActionValue& Value);
@@ -76,6 +110,10 @@ public:
 	// 이동 명령 입력 액션 (좌클릭)
 	UPROPERTY(EditAnywhere, Category = "Input")
 	TObjectPtr<UInputAction> MoveCommandAction;
+
+	// 우클릭 입력 액션
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> RightClickAction;
 
 	// 카메라 줌 입력 액션 (마우스 휠)
 	UPROPERTY(EditAnywhere, Category = "Input|Camera")
@@ -121,6 +159,13 @@ private:
 	// 카메라 제어 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UPBCameraControlComponent> CameraControlComponent;
+
+	// 타겟팅 세션 수명 관리 컴포넌트
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UPBTargetingComponent> TargetingComponent;
+
+	// 현재 PC 입력 모드
+	EPBPlayerControllerMode CurrentMode = EPBPlayerControllerMode::None;
 
 	// 마지막으로 경로를 갱신한 커서 위치
 	FVector LastHoverLocation = FVector::ZeroVector;

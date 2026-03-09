@@ -25,4 +25,7 @@ namespace PBGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Ability_Activate);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Ability_Confirm);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Ability_Cancel);
+
+	// 이동 이벤트 태그
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Movement_MoveCommand);
 }

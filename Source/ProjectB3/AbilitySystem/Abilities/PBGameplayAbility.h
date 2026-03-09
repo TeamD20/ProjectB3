@@ -33,11 +33,14 @@ public:
 		const FGameplayAbilityActivationInfo ActivationInfo,
 		const FGameplayEventData* TriggerEventData) override;
 
+	// GAS 내장 쿨다운 GE 미사용. 턴제 쿨다운은 별도 관리.
+	virtual UGameplayEffect* GetCooldownGameplayEffect() const override;
+
 	/*~ UPBGameplayAbility Interface ~*/
 	// 사거리 기반 어빌리티인지 여부 (Range > 0)
 	bool IsRangedAbility() const;
 
-	// 타겟이 사거리 내에 있는지 검증. PlayerController, AI(StateTree) 양쪽에서 호출.
+	// 타겟이 사거리 내에 있는지 검증.
 	bool IsTargetInRange(const FVector& SourceLocation, const FPBAbilityTargetData& TargetData) const;
 
 	// 사거리 값 조회
@@ -48,6 +51,9 @@ public:
 
 	// 타겟팅 모드 조회
 	EPBTargetingMode GetTargetingMode() const { return TargetingMode; }
+
+	// MultiTarget 최대 선택 수 조회
+	int32 GetMaxTargetCount() const { return MaxTargetCount; }
 
 protected:
 	// 어빌리티 로직 실행. 스킬 어빌리티에서 override하여 구현.
