@@ -19,7 +19,7 @@ class PROJECTB3_API UPBAbilitySystemComponent : public UAbilitySystemComponent
 public:
 	UPBAbilitySystemComponent();
 
-	// DA 기반 어빌리티 일괄 부여
+	// DA 기반 어빌리티 일괄 부여.
 	void GrantAbilitiesFromData(
 		const FGameplayTag& SourceTag,
 		const UPBAbilitySetData* Data,

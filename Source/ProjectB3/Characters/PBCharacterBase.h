@@ -106,7 +106,7 @@ protected:
 
 	// 공통 기본 어빌리티 (Attack, Dash 등)
 	UPROPERTY(EditDefaultsOnly, Category = "Abilities")
-	TObjectPtr<UPBAbilitySetData> InnateAbilitySet;
+	TObjectPtr<UPBAbilitySetData> CommonAbilitySet;
 
 	// 직업별 어빌리티
 	UPROPERTY(EditDefaultsOnly, Category = "Abilities")

@@ -3,8 +3,8 @@
 #include "PBCharacterBase.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
-#include "ProjectB3/AbilitySystem/PBAbilitySetData.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
+#include "ProjectB3/AbilitySystem/Data/PBAbilitySetData.h"
 
 APBCharacterBase::APBCharacterBase()
 {
@@ -36,10 +36,10 @@ void APBCharacterBase::BeginPlay()
 
 void APBCharacterBase::GrantInitialAbilities()
 {
-	if (IsValid(InnateAbilitySet))
+	if (IsValid(CommonAbilitySet))
 	{
 		AbilitySystemComponent->GrantAbilitiesFromData(
-			PBGameplayTags::Ability_Source_Innate, InnateAbilitySet);
+			PBGameplayTags::Ability_Source_Innate, CommonAbilitySet);
 	}
 
 	if (IsValid(ClassAbilitySet))

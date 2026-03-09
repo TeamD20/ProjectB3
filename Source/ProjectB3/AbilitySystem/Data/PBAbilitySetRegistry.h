@@ -9,7 +9,7 @@
 
 class UPBAbilitySetData;
 
-// 태그 → DA 중앙 매핑 레지스트리 (세이브/로드, 리스펙 등에서 사용)
+// 태그 : DA 중앙 매핑 레지스트리 (세이브/로드, 리스펙 등에서 사용)
 // TSoftObjectPtr로 참조 — 레지스트리 로드 시 DA를 연쇄 로드하지 않음
 UCLASS(BlueprintType)
 class PROJECTB3_API UPBAbilitySetRegistry : public UPrimaryDataAsset
