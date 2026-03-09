@@ -1,7 +1,142 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBAbilitySystemComponent.h"
+#include "PBAbilitySetData.h"
+#include "Abilities/PBGameplayAbility.h"
+
+DEFINE_LOG_CATEGORY(LogPBAbilitySystem);
 
 UPBAbilitySystemComponent::UPBAbilitySystemComponent()
 {
+}
+
+void UPBAbilitySystemComponent::GrantAbilitiesFromData(
+	const FGameplayTag& SourceTag,
+	const UPBAbilitySetData* Data,
+	int32 CharacterLevel)
+{
+	if (!IsValid(Data))
+	{
+		UE_LOG(LogPBAbilitySystem, Warning,
+			TEXT("GrantAbilitiesFromData: Data가 유효하지 않습니다. (Source: %s)"),
+			*SourceTag.ToString());
+		return;
+	}
+
+	// 중복 호출 방어 — 기존 핸들 자동 정리
+	if (GrantedHandleMap.Contains(SourceTag))
+	{
+		UE_LOG(LogPBAbilitySystem, Warning,
+			TEXT("GrantAbilitiesFromData: SourceTag [%s] 중복 Grant 감지, 기존 핸들 정리 후 재부여합니다."),
+			*SourceTag.ToString());
+		RemoveAbilitiesBySource(SourceTag);
+	}
+
+	FPBSourceGrantedHandles& Handles = GrantedHandleMap.Add(SourceTag);
+
+	// 어빌리티 부여
+	for (const FPBAbilityGrantEntry& Entry : Data->Abilities)
+	{
+		if (!Entry.IsValidData())
+		{
+			UE_LOG(LogPBAbilitySystem, Warning,
+				TEXT("GrantAbilitiesFromData: 유효하지 않은 어빌리티 엔트리 건너뜀. (Source: %s)"),
+				*SourceTag.ToString());
+			continue;
+		}
+
+		if (Entry.RequiredLevel > CharacterLevel)
+		{
+			continue;
+		}
+
+		FGameplayAbilitySpec Spec(Entry.AbilityClass, Entry.AbilityLevel, INDEX_NONE, GetOwner());
+		Spec.GetDynamicSpecSourceTags().AppendTags(Entry.DynamicTags);
+
+		FGameplayAbilitySpecHandle Handle = GiveAbility(Spec);
+		Handles.AbilityHandles.Add(Handle);
+
+		UE_LOG(LogPBAbilitySystem, Verbose,
+			TEXT("어빌리티 부여: %s (Source: %s, Level: %d)"),
+			*Entry.AbilityClass->GetName(), *SourceTag.ToString(), Entry.AbilityLevel);
+	}
+
+	// 패시브 GE 부여
+	for (const FPBEffectGrantEntry& Entry : Data->PassiveEffects)
+	{
+		if (!Entry.IsValidData())
+		{
+			UE_LOG(LogPBAbilitySystem, Warning,
+				TEXT("GrantAbilitiesFromData: 유효하지 않은 GE 엔트리 건너뜀. (Source: %s)"),
+				*SourceTag.ToString());
+			continue;
+		}
+
+		FGameplayEffectSpecHandle SpecHandle = MakeOutgoingSpec(Entry.EffectClass, 1, MakeEffectContext());
+		if (SpecHandle.IsValid())
+		{
+			FActiveGameplayEffectHandle EffectHandle = ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+			Handles.EffectHandles.Add(EffectHandle);
+
+			UE_LOG(LogPBAbilitySystem, Verbose,
+				TEXT("패시브 GE 부여: %s (Source: %s)"),
+				*Entry.EffectClass->GetName(), *SourceTag.ToString());
+		}
+	}
+
+	UE_LOG(LogPBAbilitySystem, Log,
+		TEXT("어빌리티 부여 완료: Source [%s] — 어빌리티 %d개, GE %d개"),
+		*SourceTag.ToString(), Handles.AbilityHandles.Num(), Handles.EffectHandles.Num());
+}
+
+void UPBAbilitySystemComponent::RemoveAbilitiesBySource(const FGameplayTag& SourceTag)
+{
+	FPBSourceGrantedHandles* Handles = GrantedHandleMap.Find(SourceTag);
+	if (!Handles)
+	{
+		UE_LOG(LogPBAbilitySystem, Verbose,
+			TEXT("RemoveAbilitiesBySource: 제거할 핸들 없음. (Source: %s)"),
+			*SourceTag.ToString());
+		return;
+	}
+
+	const int32 AbilityCount = Handles->AbilityHandles.Num();
+	const int32 EffectCount = Handles->EffectHandles.Num();
+
+	for (const FGameplayAbilitySpecHandle& Handle : Handles->AbilityHandles)
+	{
+		ClearAbility(Handle);
+	}
+
+	for (const FActiveGameplayEffectHandle& Handle : Handles->EffectHandles)
+	{
+		RemoveActiveGameplayEffect(Handle);
+	}
+
+	GrantedHandleMap.Remove(SourceTag);
+
+	UE_LOG(LogPBAbilitySystem, Log,
+		TEXT("어빌리티 제거 완료: Source [%s] — 어빌리티 %d개, GE %d개"),
+		*SourceTag.ToString(), AbilityCount, EffectCount);
+}
+
+void UPBAbilitySystemComponent::RemoveAllSourceGrantedAbilities()
+{
+	// 순회 중 Remove 방지를 위해 키 복사
+	TArray<FGameplayTag> SourceTags;
+	GrantedHandleMap.GetKeys(SourceTags);
+
+	for (const FGameplayTag& SourceTag : SourceTags)
+	{
+		RemoveAbilitiesBySource(SourceTag);
+	}
+
+	UE_LOG(LogPBAbilitySystem, Log,
+		TEXT("전체 Source 어빌리티 제거 완료. (제거된 Source 수: %d)"),
+		SourceTags.Num());
+}
+
+bool UPBAbilitySystemComponent::HasAbilitiesFromSource(const FGameplayTag& SourceTag) const
+{
+	return GrantedHandleMap.Contains(SourceTag);
 }

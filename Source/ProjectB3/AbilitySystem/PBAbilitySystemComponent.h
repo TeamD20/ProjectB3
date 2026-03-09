@@ -4,9 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "AbilitySystemComponent.h"
+#include "PBAbilityGrantTypes.h"
 #include "PBAbilitySystemComponent.generated.h"
 
-// AbilitySystemComponent 기반 클래스. 어빌리티 시스템 관련 커스텀 로직이나 기능이 필요한 경우 이 클래스에 구현.
+class UPBAbilitySetData;
+
+DECLARE_LOG_CATEGORY_EXTERN(LogPBAbilitySystem, Log, All);
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PROJECTB3_API UPBAbilitySystemComponent : public UAbilitySystemComponent
 {
@@ -14,4 +18,23 @@ class PROJECTB3_API UPBAbilitySystemComponent : public UAbilitySystemComponent
 
 public:
 	UPBAbilitySystemComponent();
+
+	// DA 기반 어빌리티 일괄 부여
+	void GrantAbilitiesFromData(
+		const FGameplayTag& SourceTag,
+		const UPBAbilitySetData* Data,
+		int32 CharacterLevel = 1);
+
+	// 특정 출처의 어빌리티 일괄 제거
+	void RemoveAbilitiesBySource(const FGameplayTag& SourceTag);
+
+	// GrantedHandleMap에 등록된 전체 어빌리티 제거
+	void RemoveAllSourceGrantedAbilities();
+
+	// 특정 출처에 부여된 핸들이 있는지 확인
+	bool HasAbilitiesFromSource(const FGameplayTag& SourceTag) const;
+
+protected:
+	// 출처별 핸들 캐시
+	TMap<FGameplayTag, FPBSourceGrantedHandles> GrantedHandleMap;
 };

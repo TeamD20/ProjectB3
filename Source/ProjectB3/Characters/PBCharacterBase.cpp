@@ -3,6 +3,7 @@
 #include "PBCharacterBase.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
+#include "ProjectB3/AbilitySystem/PBAbilitySetData.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 
 APBCharacterBase::APBCharacterBase()
@@ -24,6 +25,29 @@ UAbilitySystemComponent* APBCharacterBase::GetAbilitySystemComponent() const
 void APBCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// InitAbilityActorInfo 이후 어빌리티 부여
+	if (IsValid(AbilitySystemComponent))
+	{
+		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+		GrantInitialAbilities();
+	}
+}
+
+void APBCharacterBase::GrantInitialAbilities()
+{
+	if (IsValid(InnateAbilitySet))
+	{
+		AbilitySystemComponent->GrantAbilitiesFromData(
+			PBGameplayTags::Ability_Source_Innate, InnateAbilitySet);
+	}
+
+	if (IsValid(ClassAbilitySet))
+	{
+		// TODO: 캐릭터 레벨 시스템 연동 시 실제 레벨 전달
+		AbilitySystemComponent->GrantAbilitiesFromData(
+			PBGameplayTags::Ability_Source_Class, ClassAbilitySet, 1);
+	}
 }
 
 int32 APBCharacterBase::GetInitiativeModifier() const
