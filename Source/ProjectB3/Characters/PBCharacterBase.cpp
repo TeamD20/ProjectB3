@@ -39,7 +39,7 @@ void APBCharacterBase::GrantInitialAbilities()
 	if (IsValid(CommonAbilitySet))
 	{
 		AbilitySystemComponent->GrantAbilitiesFromData(
-			PBGameplayTags::Ability_Source_Innate, CommonAbilitySet);
+			PBGameplayTags::Ability_Source_Common, CommonAbilitySet);
 	}
 
 	if (IsValid(ClassAbilitySet))

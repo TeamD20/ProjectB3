@@ -4,6 +4,7 @@
 
 #include "GameFramework/PlayerController.h"
 #include "InputActionValue.h"
+#include "PBPlayerCheatManager.h"
 #include "PBGameplayPlayerController.generated.h"
 
 class UNiagaraSystem;
@@ -23,10 +24,13 @@ enum class EPBPlayerControllerMode : uint8
 {
 	// 입력 비활성 상태
 	None,
-
-	// 클릭 이동 모드
+	
+	// 자유 이동 모드 (거리 제한 없음, PC 직접 제어)
+	FreeMovement,
+	
+	// 턴 기반 이동 모드 (이동력 제한)
 	Movement,
-
+	
 	// 어빌리티 타겟팅 모드
 	Targeting,
 };
@@ -56,6 +60,9 @@ public:
 	// PathDisplay의 이동 범위를 갱신 (이동 어빌리티 활성화 시 호출)
 	void SetPathDisplayMovementRange(float Range);
 
+	// PathDisplay 초기화
+	void ClearPathDisplay();
+	
 	// 현재 모드를 종료하고 해당 모드로 전환
 	void SetControllerMode(EPBPlayerControllerMode NewMode);
 

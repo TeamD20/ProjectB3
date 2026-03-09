@@ -114,7 +114,8 @@ struct PROJECTB3_API FPBAbilityTargetData
 	}
 };
 
-class UPBGameplayAbility;
+
+class UPBGameplayAbility_Targeted;
 
 /** PlayerController가 UPBTargetingComponent에 타겟팅 세션을 요청할 때 전달하는 구조체. */
 USTRUCT(BlueprintType)
@@ -123,7 +124,7 @@ struct PROJECTB3_API FPBTargetingRequest
 	GENERATED_BODY()
 
 	// 요청한 어빌리티 (사거리 검증 위임용)
-	TWeakObjectPtr<UPBGameplayAbility> RequestingAbility;
+	TWeakObjectPtr<UPBGameplayAbility_Targeted> RequestingAbility;
 
 	// 타겟팅 모드
 	UPROPERTY(BlueprintReadWrite, Category = "Ability|Targeting")

@@ -4,12 +4,15 @@
 
 #include "CoreMinimal.h"
 #include "PBGameplayAbility.h"
+#include "Navigation/PathFollowingComponent.h"
+class UPBAbilityTask_MoveToLocation;
+
 #include "PBGameplayAbility_Move.generated.h"
 
 /**
- * 클릭 이동 어빌리티.
- * 발동 시 PC를 Movement 모드로 전환하고,
- * Event.Movement.MoveCommand 이벤트를 수신할 때마다 목적지로 이동한다.
+ * 이동 어빌리티.
+ * Event.Movement.MoveCommand 이벤트를 수신하면 목적지로 이동한다.
+ * 플레이어: 발동 시 PC를 Movement 모드로 전환
  */
 UCLASS()
 class PROJECTB3_API UPBGameplayAbility_Move : public UPBGameplayAbility
@@ -39,6 +42,20 @@ private:
 	UFUNCTION()
 	void HandleMoveEvent(FGameplayEventData Payload);
 
-	// NavPath 포인트에서 MaxMoveDistance 기준 최종 목적지 계산
-	FVector CalculateClampedDestination(const TArray<FVector>& PathPoints, float MaxDist) const;
+	// 이동 완료 핸들러
+	UFUNCTION()
+	void HandleMoveCompleted(TEnumAsByte<EPathFollowingResult::Type> Result);
+
+	// NavPath 포인트에서 MaxMoveDistance 기준 최종 목적지 계산 및 경로 포인트 추출
+	FVector CalculateClampedDestination(const TArray<FVector>& PathPoints, float MaxDist, TArray<FVector>& OutClampedPath) const;
+
+	// 경로 포인트 기준으로 현재 위치까지 이동한 거리 계산
+	float CalculateDistanceAlongPath(const FVector& CurrentLocation) const;
+
+	// 현재 실행 중인 이동 Task
+	UPROPERTY()
+	TObjectPtr<UPBAbilityTask_MoveToLocation> ActiveMoveTask;
+
+	// 이동 경로 포인트 (실제 이동 거리 계산용)
+	TArray<FVector> MovePathPoints;
 };

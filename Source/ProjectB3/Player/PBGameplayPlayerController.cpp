@@ -6,6 +6,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
+#include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "NiagaraFunctionLibrary.h"
 #include "PBTargetingComponent.h"
 #include "AbilitySystemComponent.h"
@@ -20,9 +21,11 @@
 APBGameplayPlayerController::APBGameplayPlayerController()
 {
 	PrimaryActorTick.bCanEverTick = true;
+	CheatClass = UPBPlayerCheatManager::StaticClass();
 
-	PathDisplayComponent = CreateDefaultSubobject<UPBPathDisplayComponent>(TEXT("PathDisplayComponent"));
 	CameraControlComponent = CreateDefaultSubobject<UPBCameraControlComponent>(TEXT("CameraControlComponent"));
+	PathDisplayComponent = CreateDefaultSubobject<UPBPathDisplayComponent>(TEXT("PathDisplayComponent"));
+	TargetingComponent = CreateDefaultSubobject<UPBTargetingComponent>(TEXT("TargetingComponent"));
 }
 
 void APBGameplayPlayerController::BeginPlay()
@@ -77,7 +80,7 @@ void APBGameplayPlayerController::Tick(float DeltaTime)
 
 	if (bGotHit)
 	{
-		if (CurrentMode == EPBPlayerControllerMode::Movement)
+		if (CurrentMode == EPBPlayerControllerMode::Movement || CurrentMode == EPBPlayerControllerMode::FreeMovement)
 		{
 			UpdateHoverPathDisplay(CursorHit);
 		}
@@ -199,11 +202,24 @@ void APBGameplayPlayerController::SetControllerMode(EPBPlayerControllerMode NewM
 	}
 
 	CurrentMode = NewMode;
+
+	PathDisplayComponent->ClearPath();
+	
+	// FreeMovement 진입 시 PathDisplay 거리 제한 해제
+	if (NewMode == EPBPlayerControllerMode::FreeMovement)
+	{
+		PathDisplayComponent->SetMaxMoveDistance(-1.0f);
+	}
 }
 
 void APBGameplayPlayerController::SetPathDisplayMovementRange(float Range)
 {
 	PathDisplayComponent->SetMaxMoveDistance(Range);
+}
+
+void APBGameplayPlayerController::ClearPathDisplay()
+{
+	PathDisplayComponent->ClearPath();
 }
 
 void APBGameplayPlayerController::EnterTargetingMode(const FPBTargetingRequest& Request)
@@ -260,6 +276,30 @@ void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value
 			EventData.OptionalObject = MovePayload;
 				ASC->HandleGameplayEvent(PBGameplayTags::Event_Movement_MoveCommand, &EventData);
 		}
+
+		PathDisplayComponent->ClearPath();
+		if (IsValid(CursorVFX))
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, CursorVFX, HitResult.Location, FRotator::ZeroRotator, FVector(1.f, 1.f, 1.f), true, true, ENCPoolMethod::None, true);
+		}
+		return;
+	}
+	case EPBPlayerControllerMode::FreeMovement:
+	{
+		FHitResult HitResult;
+		if (!GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
+		{
+			return;
+		}
+
+		APawn* MyPawn = GetPawn();
+		if (!IsValid(MyPawn))
+		{
+			return;
+		}
+
+		// 거리 제한 없이 PC가 직접 이동 명령
+		UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, HitResult.Location);
 
 		PathDisplayComponent->ClearPath();
 		if (IsValid(CursorVFX))

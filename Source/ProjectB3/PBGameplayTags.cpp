@@ -11,12 +11,14 @@ namespace PBGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Faction_Enemy, "Combat.Faction.Enemy", "적 진영");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Faction_Neutral, "Combat.Faction.Neutral", "중립 진영");
 
-	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Innate, "Ability.Source.Innate", "공통 기본 어빌리티 출처");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Common, "Ability.Source.Common", "공통 기본 어빌리티 출처");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Class, "Ability.Source.Class", "클래스 어빌리티 출처");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Equipment_Weapon, "Ability.Source.Equipment.Weapon", "무기 장비 어빌리티 출처");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Equipment_Armor, "Ability.Source.Equipment.Armor", "방어구 장비 어빌리티 출처");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Equipment_Accessory, "Ability.Source.Equipment.Accessory", "악세서리 장비 어빌리티 출처");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Status, "Ability.Source.Status", "상태 효과 어빌리티 출처");
+	
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Active_Move, "Ability.Active.Move", "이동 어빌리티");
 
 	// 어빌리티 발동 이벤트 태그
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Ability_Activate, "Event.Ability.Activate", "어빌리티 발동 요청 이벤트");

@@ -14,7 +14,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnWaitTargetingConfirmed, const FPBAbilityT
 DECLARE_MULTICAST_DELEGATE(FOnWaitTargetingCancelled);
 
 /**
- * 플레이어 타겟팅 세션을 UPBGameplayAbility와 UPBTargetingComponent 사이에서 중개하는 AbilityTask.
+ * 플레이어 타겟팅 세션을 UPBGameplayAbility_Targeted와 UPBTargetingComponent 사이에서 중개하는 AbilityTask.
  */
 UCLASS()
 class PROJECTB3_API UPBAbilityTask_WaitTargeting : public UAbilityTask

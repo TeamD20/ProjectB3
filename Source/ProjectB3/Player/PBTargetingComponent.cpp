@@ -2,6 +2,7 @@
 
 #include "PBTargetingComponent.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
+#include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
 
 void UPBTargetingComponent::EnterTargetingMode(const FPBTargetingRequest& Request)
 {
@@ -55,7 +56,7 @@ void UPBTargetingComponent::UpdateTargetingFromHit(const FHitResult& HitResult)
 
 	// 사거리 검증을 요청한 어빌리티에 위임
 	bool bInRange = false;
-	UPBGameplayAbility* Ability = CurrentRequest.RequestingAbility.Get();
+	UPBGameplayAbility_Targeted* Ability = CurrentRequest.RequestingAbility.Get();
 	if (IsValid(Ability))
 	{
 		bInRange = Ability->IsTargetInRange(CurrentRequest.OriginLocation, NewCandidate);
