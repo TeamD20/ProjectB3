@@ -28,7 +28,8 @@ public class ProjectB3 : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[] 
 		{
 			"Slate", 
-			"SlateCore"
+			"SlateCore",
+			"FunctionalTesting"
 		});
 
 		// Uncomment if you are using online features

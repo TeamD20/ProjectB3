@@ -86,6 +86,14 @@ void APBUITestGameMode::SetupDummyCharacterData()
 			
 			// 초기 턴 설정 (첫 번째 멤버)
 			VM->SetIsMyTurn(i == 0);
+			
+			VM->OnPartyMemberSelected.AddWeakLambda(this,	[this,VM](AActor* SelectedActor)
+			{
+				if (VM)
+				{
+					UE_LOG(LogTemp,Warning,TEXT("%s Selected"),*VM->GetCharacterName().ToString());
+				}
+			});
 		}
 	}
 }

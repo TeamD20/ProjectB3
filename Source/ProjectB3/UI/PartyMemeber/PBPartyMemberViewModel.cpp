@@ -149,3 +149,8 @@ void UPBPartyMemberViewModel::SetIsMyTurn(bool InMyTurn)
 	}
 }
 
+void UPBPartyMemberViewModel::OnSelected()
+{
+	OnPartyMemberSelected.Broadcast(GetTargetActor());
+}
+
