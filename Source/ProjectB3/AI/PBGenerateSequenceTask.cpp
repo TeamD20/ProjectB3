@@ -5,10 +5,9 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
 #include "Engine/World.h"
-#include "PBAIMockAttributeSet.h"
 #include "PBUtilityClearinghouse.h"
+#include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "StateTreeExecutionContext.h"
-
 
 // StateTree 디버깅을 위한 독립적인 로그 카테고리
 DEFINE_LOG_CATEGORY_STATIC(LogPBStateTree, Log, All);
@@ -18,7 +17,6 @@ DEFINE_LOG_CATEGORY_STATIC(LogPBStateTree, Log, All);
 EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
     FStateTreeExecutionContext &Context,
     const FStateTreeTransitionResult &Transition) {
-
   // 1. 구동 주체 유효성 검증
   if (!IsValid(SelfActor)) {
     UE_LOG(LogPBStateTree, Error,
@@ -53,8 +51,24 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
     return EStateTreeRunStatus::Failed;
   }
 
+  // 턴 자원 어트리뷰트셋 가져오기 (없으면 이전 Mock 속성 사용 로직 등 Fallback
+  // 필요 없으나 일단 가져옴)
+  const UPBTurnResourceAttributeSet *TurnResourceSet =
+      ASC->GetSet<UPBTurnResourceAttributeSet>();
+  float CurrentAction = 0.0f;
+  float CurrentBonusAction = 0.0f;
+  float CurrentMovement = 0.0f;
+
+  if (TurnResourceSet) {
+    CurrentAction = TurnResourceSet->GetAction();
+    CurrentBonusAction = TurnResourceSet->GetBonusAction();
+    CurrentMovement = TurnResourceSet->GetMovement();
+  }
+
   UE_LOG(LogPBStateTree, Display,
-         TEXT("=== 어빌리티 필터링 (Phase 1) 개시 ==="));
+         TEXT("=== 어빌리티 필터링 (Phase 1) 개시 [잔여 자원 Action: %f, "
+              "BonusAction: %f, Movement: %f] ==="),
+         CurrentAction, CurrentBonusAction, CurrentMovement);
   TArray<UGameplayAbility *> ValidAbilities;
   const TArray<FGameplayAbilitySpec> &ActivatableAbilities =
       ASC->GetActivatableAbilities();
@@ -119,7 +133,9 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 
   // 공격 사거리 이내일 경우
   if (RealDistance <= 200.0f) {
-    if (ValidAbilities.Num() > 0) {
+    // 안전 장치: 현재 GAS 세팅에서 Cost 처리가 완벽하지 않을 수 있으므로,
+    // 명시적으로 Action 잔량이 1.0 이상인지 교차 검증하여 무한 루프를 막습니다.
+    if (ValidAbilities.Num() > 0 && CurrentAction >= 1.0f) {
       DecidedAction.ActionType = EPBActionType::Attack;
       DecidedAction.TargetActor = BestTargetActor;
       DecidedAction.Cost.ActionCost = 1.0f; // 공격은 1 Action 소모
@@ -138,17 +154,26 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
   }
   // 공격 사거리 밖일 경우 (이동 접근 시도)
   else {
-    // 실제 이동력(Movement) 계산 속성이 추가되기 전까지는 임시로 무한 이동 가능
-    // 처리하되, 나중에는 여기서 CurrentMovement 잔량과 소모량을 비교 후 Failed
-    // 반환 로직 추가 필요.
+    // 실제 이동력(Movement) 계산 속성을 활용
+    float MovementCost = RealDistance;
+    if (TurnResourceSet && CurrentMovement < MovementCost &&
+        CurrentMovement <= 10.0f) {
+      // 남은 이동력마저 없다면 턴 종료 처리 (Failed)
+      UE_LOG(LogPBStateTree, Warning,
+             TEXT("GenerateSequenceTask: 타겟에 접근해야 하나 남은 "
+                  "이동력(Movement: %f)이 부족하여 턴을 종료(Failed)합니다."),
+             CurrentMovement);
+      return EStateTreeRunStatus::Failed;
+    }
+
     DecidedAction.ActionType = EPBActionType::Move;
     DecidedAction.TargetActor = BestTargetActor;
-    DecidedAction.Cost.MovementCost =
-        RealDistance * 1.5f; // 가상의 비례 이동 소모 비용
-    UE_LOG(
-        LogPBStateTree, Display,
-        TEXT("결정된 행동: 타겟이 멀어 거리가 %f이므로 [Move]를 결정합니다."),
-        RealDistance);
+    DecidedAction.Cost.MovementCost = MovementCost;
+
+    UE_LOG(LogPBStateTree, Display,
+           TEXT("결정된 행동: 타겟이 멀어 거리가 %f이므로 [Move]를 결정합니다. "
+                "(예상 소모 이동력: %f)"),
+           RealDistance, MovementCost);
   }
 
   // 구조체 자체의 변수 오버라이드로 대체 적재
