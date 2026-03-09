@@ -202,6 +202,13 @@ void UPBPathDisplayComponent::CalculateTotalDistance(FPBPathDrawData& InOutDrawD
 
 void UPBPathDisplayComponent::CalculateSplitDistance(FPBPathDrawData& InOutDrawData) const
 {
+	// 무제한 이동: 전체 경로가 InRange
+	if (MaxMoveDistance < 0.0f)
+	{
+		InOutDrawData.SplitDistance = InOutDrawData.TotalDistance;
+		return;
+	}
+
 	float AccumulatedDist = 0.0f;
 	for (int32 i = 1; i < InOutDrawData.PathPoints.Num(); ++i)
 	{

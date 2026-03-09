@@ -6,27 +6,34 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
-#include "NiagaraFunctionLibrary.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "NiagaraFunctionLibrary.h"
+#include "PBTargetingComponent.h"
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemBlueprintLibrary.h"
+#include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
+#include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
+#include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/Camera/PBCameraControlComponent.h"
 #include "ProjectB3/Characters/PBPlayerCharacter.h"
 #include "ProjectB3/NavigationSystem/PBPathDisplayComponent.h"
+
 APBGameplayPlayerController::APBGameplayPlayerController()
 {
 	PrimaryActorTick.bCanEverTick = true;
+	CheatClass = UPBPlayerCheatManager::StaticClass();
 
-	PathDisplayComponent = CreateDefaultSubobject<UPBPathDisplayComponent>(TEXT("PathDisplayComponent"));
 	CameraControlComponent = CreateDefaultSubobject<UPBCameraControlComponent>(TEXT("CameraControlComponent"));
+	PathDisplayComponent = CreateDefaultSubobject<UPBPathDisplayComponent>(TEXT("PathDisplayComponent"));
+	TargetingComponent = CreateDefaultSubobject<UPBTargetingComponent>(TEXT("TargetingComponent"));
 }
 
 void APBGameplayPlayerController::BeginPlay()
 {
-	// ValidateProperties가 올바른 값으로 실행되도록 Super 호출 전에 동기화
-	PathDisplayComponent->SetMaxMoveDistance(MaxMoveDistance);
-
 	Super::BeginPlay();
 
 	bShowMouseCursor = true;
+	
 
 	// Enhanced Input 매핑 컨텍스트 등록
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
@@ -67,8 +74,21 @@ void APBGameplayPlayerController::Tick(float DeltaTime)
 	{
 		CameraControlComponent->AddFreeLookInput(FVector2D(MouseX, MouseY));
 	}
-	
-	UpdateHoverPathDisplay();
+	// 단일 라인트레이스 결과를 경로 표시와 타겟팅이 공유
+	FHitResult CursorHit;
+	const bool bGotHit = GetHitResultUnderCursor(ECC_Visibility, false, CursorHit);
+
+	if (bGotHit)
+	{
+		if (CurrentMode == EPBPlayerControllerMode::Movement || CurrentMode == EPBPlayerControllerMode::FreeMovement)
+		{
+			UpdateHoverPathDisplay(CursorHit);
+		}
+		if (CurrentMode == EPBPlayerControllerMode::Targeting)
+		{
+			TargetingComponent->UpdateTargetingFromHit(CursorHit);
+		}
+	}
 }
 
 void APBGameplayPlayerController::SetupInputComponent()
@@ -83,7 +103,7 @@ void APBGameplayPlayerController::SetupInputComponent()
 
 	if (IsValid(MoveCommandAction))
 	{
-		EnhancedInput->BindAction(MoveCommandAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnMoveCommand);
+		EnhancedInput->BindAction(MoveCommandAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnSelectCommand);
 	}
 	if (IsValid(CameraZoomAction))
 	{
@@ -120,10 +140,6 @@ void APBGameplayPlayerController::OnPossess(APawn* InPawn)
 	// 캐릭터 전환 시 카메라 오프셋을 새 캐릭터 중심으로 리셋
 	CameraControlComponent->ResetOffset();
 }
-
-// ============================================================================
-// Camera Control
-// ============================================================================
 
 void APBGameplayPlayerController::OnCameraZoom(const FInputActionValue& Value)
 {
@@ -169,89 +185,154 @@ void APBGameplayPlayerController::BindCameraToCharacter()
 	}
 }
 
-// ============================================================================
-// Movement & Path Display
-// ============================================================================
-
-void APBGameplayPlayerController::OnMoveCommand(const FInputActionValue& Value)
+void APBGameplayPlayerController::SetControllerMode(EPBPlayerControllerMode NewMode)
 {
-	FHitResult HitResult;
-	if (!GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
+	if (CurrentMode == NewMode)
 	{
 		return;
 	}
 
-	APawn* MyPawn = GetPawn();
-	if (!IsValid(MyPawn))
+	// 이전 모드 종료 처리
+	if (CurrentMode == EPBPlayerControllerMode::Targeting)
 	{
-		return;
+		if (TargetingComponent->IsTargetingActive())
+		{
+			TargetingComponent->ExitTargetingMode();
+		}
 	}
 
-	UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(GetWorld());
-	if (!IsValid(NavSys))
-	{
-		return;
-	}
+	CurrentMode = NewMode;
 
-	UNavigationPath* NavPath = NavSys->FindPathToLocationSynchronously(
-		GetWorld(), MyPawn->GetActorLocation(), HitResult.Location);
-
-	if (!IsValid(NavPath) || !NavPath->IsValid())
-	{
-		return;
-	}
-
-	const FVector Destination = CalculateClampedDestination(NavPath->PathPoints);
-	UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, Destination);
 	PathDisplayComponent->ClearPath();
-
-	if (CursorVFX)
+	
+	// FreeMovement 진입 시 PathDisplay 거리 제한 해제
+	if (NewMode == EPBPlayerControllerMode::FreeMovement)
 	{
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, CursorVFX, HitResult.Location, FRotator::ZeroRotator, FVector(1.f, 1.f, 1.f), true, true, ENCPoolMethod::None, true);
+		PathDisplayComponent->SetMaxMoveDistance(-1.0f);
 	}
 }
 
-FVector APBGameplayPlayerController::CalculateClampedDestination(const TArray<FVector>& PathPoints) const
+void APBGameplayPlayerController::SetPathDisplayMovementRange(float Range)
 {
-	if (PathPoints.Num() == 0)
+	PathDisplayComponent->SetMaxMoveDistance(Range);
+}
+
+void APBGameplayPlayerController::ClearPathDisplay()
+{
+	PathDisplayComponent->ClearPath();
+}
+
+void APBGameplayPlayerController::EnterTargetingMode(const FPBTargetingRequest& Request)
+{
+	// TargetingComponent에 세션 진입 요청 후 모드 전환
+	TargetingComponent->EnterTargetingMode(Request);
+	SetControllerMode(EPBPlayerControllerMode::Targeting);
+}
+
+void APBGameplayPlayerController::ExitCurrentMode()
+{
+	SetControllerMode(EPBPlayerControllerMode::None);
+}
+
+void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value)
+{
+	switch (CurrentMode)
 	{
-		return FVector::ZeroVector;
-	}
-
-	if (MaxMoveDistance <= -1.0f)
-	{
-		return PathPoints.Last();
-	}
-
-	const float MaxDist = MaxMoveDistance;
-	float AccumulatedDist = 0.0f;
-
-	for (int32 i = 1; i < PathPoints.Num(); ++i)
-	{
-		const float SegDist = FVector::Dist(PathPoints[i - 1], PathPoints[i]);
-
-		if (AccumulatedDist + SegDist >= MaxDist)
+	case EPBPlayerControllerMode::Targeting:
+		// 타겟팅 모드: MultiTarget는 후보 추가, 그 외는 즉시 확정
+		if (TargetingComponent->IsMultiTargetMode())
 		{
-			const float Remaining = MaxDist - AccumulatedDist;
-			const float T = (SegDist > 0.0f) ? (Remaining / SegDist) : 0.0f;
-			return FMath::Lerp(PathPoints[i - 1], PathPoints[i], T);
+			TargetingComponent->AddTargetSelection();
+		}
+		else
+		{
+			TargetingComponent->ConfirmTarget();
+		}
+		return;
+
+	case EPBPlayerControllerMode::Movement:
+	{
+		FHitResult HitResult;
+		if (!GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
+		{
+			return;
 		}
 
-		AccumulatedDist += SegDist;
-	}
+		APawn* MyPawn = GetPawn();
+		if (!IsValid(MyPawn))
+		{
+			return;
+		}
 
-	return PathPoints.Last();
-}
+		// 이동 Payload 구성 후 이동 어빌리티에 이벤트 전송
+		UPBTargetPayload* MovePayload = NewObject<UPBTargetPayload>(this);
+		MovePayload->TargetData.TargetingMode = EPBTargetingMode::Location;
+		MovePayload->TargetData.TargetLocation = HitResult.Location;
 
-void APBGameplayPlayerController::UpdateHoverPathDisplay()
-{
-	if (!PathDisplayComponent->IsPathDisplayEnabled())
-	{
+		UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(MyPawn);
+		if (IsValid(ASC))
+		{
+			FGameplayEventData EventData;
+			EventData.OptionalObject = MovePayload;
+				ASC->HandleGameplayEvent(PBGameplayTags::Event_Movement_MoveCommand, &EventData);
+		}
+
+		PathDisplayComponent->ClearPath();
+		if (IsValid(CursorVFX))
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, CursorVFX, HitResult.Location, FRotator::ZeroRotator, FVector(1.f, 1.f, 1.f), true, true, ENCPoolMethod::None, true);
+		}
 		return;
 	}
+	case EPBPlayerControllerMode::FreeMovement:
+	{
+		FHitResult HitResult;
+		if (!GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
+		{
+			return;
+		}
 
-	FHitResult HitResult;
-	if (!GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
+		APawn* MyPawn = GetPawn();
+		if (!IsValid(MyPawn))
+		{
+			return;
+		}
+
+		// 거리 제한 없이 PC가 직접 이동 명령
+		UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, HitResult.Location);
+
+		PathDisplayComponent->ClearPath();
+		if (IsValid(CursorVFX))
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, CursorVFX, HitResult.Location, FRotator::ZeroRotator, FVector(1.f, 1.f, 1.f), true, true, ENCPoolMethod::None, true);
+		}
+		return;
+	}
+	case EPBPlayerControllerMode::None:
+	default:
+		return;
+	}
+}
+
+void APBGameplayPlayerController::OnRightClick(const FInputActionValue& Value)
+{
+	// Targeting 모드 처리. MultiTarget: 마지막 후보 제거.
+	if (CurrentMode == EPBPlayerControllerMode::Targeting)
+	{
+		if (TargetingComponent->IsMultiTargetMode())
+		{
+			TargetingComponent->RemoveLastTarget();
+		}
+		else
+		{
+			TargetingComponent->CancelTargeting();
+		}
+	}
+}
+
+void APBGameplayPlayerController::UpdateHoverPathDisplay(const FHitResult& HitResult)
+{
+	if (!PathDisplayComponent->IsPathDisplayEnabled())
 	{
 		return;
 	}
