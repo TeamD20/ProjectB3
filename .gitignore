@@ -77,6 +77,8 @@ DerivedDataCache/*
 ProjectReboot.sln.DotSettings.user
 .github
 
-# Begin Fab 에셋 폴더
+Backup
 
+# Begin Fab 에셋 폴더
+Content/PaidAssets
 # End Fab 에셋 폴더
