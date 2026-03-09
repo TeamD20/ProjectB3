@@ -40,8 +40,8 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
     return EStateTreeRunStatus::Failed;
   }
 
-  // 3. 턴 시작 데이터 캐싱 수행
-  Clearinghouse->CacheTurnData(SelfActor);
+  // 3. Clearinghouse 캐시 활용 (CacheTurnData는 InitializeTurnTask에서 처리됨)
+  // 여기서는 이미 캐싱된 데이터를 토대로 분석만 수행
 
   // --- 어빌리티 및 자원 체크 (Phase 1: Filter) ---
   UAbilitySystemComponent *ASC =
