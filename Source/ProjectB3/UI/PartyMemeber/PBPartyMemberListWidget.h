@@ -23,6 +23,7 @@ class PROJECTB3_API UPBPartyMemberListWidget : public UPBWidgetBase
 	
 public:
 	virtual void NativeConstruct() override;
+	virtual void NativeDestruct() override;
 	
 	UFUNCTION(BlueprintCallable, Category = "UI|Party")
 	void InitializeBinding(UPBPartyMemberListViewModel* InViewModel);

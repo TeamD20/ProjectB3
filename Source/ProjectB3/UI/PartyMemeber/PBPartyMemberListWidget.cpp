@@ -21,6 +21,17 @@ void UPBPartyMemberListWidget::NativeConstruct()
 	}
 }
 
+void UPBPartyMemberListWidget::NativeDestruct()
+{
+	if (IsValid(ListViewModel))
+	{
+		ListViewModel->OnPartyListChanged.RemoveAll(this);
+		ListViewModel = nullptr;
+	}
+	
+	Super::NativeDestruct();
+}
+
 void UPBPartyMemberListWidget::InitializeBinding(UPBPartyMemberListViewModel* InViewModel)
 {
 	if (!IsValid(InViewModel))
