@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #pragma once
 
@@ -10,4 +10,9 @@ UCLASS()
 class PROJECTB3_API APBGameplayGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
+
+public:
+	// 전투 개시. CombatManagerSubsystem에 위임
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void InitiateCombat(const TArray<AActor*>& Combatants);
 };

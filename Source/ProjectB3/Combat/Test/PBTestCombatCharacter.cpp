@@ -1,0 +1,37 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+
+#include "PBTestCombatCharacter.h"
+
+APBTestCombatCharacter::APBTestCombatCharacter()
+{
+}
+
+int32 APBTestCombatCharacter::GetInitiativeModifier() const
+{
+	return TestInitiativeModifier;
+}
+
+bool APBTestCombatCharacter::HasInitiativeAdvantage() const
+{
+	return bTestHasAdvantage;
+}
+
+bool APBTestCombatCharacter::IsIncapacitated() const
+{
+	return bTestIsIncapacitated;
+}
+
+void APBTestCombatCharacter::SetIncapacitated(bool bNewIncapacitated)
+{
+	bTestIsIncapacitated = bNewIncapacitated;
+}
+
+bool APBTestCombatCharacter::CanReact() const
+{
+	return !bTestIsIncapacitated && bTestCanReact;
+}
+
+void APBTestCombatCharacter::SetCanReact(bool bNewCanReact)
+{
+	bTestCanReact = bNewCanReact;
+}

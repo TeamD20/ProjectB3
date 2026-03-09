@@ -7,7 +7,7 @@
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
 #include "Navigation/PathFollowingComponent.h"
-#include "PBAIMockAttributeSet.h"
+#include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "StateTreeExecutionContext.h"
 
 // StateTree 디버깅을 위한 독립적인 로그 카테고리
@@ -24,7 +24,6 @@ UPBExecuteSequenceTask::UPBExecuteSequenceTask(
 EStateTreeRunStatus UPBExecuteSequenceTask::EnterState(
     FStateTreeExecutionContext &Context,
     const FStateTreeTransitionResult &Transition) {
-
   // 1. 구동 주체 및 시퀀스 데이터 유효성 검증
   if (!IsValid(SelfActor)) {
     UE_LOG(LogPBStateTreeExec, Error,
@@ -66,7 +65,6 @@ EStateTreeRunStatus UPBExecuteSequenceTask::EnterState(
 void UPBExecuteSequenceTask::ExitState(
     FStateTreeExecutionContext &Context,
     const FStateTreeTransitionResult &Transition) {
-
   if (CachedAIController && bIsActionInProgress &&
       CurrentAction.ActionType == EPBActionType::Move) {
     UE_LOG(LogPBStateTreeExec, Display,
@@ -76,7 +74,6 @@ void UPBExecuteSequenceTask::ExitState(
 }
 
 EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
-
   if (CurrentAction.ActionType == EPBActionType::None) {
     UE_LOG(LogPBStateTreeExec, Warning,
            TEXT("실행 가능한 행동이 없습니다. 실행기 종료."));
@@ -92,6 +89,15 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
   case EPBActionType::Move: {
     UE_LOG(LogPBStateTreeExec, Display, TEXT("Executing MOVE: Target [%s]"),
            *TargetName);
+
+    // 이동 소모력(Movement) 차감
+    UAbilitySystemComponent *ASC =
+        UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(SelfActor);
+    if (IsValid(ASC)) {
+      ASC->ApplyModToAttributeUnsafe(
+          UPBTurnResourceAttributeSet::GetMovementAttribute(),
+          EGameplayModOp::Additive, -CurrentAction.Cost.MovementCost);
+    }
 
     if (CachedAIController && IsValid(CurrentAction.TargetActor)) {
       FAIMoveRequest MoveReq;
@@ -123,8 +129,8 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
       // *주의: 실제 프로덕션에서는 Gameplay Effect를 통해 차감해야 리플리케이션
       // 및 버프/디버프 연산이 안전합니다.*
       ASC->ApplyModToAttributeUnsafe(
-          UPBAIMockAttributeSet::GetActionAttribute(), EGameplayModOp::Additive,
-          -CurrentAction.Cost.ActionCost);
+          UPBTurnResourceAttributeSet::GetActionAttribute(),
+          EGameplayModOp::Additive, -CurrentAction.Cost.ActionCost);
 
       UE_LOG(LogPBStateTreeExec, Display,
              TEXT("Attack 실행 완료: AP %f 소모됨."),

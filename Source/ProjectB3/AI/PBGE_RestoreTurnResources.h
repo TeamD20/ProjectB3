@@ -11,9 +11,10 @@
  * C++에서 초기화되어 에디터에서 블루프린트로 활용할 수 있습니다.
  */
 UCLASS(Blueprintable)
-class PROJECTB3_API UPBGE_RestoreTurnResources : public UGameplayEffect {
-  GENERATED_BODY()
+class PROJECTB3_API UPBGE_RestoreTurnResources : public UGameplayEffect
+{
+	GENERATED_BODY()
 
 public:
-  UPBGE_RestoreTurnResources();
+	UPBGE_RestoreTurnResources();
 };
