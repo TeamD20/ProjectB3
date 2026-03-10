@@ -47,7 +47,7 @@ public:
 	virtual void OnRoundBegin() override;
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	virtual void OnTurnBegin() override;
-	virtual void OnTurnActivated() override {}
+	virtual void OnTurnActivated() override;
 	virtual void OnTurnEnd() override;
 	virtual bool CanReact() const override;
 	virtual void
