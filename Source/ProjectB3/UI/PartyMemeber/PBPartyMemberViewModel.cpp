@@ -2,7 +2,6 @@
 
 
 #include "PBPartyMemberViewmodel.h"
-#include "ProjectB3/UI/Test/PBUITestGameMode.h"
 
 
 FText UPBPartyMemberViewModel::GetCharacterName() const
@@ -152,15 +151,6 @@ void UPBPartyMemberViewModel::SetIsSelectedCharacter(bool InMyTurn)
 
 void UPBPartyMemberViewModel::OnSelected()
 {
-	APBUITestGameMode* GM = Cast<APBUITestGameMode>(GetWorld()->GetAuthGameMode());
-	
-	if (!IsValid(GM))
-	{
-		return;
-	}
-	
 	OnPartyMemberSelected.Broadcast(GetTargetActor());
-	
-	GM->SimulateCharacterChange(GetTargetActor());
 }
 

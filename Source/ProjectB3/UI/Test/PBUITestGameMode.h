@@ -87,6 +87,10 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Test|Data")
 	TArray<TSoftObjectPtr<UTexture2D>> DummyPortraitPool;
 
+	// 랜덤으로 부여할 몬스터 프로필 이미지들 모음
+	UPROPERTY(EditAnywhere, Category = "Test|Data")
+	TArray<TSoftObjectPtr<UTexture2D>> DummyMonsterPortraitPool;
+
 private:
 	/* ============================================================ */
 	/* 런타임 캐싱 및 상태 저장 변수 */

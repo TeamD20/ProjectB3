@@ -7,7 +7,10 @@
 #include "ProjectB3/UI/PartyMemeber/PBPartyMemberViewModel.h"
 #include "ProjectB3/UI/TurnInfoHUD/PBTurnOrderViewModel.h"
 #include "ProjectB3/UI/TurnInfoHUD/PBTurnPortraitViewModel.h"
+#include "ProjectB3/UI/TurnInfoHUD/PBTurnOrderInfoWidget.h"
+#include "ProjectB3/UI/TurnInfoHUD/PBTurnIndicatorWidget.h"
 #include "Kismet/GameplayStatics.h"
+#include "Algo/RandomShuffle.h"
 
 void APBUITestGameMode::BeginPlay()
 {
@@ -82,6 +85,8 @@ void APBUITestGameMode::SetupDummyCharacterData()
 	{
 		// 뷰모델 라이브러리를 통해 액터 전용 뷰모델 생성/가져오기
 		UPBPartyMemberViewModel* VM = UPBUIBlueprintLibrary::GetOrCreateActorViewModel<UPBPartyMemberViewModel>(GetWorld()->GetFirstLocalPlayerFromController(), SpawnPartyMembers[i]);
+		
+		VM->OnPartyMemberSelected.AddUObject(this, &ThisClass::SimulateCharacterChange);
 		
 		if (VM)
 		{
@@ -167,6 +172,13 @@ void APBUITestGameMode::CreateTurnUI()
 		CreatedTurnInfoWidget = CreateWidget<UUserWidget>(PC, TurnInfoHUDClass);
 		if (CreatedTurnInfoWidget)
 		{
+			if (UPBTurnOrderInfoWidget* InfoWidget = Cast<UPBTurnOrderInfoWidget>(CreatedTurnInfoWidget))
+			{
+				if (UPBTurnOrderViewModel* TurnVM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBTurnOrderViewModel>(GetWorld()->GetFirstLocalPlayerFromController()))
+				{
+					InfoWidget->SetupViewModel(TurnVM);
+				}
+			}
 			CreatedTurnInfoWidget->AddToViewport();
 			UE_LOG(LogTemp, Warning, TEXT("Turn Info HUD Widget Added to Viewport"));
 		}
@@ -181,6 +193,13 @@ void APBUITestGameMode::CreateTurnUI()
 		CreatedTurnIndicatorWidget = CreateWidget<UUserWidget>(PC, TurnIndicatorHUDClass);
 		if (CreatedTurnIndicatorWidget)
 		{
+			if (UPBTurnIndicatorWidget* IndicatorWidget = Cast<UPBTurnIndicatorWidget>(CreatedTurnIndicatorWidget))
+			{
+				if (UPBTurnOrderViewModel* TurnVM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBTurnOrderViewModel>(GetWorld()->GetFirstLocalPlayerFromController()))
+				{
+					IndicatorWidget->SetupViewModel(TurnVM);
+				}
+			}
 			CreatedTurnIndicatorWidget->AddToViewport();
 			UE_LOG(LogTemp, Warning, TEXT("Turn Indicator HUD Widget Added to Viewport"));
 		}
@@ -260,12 +279,15 @@ void APBUITestGameMode::InitializeTurnViewModel()
 			FPBTurnOrderEntry Entry;
 			// 몬스터는 임시로 "Monster_0", "Monster_1"... 등의 이름 부여
 			Entry.DisplayName = FText::Format(NSLOCTEXT("Test", "MonsterName", "Monster_{0}"), i);
-			Entry.Portrait = nullptr; // 몬스터 포트레이트가 있다면 추후 추가 가능
+			Entry.Portrait = DummyMonsterPortraitPool.IsValidIndex(i) ? DummyMonsterPortraitPool[i] : nullptr;
 			Entry.bIsAlly = false; // 적군
 			Entry.TargetActor = SpawnMonsters[i];
 
 			TurnEntries.Add(Entry);
 		}
+
+		// 3. 파티원과 몬스터가 무작위로 섞이도록 배열 셔플 (랜덤 섞기)
+		Algo::RandomShuffle(TurnEntries);
 
 		TurnVM->SetTurnOrder(TurnEntries);
 		// Initialize the first turn

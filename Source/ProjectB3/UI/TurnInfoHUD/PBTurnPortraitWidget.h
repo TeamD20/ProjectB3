@@ -22,6 +22,9 @@ protected:
 
 	// ViewModel 이벤트 콜백 (Blueprint에서 시각 요소 변경 구현)
 	UFUNCTION(BlueprintImplementableEvent, Category = "Turn")
+	void BP_OnInitAllyState(bool bIsAlly);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Turn")
 	void BP_OnCurrentTurnChanged(bool bIsCurrentTurn);
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Turn")

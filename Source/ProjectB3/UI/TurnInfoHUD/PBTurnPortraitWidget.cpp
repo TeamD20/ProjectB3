@@ -25,6 +25,7 @@ void UPBTurnPortraitWidget::SetPortraitViewModel(UPBTurnPortraitViewModel* InVie
 		// 초기 동기화
 		HandleDisplayNameChanged(PortraitViewModel->GetDisplayName());
 		HandlePortraitChanged(PortraitViewModel->GetPortrait());
+		BP_OnInitAllyState(PortraitViewModel->IsAlly());
 		HandleCurrentTurnChanged(PortraitViewModel->IsCurrentTurn());
 		HandleDeathStateChanged(PortraitViewModel->IsDead());
 	}
