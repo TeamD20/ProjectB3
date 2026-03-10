@@ -127,3 +127,15 @@ TArray<FGameplayAbilitySpecHandle> UPBAbilitySystemComponent::GetAbilitySpecHand
 
 	return Result;
 }
+
+bool UPBAbilitySystemComponent::CanActivateAbilityByHandle(const FGameplayAbilitySpecHandle& Handle) const
+{
+	// GetActivatableAbilities는 non-const이므로 const_cast 사용
+	const FGameplayAbilitySpec* Spec = FindAbilitySpecFromHandle(Handle);
+	if (Spec == nullptr || !IsValid(Spec->Ability))
+	{
+		return false;
+	}
+
+	return Spec->Ability->CanActivateAbility(Handle, AbilityActorInfo.Get());
+}

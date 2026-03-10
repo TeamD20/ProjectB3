@@ -39,6 +39,9 @@ public:
 		const FGameplayTagContainer& RequireTags,
 		const FGameplayTagContainer& IgnoreTags = FGameplayTagContainer()) const;
 
+	// Handle 기반으로 해당 어빌리티의 활성화 가능 여부를 조회한다.
+	bool CanActivateAbilityByHandle(const FGameplayAbilitySpecHandle& Handle) const;
+
 protected:
 	// 출처별 핸들 캐시
 	TMap<FGameplayTag, FPBSourceGrantedHandles> GrantedHandleMap;

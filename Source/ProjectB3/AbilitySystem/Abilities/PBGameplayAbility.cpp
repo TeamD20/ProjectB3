@@ -5,17 +5,19 @@
 
 EPBAbilityType UPBGameplayAbility::GetAbilityType() const
 {
-	// 활성화 중이면 Spec의 DynamicAbilityTags도 포함하여 조회
-	FGameplayAbilitySpec* Spec = GetCurrentAbilitySpec();
-	if (Spec)
+	// CDO가 아닌 인스턴스에서만 Spec의 DynamicAbilityTags를 포함하여 조회한다.
+	if (IsInstantiated())
 	{
-		FGameplayTagContainer CombinedTags;
-		CombinedTags.AppendTags(GetAssetTags());
-		CombinedTags.AppendTags(Spec->GetDynamicSpecSourceTags());
-		return GetAbilityTypeFromTags(CombinedTags);
+		if (FGameplayAbilitySpec* Spec = GetCurrentAbilitySpec())
+		{
+			FGameplayTagContainer CombinedTags;
+			CombinedTags.AppendTags(GetAssetTags());
+			CombinedTags.AppendTags(Spec->GetDynamicSpecSourceTags());
+			return GetAbilityTypeFromTags(CombinedTags);
+		}
 	}
 
-	// 비활성 상태면 CDO의 AbilityTags만 조회
+	// CDO이거나 활성 Spec이 없으면 AssetTags만 조회한다.
 	return GetAbilityTypeFromTags(GetAssetTags());
 }
 

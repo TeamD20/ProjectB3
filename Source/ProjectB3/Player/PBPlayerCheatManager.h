@@ -31,4 +31,8 @@ public:
 	// 이동력 설정 (cm 단위)
 	UFUNCTION(Exec)
 	void SetMovement(float Value);
+
+	// 인덱스로 파티원을 선택한다.
+	UFUNCTION(Exec)
+	void SelectPartyMember(int32 Index);
 };

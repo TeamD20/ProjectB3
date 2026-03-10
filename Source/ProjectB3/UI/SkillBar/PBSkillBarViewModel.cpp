@@ -3,6 +3,8 @@
 #include "PBSkillBarViewModel.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
+#include "Engine/LocalPlayer.h"
+#include "GameFramework/PlayerController.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
@@ -37,10 +39,18 @@ void UPBSkillBarViewModel::Deinitialize()
 
 void UPBSkillBarViewModel::BindToPlayerState(APBGameplayPlayerState* InPlayerState)
 {
-	if (PlayerState.IsValid() && SelectedPartyMemberChangedHandle.IsValid())
+	if (PlayerState.IsValid())
 	{
-		PlayerState->OnSelectedPartyMemberChanged.Remove(SelectedPartyMemberChangedHandle);
-		SelectedPartyMemberChangedHandle.Reset();
+		if (SelectedPartyMemberChangedHandle.IsValid())
+		{
+			PlayerState->OnSelectedPartyMemberChanged.Remove(SelectedPartyMemberChangedHandle);
+			SelectedPartyMemberChangedHandle.Reset();
+		}
+		if (PartyMembersChangedHandle.IsValid())
+		{
+			PlayerState->OnPartyMembersChanged.Remove(PartyMembersChangedHandle);
+			PartyMembersChangedHandle.Reset();
+		}
 	}
 
 	PlayerState = InPlayerState;
@@ -50,6 +60,9 @@ void UPBSkillBarViewModel::BindToPlayerState(APBGameplayPlayerState* InPlayerSta
 		SelectedPartyMemberChangedHandle = PlayerState->OnSelectedPartyMemberChanged.AddUObject(
 			this,
 			&UPBSkillBarViewModel::HandleSelectedPartyMemberChanged);
+		PartyMembersChangedHandle = PlayerState->OnPartyMembersChanged.AddUObject(
+			this,
+			&UPBSkillBarViewModel::HandlePartyMembersChanged);
 		RefreshFromCharacter(PlayerState->GetSelectedPartyMember());
 		return;
 	}
@@ -99,10 +112,11 @@ void UPBSkillBarViewModel::RefreshAllCooldowns()
 
 	auto RefreshSlotArray = [this, AbilitySystemComponent](TArray<FPBSkillSlotData>& Slots, int32 TabIndex)
 	{
+		const UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(AbilitySystemComponent);
 		for (int32 SlotIndex = 0; SlotIndex < Slots.Num(); ++SlotIndex)
 		{
 			FPBSkillSlotData& Slot = Slots[SlotIndex];
-			Slot.bCanActivate = AbilitySystemComponent->CanActivateAbility(Slot.AbilityHandle);
+			Slot.bCanActivate = IsValid(PBASC) && PBASC->CanActivateAbilityByHandle(Slot.AbilityHandle);
 			OnSlotUpdated.Broadcast(TabIndex, SlotIndex);
 		}
 	};
@@ -144,6 +158,11 @@ void UPBSkillBarViewModel::HandleSelectedPartyMemberChanged(AActor* NewSelectedP
 	RefreshFromCharacter(NewSelectedPartyMember);
 }
 
+void UPBSkillBarViewModel::HandlePartyMembersChanged()
+{
+	RefreshFromCharacter(PlayerState.IsValid() ? PlayerState->GetSelectedPartyMember() : nullptr);
+}
+
 void UPBSkillBarViewModel::BuildSlotsFromFilter(
 	UAbilitySystemComponent* AbilitySystemComponent,
 	const FGameplayTagContainer& RequireTags,
@@ -181,7 +200,7 @@ void UPBSkillBarViewModel::BuildSlotsFromFilter(
 		SlotData.Icon = PBAbilityCDO->GetAbilityIcon();
 		SlotData.AbilityType = PBAbilityCDO->GetAbilityType();
 		SlotData.CooldownRemaining = 0;
-		SlotData.bCanActivate = AbilitySystemComponent->CanActivateAbility(AbilityHandle);
+		SlotData.bCanActivate = IsValid(PBASC) && PBASC->CanActivateAbilityByHandle(AbilityHandle);
 		OutSlots.Add(SlotData);
 	}
 }

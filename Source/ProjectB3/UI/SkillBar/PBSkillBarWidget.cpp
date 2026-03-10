@@ -69,9 +69,9 @@ void UPBSkillBarWidget::HandleSlotsChanged()
 		return;
 	}
 
-	RebuildSlots(ActionSlotContainer, SkillBarViewModel->ActionSlots, PBSkillBarTabIndex::Action);
-	RebuildSlots(BonusActionSlotContainer, SkillBarViewModel->BonusActionSlots, PBSkillBarTabIndex::BonusAction);
-	RebuildSlots(SpellSlotContainer, SkillBarViewModel->SpellSlots, PBSkillBarTabIndex::Spell);
+	RebuildSlots(ActionSlotContainer, SkillBarViewModel->ActionSlots, PBSkillBarTabIndex::Action, ActionSlotCount);
+	RebuildSlots(BonusActionSlotContainer, SkillBarViewModel->BonusActionSlots, PBSkillBarTabIndex::BonusAction, BonusActionSlotCount);
+	RebuildSlots(SpellSlotContainer, SkillBarViewModel->SpellSlots, PBSkillBarTabIndex::Spell, SpellSlotCount);
 }
 
 void UPBSkillBarWidget::HandleSlotUpdated(int32 TabIndex, int32 SlotIndex)
@@ -81,7 +81,7 @@ void UPBSkillBarWidget::HandleSlotUpdated(int32 TabIndex, int32 SlotIndex)
 		return;
 	}
 
-	UHorizontalBox* TargetContainer = GetContainerByTab(TabIndex);
+	UPanelWidget* TargetContainer = GetContainerByTab(TabIndex);
 	if (!IsValid(TargetContainer) || !TargetContainer->GetAllChildren().IsValidIndex(SlotIndex))
 	{
 		return;
@@ -100,7 +100,7 @@ void UPBSkillBarWidget::HandleSlotUpdated(int32 TabIndex, int32 SlotIndex)
 	}
 }
 
-void UPBSkillBarWidget::RebuildSlots(UHorizontalBox* Container, const TArray<FPBSkillSlotData>& Slots, int32 TabIndex)
+void UPBSkillBarWidget::RebuildSlots(UPanelWidget* Container, const TArray<FPBSkillSlotData>& Slots, int32 TabIndex, int32 MaxSlotCount)
 {
 	if (!IsValid(Container) || !IsValid(SkillSlotWidgetClass))
 	{
@@ -109,7 +109,8 @@ void UPBSkillBarWidget::RebuildSlots(UHorizontalBox* Container, const TArray<FPB
 
 	Container->ClearChildren();
 
-	for (int32 SlotIndex = 0; SlotIndex < Slots.Num(); ++SlotIndex)
+	// MaxSlotCount만큼 항상 슬롯 위젯을 생성한다. 데이터가 없는 인덱스는 빈 슬롯으로 표시된다.
+	for (int32 SlotIndex = 0; SlotIndex < MaxSlotCount; ++SlotIndex)
 	{
 		UPBSkillSlotWidget* SlotWidget = CreateWidget<UPBSkillSlotWidget>(GetWorld(), SkillSlotWidgetClass);
 		if (!IsValid(SlotWidget))
@@ -119,13 +120,17 @@ void UPBSkillBarWidget::RebuildSlots(UHorizontalBox* Container, const TArray<FPB
 
 		SlotWidget->InitializeBinding(SkillBarViewModel);
 		SlotWidget->SetSlotIndex(TabIndex, SlotIndex);
-		SlotWidget->SetSlotData(Slots[SlotIndex]);
 
-		Container->AddChildToHorizontalBox(SlotWidget);
+		if (Slots.IsValidIndex(SlotIndex))
+		{
+			SlotWidget->SetSlotData(Slots[SlotIndex]);
+		}
+
+		Container->AddChild(SlotWidget);
 	}
 }
 
-UHorizontalBox* UPBSkillBarWidget::GetContainerByTab(int32 TabIndex) const
+UPanelWidget* UPBSkillBarWidget::GetContainerByTab(int32 TabIndex) const
 {
 	switch (TabIndex)
 	{

@@ -7,6 +7,7 @@
 #include "PBGameplayPlayerState.generated.h"
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnSelectedPartyMemberChanged, AActor*);
+DECLARE_MULTICAST_DELEGATE(FOnPartyMembersChanged);
 
 // 플레이어 스테이트 기반 클래스.
 UCLASS()
@@ -15,6 +16,7 @@ class PROJECTB3_API APBGameplayPlayerState : public APlayerState
 	GENERATED_BODY()
 
 public:
+	/*~ APBGameplayPlayerState Interface ~*/
 	// 파티원 목록에 액터를 추가한다.
 	void AddPartyMember(AActor* PartyMember);
 
@@ -36,6 +38,13 @@ public:
 public:
 	// 선택된 파티원 변경 델리게이트
 	FOnSelectedPartyMemberChanged OnSelectedPartyMemberChanged;
+
+	// 파티원 목록 변경 델리게이트
+	FOnPartyMembersChanged OnPartyMembersChanged;
+
+	// 파티원 전환 시 카메라 블렌딩 시간 (초)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Party", meta = (ClampMin = 0.0f))
+	float PartyMemberCameraBlendTime = 0.5f;
 
 private:
 	// 현재 파티원 목록

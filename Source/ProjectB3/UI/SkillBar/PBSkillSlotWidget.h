@@ -41,7 +41,7 @@ private:
 
 private:
 	// 슬롯 아이콘
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UImage> IconImage;
 
 	// 쿨다운 텍스트
@@ -49,7 +49,7 @@ private:
 	TObjectPtr<UTextBlock> CooldownText;
 
 	// 클릭 버튼
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> SlotButton;
 
 	// 쿨다운 오버레이

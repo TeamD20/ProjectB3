@@ -8,6 +8,7 @@
 #include "PBSkillBarViewModel.generated.h"
 
 class APBGameplayPlayerState;
+class UAbilitySystemComponent;
 
 DECLARE_MULTICAST_DELEGATE(FOnSkillSlotsChanged);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnSkillSlotUpdated, int32 /*TabIndex*/, int32 /*SlotIndex*/);
@@ -47,6 +48,9 @@ private:
 	// 선택 파티원 변경 시 슬롯을 재구성한다.
 	void HandleSelectedPartyMemberChanged(AActor* NewSelectedPartyMember);
 
+	// 파티원 목록 변경 시 현재 선택 기준으로 슬롯을 재구성한다.
+	void HandlePartyMembersChanged();
+
 	// 필터 조건으로 슬롯 목록을 생성한다.
 	void BuildSlotsFromFilter(
 		UAbilitySystemComponent* AbilitySystemComponent,
@@ -79,4 +83,7 @@ private:
 
 	// PlayerState 델리게이트 핸들
 	FDelegateHandle SelectedPartyMemberChangedHandle;
+
+	// 파티원 목록 변경 델리게이트 핸들
+	FDelegateHandle PartyMembersChangedHandle;
 };

@@ -31,10 +31,7 @@ APBGameplayPlayerController::APBGameplayPlayerController()
 void APBGameplayPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
-
-	bShowMouseCursor = true;
 	
-
 	// Enhanced Input 매핑 컨텍스트 등록
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
@@ -47,7 +44,13 @@ void APBGameplayPlayerController::BeginPlay()
 			Subsystem->AddMappingContext(CameraMappingContext, 1);
 		}
 	}
-
+	
+	// 기본 마우스 표시
+	bShowMouseCursor = true;
+	
+	// 초기 ControlMode 설정
+	SetControllerMode(EPBPlayerControllerMode::FreeMovement);
+	
 	PathDisplayComponent->SetPathDisplayEnabled(true);
 
 	BindCameraToCharacter();

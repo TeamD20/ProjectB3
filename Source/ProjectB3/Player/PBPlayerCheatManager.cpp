@@ -2,6 +2,7 @@
 
 #include "PBPlayerCheatManager.h"
 #include "PBGameplayPlayerController.h"
+#include "PBGameplayPlayerState.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "ProjectB3/PBGameplayTags.h"
@@ -81,4 +82,27 @@ void UPBPlayerCheatManager::SetMovement(float Value)
 		PC->ClearPathDisplay();
 		PC->SetPathDisplayMovementRange(Value);	
 	}
+}
+
+void UPBPlayerCheatManager::SelectPartyMember(int32 Index)
+{
+	APlayerController* PC = GetOuterAPlayerController();
+	if (!IsValid(PC))
+	{
+		return;
+	}
+
+	APBGameplayPlayerState* PS = PC->GetPlayerState<APBGameplayPlayerState>();
+	if (!IsValid(PS))
+	{
+		return;
+	}
+
+	const TArray<AActor*> Members = PS->GetPartyMembers();
+	if (!Members.IsValidIndex(Index))
+	{
+		return;
+	}
+
+	PS->SelectPartyMember(Members[Index]);
 }

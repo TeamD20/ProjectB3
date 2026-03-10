@@ -2,6 +2,7 @@
 
 
 #include "PBGameplayPlayerState.h"
+#include "GameFramework/PlayerController.h"
 #include "AbilitySystemInterface.h"
 #include "AbilitySystemComponent.h"
 
@@ -21,6 +22,7 @@ void APBGameplayPlayerState::AddPartyMember(AActor* PartyMember)
 	}
 
 	PartyMembers.Add(PartyMember);
+	OnPartyMembersChanged.Broadcast();
 
 	if (!IsValid(SelectedPartyMember.Get()))
 	{
@@ -40,6 +42,8 @@ void APBGameplayPlayerState::RemovePartyMember(AActor* PartyMember)
 		{
 			return !IsValid(ExistingMember.Get()) || ExistingMember.Get() == PartyMember;
 		});
+
+	OnPartyMembersChanged.Broadcast();
 
 	if (SelectedPartyMember.Get() == PartyMember)
 	{
@@ -62,6 +66,25 @@ void APBGameplayPlayerState::SelectPartyMember(AActor* PartyMember)
 
 	SelectedPartyMember = PartyMember;
 	OnSelectedPartyMemberChanged.Broadcast(SelectedPartyMember.Get());
+
+	// 선택된 파티원이 Pawn이면 PC 빙의 대상을 교체한다.
+	if (APlayerController* PC = Cast<APlayerController>(GetOwner()))
+	{
+		if (APawn* NewPawn = Cast<APawn>(PartyMember))
+		{
+			// Possess 전 현재 ViewTarget을 보존한다.
+			AActor* OldViewTarget = PC->GetViewTarget();
+
+			PC->Possess(NewPawn);
+
+			// Possess 후 카메라가 스냅되므로, 이전 ViewTarget으로 즉시 복원 후 블렌딩한다.
+			if (IsValid(OldViewTarget) && PartyMemberCameraBlendTime > 0.0f)
+			{
+				PC->SetViewTarget(OldViewTarget);
+				PC->SetViewTargetWithBlend(NewPawn, PartyMemberCameraBlendTime, EViewTargetBlendFunction::VTBlend_Cubic);
+			}
+		}
+	}
 }
 
 TArray<AActor*> APBGameplayPlayerState::GetPartyMembers() const

@@ -35,24 +35,24 @@ private:
 	// 개별 슬롯 갱신 이벤트 핸들러
 	void HandleSlotUpdated(int32 TabIndex, int32 SlotIndex);
 
-	// 탭 컨테이너에 슬롯 위젯들을 재생성한다.
-	void RebuildSlots(UHorizontalBox* Container, const TArray<FPBSkillSlotData>& Slots, int32 TabIndex);
+	// 탭 컨테이너에 슬롯 위젯들을 재생성한다. MaxSlotCount만큼 생성하고 데이터가 없는 슬롯은 빈 상태로 남긴다.
+	void RebuildSlots(UPanelWidget* Container, const TArray<FPBSkillSlotData>& Slots, int32 TabIndex, int32 MaxSlotCount);
 
 	// 탭 인덱스에 해당하는 컨테이너를 반환한다.
-	UHorizontalBox* GetContainerByTab(int32 TabIndex) const;
+	UPanelWidget* GetContainerByTab(int32 TabIndex) const;
 
 private:
 	// 주행동 슬롯 컨테이너
-	UPROPERTY(meta = (BindWidgetOptional))
-	TObjectPtr<UHorizontalBox> ActionSlotContainer;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UPanelWidget> ActionSlotContainer;
 
 	// 보조행동 슬롯 컨테이너
-	UPROPERTY(meta = (BindWidgetOptional))
-	TObjectPtr<UHorizontalBox> BonusActionSlotContainer;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UPanelWidget> BonusActionSlotContainer;
 
 	// 주문 슬롯 컨테이너
-	UPROPERTY(meta = (BindWidgetOptional))
-	TObjectPtr<UHorizontalBox> SpellSlotContainer;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UPanelWidget> SpellSlotContainer;
 
 	// 탭 전환 스위처
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -61,6 +61,18 @@ private:
 	// 슬롯 위젯 클래스
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UPBSkillSlotWidget> SkillSlotWidgetClass;
+
+	// 주행동 탭 슬롯 수
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true", ClampMin = 1))
+	int32 ActionSlotCount = 8;
+
+	// 보조행동 탭 슬롯 수
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true", ClampMin = 1))
+	int32 BonusActionSlotCount = 8;
+
+	// 주문 탭 슬롯 수
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true", ClampMin = 1))
+	int32 SpellSlotCount = 8;
 
 	// 스킬바 ViewModel 참조
 	UPROPERTY(Transient)
