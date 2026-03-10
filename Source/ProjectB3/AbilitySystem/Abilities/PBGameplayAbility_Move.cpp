@@ -122,7 +122,7 @@ void UPBGameplayAbility_Move::HandleMoveEvent(FGameplayEventData Payload)
 		return;
 	}
 
-	const FVector HitLocation = TargetPayload->TargetData.TargetLocation;
+	const FVector HitLocation = TargetPayload->TargetData.GetSingleTargetLocation();
 
 	// NavPath 탐색
 	UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(GetWorld());

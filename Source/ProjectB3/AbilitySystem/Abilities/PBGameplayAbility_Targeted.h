@@ -12,10 +12,10 @@ class UPBAbilityTask_WaitTargeting;
 UENUM(BlueprintType)
 enum class EPBTargetedAbilityEndMode : uint8
 {
-	// ExecuteAbilityLogic 반환 즉시 자동으로 EndAbility 호출
+	// ExecuteTargetLogic 반환 즉시 자동으로 EndAbility 호출
 	Auto,
 
-	// EndAbility 호출을 ExecuteAbilityLogic 내부에 완전히 위임 (애니메이션, 발사체 등 비동기 로직)
+	// EndAbility 호출을 ExecuteTargetLogic 내부에 완전히 위임 (애니메이션, 발사체 등 비동기 로직)
 	Manual
 };
 
@@ -56,9 +56,19 @@ public:
 	// MultiTarget 최대 선택 수 조회
 	int32 GetMaxTargetCount() const { return MaxTargetCount; }
 
+	// 지면 타겟 허용 여부 조회
+	bool IsGroundTargetAllowed() const { return bAllowGroundTarget; }
+
+	// 현재 어빌리티 프로퍼티로 타겟팅 요청 구조체 생성
+	FPBTargetingRequest MakeTargetingRequest() const;
+
 protected:
-	// 어빌리티 로직 실행. 스킬 어빌리티에서 override하여 구현.
-	virtual void ExecuteAbilityLogic(const FPBAbilityTargetData& TargetData) {}
+	// 수신된 타겟 데이터 기반 어빌리티 로직 실행. BP 버전
+	UFUNCTION(BlueprintNativeEvent)
+	void K2_ExecuteTargetLogic(const FPBAbilityTargetData& TargetData);
+	
+	// 수신된 타겟 데이터 기반 어빌리티 로직 실행. 스킬 어빌리티에서 override하여 구현.
+	virtual void ExecuteTargetLogic(const FPBAbilityTargetData& TargetData);
 
 private:
 	// AbilityTask 기반 비동기 타겟팅 진입 (플레이어 전용 경로)
@@ -78,7 +88,7 @@ private:
 protected:
 	// 종료 모드. Auto: 실행 후 자동 종료. Manual: ExecuteAbilityLogic 내부에서 EndAbility 직접 호출.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability")
-	EPBTargetedAbilityEndMode EndMode = EPBTargetedAbilityEndMode::Auto;
+	EPBTargetedAbilityEndMode EndMode = EPBTargetedAbilityEndMode::Manual;
 
 	// 타겟팅 모드
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Targeting")
@@ -97,4 +107,8 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Targeting",
 		meta = (EditCondition = "TargetingMode == EPBTargetingMode::MultiTarget", ClampMin = "0"))
 	int32 MaxTargetCount = 1;
+
+	// 액터 미지정 시 지면 위치 타겟 허용 (SingleTarget / MultiTarget 모드에서 유효)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Targeting")
+	bool bAllowGroundTarget = false;
 };

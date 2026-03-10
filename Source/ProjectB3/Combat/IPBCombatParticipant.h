@@ -42,8 +42,11 @@ public:
 	// 라운드 시작 시 호출 (Reaction 리필)
 	virtual void OnRoundBegin() = 0;
 
-	// 턴 시작 시 호출 (Action/BonusAction/Movement 리셋)
+	// 턴 시작 시 호출 (Action/BonusAction/Movement 리셋). 공유 턴 그룹의 경우 모든 멤버에게 호출됨
 	virtual void OnTurnBegin() = 0;
+
+	// 실제 행동 차례가 됐을 때 호출. 공유 턴 그룹에서는 활성 멤버 1명에게만 호출됨
+	virtual void OnTurnActivated() = 0;
 
 	// 턴 종료 시 호출
 	virtual void OnTurnEnd() = 0;

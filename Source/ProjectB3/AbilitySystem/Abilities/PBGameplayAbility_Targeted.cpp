@@ -38,7 +38,7 @@ void UPBGameplayAbility_Targeted::ActivateAbility(
 			return;
 		}
 
-		ExecuteAbilityLogic(TargetData);
+		K2_ExecuteTargetLogic(TargetData);
 		TryAutoEndAbility(Handle, ActorInfo, ActivationInfo);
 		return;
 	}
@@ -58,7 +58,7 @@ void UPBGameplayAbility_Targeted::ActivateAbility(
 				return;
 			}
 
-			ExecuteAbilityLogic(TargetData);
+			K2_ExecuteTargetLogic(TargetData);
 			TryAutoEndAbility(Handle, ActorInfo, ActivationInfo);
 			break;
 		}
@@ -76,7 +76,7 @@ void UPBGameplayAbility_Targeted::ActivateAbility(
 				return;
 			}
 
-			ExecuteAbilityLogic(TargetData);
+			K2_ExecuteTargetLogic(TargetData);
 			TryAutoEndAbility(Handle, ActorInfo, ActivationInfo);
 			break;
 		}
@@ -98,6 +98,27 @@ void UPBGameplayAbility_Targeted::ActivateAbility(
 	}
 }
 
+FPBTargetingRequest UPBGameplayAbility_Targeted::MakeTargetingRequest() const
+{
+	FPBTargetingRequest Request;
+	Request.RequestingAbility  = const_cast<UPBGameplayAbility_Targeted*>(this);
+	Request.Mode               = TargetingMode;
+	Request.OriginLocation     = GetAvatarActorFromActorInfo()->GetActorLocation();
+	Request.AoERadius          = AoERadius;
+	Request.MaxTargetCount     = MaxTargetCount;
+	Request.bAllowGroundTarget = bAllowGroundTarget;
+	return Request;
+}
+
+void UPBGameplayAbility_Targeted::K2_ExecuteTargetLogic_Implementation(const FPBAbilityTargetData& TargetData)
+{
+	ExecuteTargetLogic(TargetData);
+}
+
+void UPBGameplayAbility_Targeted::ExecuteTargetLogic(const FPBAbilityTargetData& TargetData)
+{
+}
+
 bool UPBGameplayAbility_Targeted::IsTargetInRange(
 	const FVector& SourceLocation,
 	const FPBAbilityTargetData& TargetData) const
@@ -117,7 +138,7 @@ bool UPBGameplayAbility_Targeted::IsTargetInRange(
 	case EPBTargetingMode::SingleTarget:
 	case EPBTargetingMode::MultiTarget:
 		{
-			// 모든 타겟이 사거리 내에 있어야 유효
+			// 모든 타겟 액터가 사거리 내에 있어야 유효
 			for (const TWeakObjectPtr<AActor>& Weak : TargetData.TargetActors)
 			{
 				if (!Weak.IsValid())
@@ -130,13 +151,26 @@ bool UPBGameplayAbility_Targeted::IsTargetInRange(
 					return false;
 				}
 			}
-			return TargetData.TargetActors.Num() > 0;
+			// bAllowGroundTarget 폴백: 위치 타겟도 사거리 검증
+			for (const FVector& Loc : TargetData.TargetLocations)
+			{
+				const float DistSq = FVector::DistSquaredXY(SourceLocation, Loc);
+				if (DistSq > FMath::Square(Range))
+				{
+					return false;
+				}
+			}
+			return TargetData.HasTarget();
 		}
 
 	case EPBTargetingMode::Location:
 	case EPBTargetingMode::AoE:
 		{
-			const float DistSq = FVector::DistSquaredXY(SourceLocation, TargetData.TargetLocation);
+			if (TargetData.TargetLocations.Num() == 0)
+			{
+				return false;
+			}
+			const float DistSq = FVector::DistSquaredXY(SourceLocation, TargetData.TargetLocations[0]);
 			return DistSq <= FMath::Square(Range);
 		}
 
@@ -144,6 +178,7 @@ bool UPBGameplayAbility_Targeted::IsTargetInRange(
 		return false;
 	}
 }
+
 
 void UPBGameplayAbility_Targeted::StartTargetingTask()
 {
@@ -184,7 +219,7 @@ void UPBGameplayAbility_Targeted::OnTargetingConfirmed(const FPBAbilityTargetDat
 		return;
 	}
 
-	ExecuteAbilityLogic(TargetData);
+	ExecuteTargetLogic(TargetData);
 	TryAutoEndAbility(CurrentSpecHandle, ActorInfo, CurrentActivationInfo);
 }
 

@@ -379,6 +379,120 @@ void APBTest_ReactionFlow::StartTest()
 	FinishTest(EFunctionalTestResult::Succeeded, TEXT("반응 행동 흐름 테스트 통과"));
 }
 
+// Test 8: 멀티 그룹 한 바퀴 순환
+void APBTest_SharedGroupCycle::StartTest()
+{
+	Super::StartTest();
+
+	UPBCombatManagerSubsystem* CM = GetCombatManager();
+	AssertIsValid(CM, TEXT("CombatManagerSubsystem이 존재해야 한다"));
+
+	// --- 구성 ---
+	// d20(1~20) + 수정치 범위가 겹치지 않도록 수정치 간격을 21 이상으로 설정
+	// PlayerGroup  : A1(+30), A2(+30) → 롤 범위 31~50 (E1 최대 30보다 항상 높음)
+	// EnemyGroup   : E1(+10), E2(+10) → 롤 범위 11~30 (A3 최대 10보다 항상 높음)
+	// PlayerSolo   : A3(-10)          → 롤 범위 -9~10  (E3 최대 -10보다 항상 높음)
+	// EnemySolo    : E3(-31)          → 롤 범위 -30~-11
+	APBTestCombatCharacter* A1 = SpawnAlly(30, TEXT("아군1_그룹"));
+	APBTestCombatCharacter* A2 = SpawnAlly(30, TEXT("아군2_그룹"));
+	APBTestCombatCharacter* E1 = SpawnEnemy(10, TEXT("적1_그룹"));
+	APBTestCombatCharacter* E2 = SpawnEnemy(10, TEXT("적2_그룹"));
+	APBTestCombatCharacter* A3 = SpawnAlly(-10, TEXT("아군3_솔로"));
+	APBTestCombatCharacter* E3 = SpawnEnemy(-31, TEXT("적3_솔로"));
+
+	CM->StartCombat(GetAllCombatantsAsActors());
+	AssertTrue(CM->IsInCombat(), TEXT("전투가 시작되어야 한다"));
+
+	// --- 이니셔티브 순서 검증 ---
+	const TArray<FPBInitiativeEntry>& Order = CM->GetInitiativeOrder();
+	AssertEqual_Int(Order.Num(), 6, TEXT("참가자 6명이 이니셔티브에 등록되어야 한다"));
+
+	// 이니셔티브 내림차순 정렬 확인
+	for (int32 i = 1; i < Order.Num(); ++i)
+	{
+		AssertTrue(Order[i - 1].InitiativeTotal >= Order[i].InitiativeTotal,
+			FString::Printf(TEXT("이니셔티브 정렬: [%d]=%d >= [%d]=%d"),
+				i - 1, Order[i - 1].InitiativeTotal, i, Order[i].InitiativeTotal));
+	}
+
+	// 그룹 구조 검증: A1·A2는 같은 공유 그룹, E1·E2는 같은 공유 그룹, A3·E3는 개별 턴
+	auto GetGroupId = [&](APBTestCombatCharacter* Char) -> int32
+	{
+		for (const FPBInitiativeEntry& Entry : Order)
+		{
+			if (Entry.Combatant.Get() == Char)
+			{
+				return Entry.SharedTurnGroupId;
+			}
+		}
+		return INDEX_NONE;
+	};
+
+	int32 GroupIdA1 = GetGroupId(A1);
+	int32 GroupIdA2 = GetGroupId(A2);
+	int32 GroupIdE1 = GetGroupId(E1);
+	int32 GroupIdE2 = GetGroupId(E2);
+	int32 GroupIdA3 = GetGroupId(A3);
+	int32 GroupIdE3 = GetGroupId(E3);
+
+	AssertTrue(GroupIdA1 >= 0 && GroupIdA1 == GroupIdA2,
+		TEXT("A1·A2는 같은 공유 턴 그룹이어야 한다"));
+	AssertTrue(GroupIdE1 >= 0 && GroupIdE1 == GroupIdE2,
+		TEXT("E1·E2는 같은 공유 턴 그룹이어야 한다"));
+	AssertTrue(GroupIdA1 != GroupIdE1,
+		TEXT("아군 그룹과 적 그룹은 서로 다른 그룹이어야 한다"));
+	AssertEqual_Int(GroupIdA3, -1, TEXT("A3는 개별 턴이어야 한다"));
+	AssertEqual_Int(GroupIdE3, -1, TEXT("E3는 개별 턴이어야 한다"));
+
+	// --- 한 라운드 순환 및 OnTurnBegin / OnTurnActivated 검증 ---
+	// StartCombat 시점에 슬롯 0([A1+A2])이 이미 시작됨, 첫 멤버에 OnTurnActivated 호출됨.
+	// 순차 넘김:
+	//   슬롯 0: EndCurrentTurn ×2 (A1→A2→슬롯1)
+	//   슬롯 1: EndCurrentTurn ×2 (E1→E2→슬롯2)
+	//   슬롯 2: EndCurrentTurn ×1 (A3→슬롯3)
+	// 총 5회 EndCurrentTurn 후 E3 활성 (슬롯 3, 라운드 1의 마지막)
+	for (int32 Step = 0; Step < 5; ++Step)
+	{
+		AssertTrue(CM->IsInCombat() && CM->GetCurrentRound() == 1,
+			FString::Printf(TEXT("스텝 %d: 라운드 1이어야 한다"), Step));
+		CM->EndCurrentTurn();
+	}
+
+	// 현재 슬롯 3([E3]) — 라운드 1의 마지막 슬롯
+	AssertTrue(CM->IsInCombat(), TEXT("슬롯 3 진입 후 전투 중이어야 한다"));
+	AssertEqual_Int(CM->GetCurrentRound(), 1, TEXT("슬롯 3에서 아직 라운드 1이어야 한다"));
+
+	// --- OnTurnBegin / OnTurnActivated 호출 수 검증 (라운드 1 전체 기준) ---
+	//   그룹([A1+A2], [E1+E2]): OnTurnBegin 각 멤버 1회씩(합산 2), OnTurnActivated 각 멤버 1회씩(합산 2)
+	//   솔로(A3, E3): OnTurnBegin 1회, OnTurnActivated 1회
+
+	AssertEqual_Int(A1->TurnBeginCount + A2->TurnBeginCount, 2,
+		TEXT("A1·A2 OnTurnBegin 합산 2회여야 한다"));
+	AssertEqual_Int(A1->TurnActivatedCount + A2->TurnActivatedCount, 2,
+		TEXT("A1·A2 OnTurnActivated 합산 2회여야 한다 (각 멤버 순차 활성화)"));
+
+	AssertEqual_Int(E1->TurnBeginCount + E2->TurnBeginCount, 2,
+		TEXT("E1·E2 OnTurnBegin 합산 2회여야 한다"));
+	AssertEqual_Int(E1->TurnActivatedCount + E2->TurnActivatedCount, 2,
+		TEXT("E1·E2 OnTurnActivated 합산 2회여야 한다 (각 멤버 순차 활성화)"));
+
+	AssertEqual_Int(A3->TurnBeginCount, 1, TEXT("A3 OnTurnBegin 1회여야 한다"));
+	AssertEqual_Int(A3->TurnActivatedCount, 1, TEXT("A3 OnTurnActivated 1회여야 한다"));
+
+	AssertEqual_Int(E3->TurnBeginCount, 1, TEXT("E3 OnTurnBegin 1회여야 한다"));
+	AssertEqual_Int(E3->TurnActivatedCount, 1, TEXT("E3 OnTurnActivated 1회여야 한다"));
+
+	// 마지막 슬롯 종료 → 라운드 2 진입
+	CM->EndCurrentTurn();
+	if (CM->IsInCombat())
+	{
+		AssertEqual_Int(CM->GetCurrentRound(), 2,
+			TEXT("6회 EndCurrentTurn 후 라운드 2로 진입해야 한다"));
+	}
+
+	FinishTest(EFunctionalTestResult::Succeeded, TEXT("멀티 그룹 한 바퀴 순환 테스트 통과"));
+}
+
 // Test 7: 델리게이트 이벤트 발화
 void APBTest_DelegateEvents::StartTest()
 {

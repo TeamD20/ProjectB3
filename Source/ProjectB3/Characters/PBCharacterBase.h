@@ -43,6 +43,9 @@ public:
 	// 턴 시작 시 호출 (Action/BonusAction/Movement 리셋)
 	virtual void OnTurnBegin() override;
 
+	// 실제 행동 차례가 됐을 때 호출
+	virtual void OnTurnActivated() override;
+
 	// 턴 종료 시 호출
 	virtual void OnTurnEnd() override;
 

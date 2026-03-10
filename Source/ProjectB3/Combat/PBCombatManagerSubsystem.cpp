@@ -116,6 +116,7 @@ void UPBCombatManagerSubsystem::EndCombat()
 	CurrentRound = 0;
 	NextSharedGroupId = 0;
 	SharedTurnActiveIndex = 0;
+	GroupActedMemberIndices.Empty();
 
 	SetCombatState(EPBCombatState::OutOfCombat);
 }
@@ -140,40 +141,96 @@ void UPBCombatManagerSubsystem::EndCurrentTurn()
 		return;
 	}
 
-	SetCombatState(EPBCombatState::TurnEnding);
-
-	// 현재 턴의 참가자(들)에게 OnTurnEnd 호출
-	if (InitiativeOrder.IsValidIndex(CurrentTurnIndex))
+	if (!InitiativeOrder.IsValidIndex(CurrentTurnIndex))
 	{
-		const FPBInitiativeEntry& CurrentEntry = InitiativeOrder[CurrentTurnIndex];
-		int32 CurrentGroupId = CurrentEntry.SharedTurnGroupId;
+		return;
+	}
 
-		if (CurrentGroupId >= 0)
+	const FPBInitiativeEntry& CurrentEntry = InitiativeOrder[CurrentTurnIndex];
+	int32 CurrentGroupId = CurrentEntry.SharedTurnGroupId;
+
+	if (CurrentGroupId >= 0)
+	{
+		// 공유 턴 그룹: 현재 멤버를 행동 완료로 기록하고 다음 멤버 탐색
+		GroupActedMemberIndices.Add(SharedTurnActiveIndex);
+
+		TArray<AActor*> Group = GetCurrentSharedTurnGroup();
+		int32 NextActiveIndex = INDEX_NONE;
+
+		// 현재 인덱스 이후부터 순회하여 다음 활성 멤버 탐색
+		for (int32 i = SharedTurnActiveIndex + 1; i < Group.Num(); ++i)
 		{
-			// 공유 턴 그룹: 그룹 전체에 OnTurnEnd
-			for (const FPBInitiativeEntry& Entry : InitiativeOrder)
+			if (GroupActedMemberIndices.Contains(i))
 			{
-				if (Entry.SharedTurnGroupId == CurrentGroupId)
+				continue;
+			}
+			if (IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(Group[i]))
+			{
+				if (!Participant->IsIncapacitated())
 				{
-					if (AActor* Actor = Entry.Combatant.Get())
+					NextActiveIndex = i;
+					break;
+				}
+			}
+		}
+
+		// 현재 인덱스 이전에서도 미행동 멤버 탐색 (래핑)
+		if (NextActiveIndex == INDEX_NONE)
+		{
+			for (int32 i = 0; i < SharedTurnActiveIndex; ++i)
+			{
+				if (GroupActedMemberIndices.Contains(i))
+				{
+					continue;
+				}
+				if (IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(Group[i]))
+				{
+					if (!Participant->IsIncapacitated())
 					{
-						if (IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(Actor))
-						{
-							Participant->OnTurnEnd();
-						}
+						NextActiveIndex = i;
+						break;
 					}
 				}
 			}
 		}
-		else
+
+		if (NextActiveIndex != INDEX_NONE)
 		{
-			// 개별 턴
-			if (AActor* Actor = CurrentEntry.Combatant.Get())
+			// 그룹 내 다음 멤버로 전환 (그룹 턴 유지)
+			SharedTurnActiveIndex = NextActiveIndex;
+			if (IPBCombatParticipant* NextParticipant = Cast<IPBCombatParticipant>(Group[NextActiveIndex]))
 			{
-				if (IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(Actor))
+				NextParticipant->OnTurnActivated();
+			}
+			OnActiveTurnChanged.Broadcast(Group[NextActiveIndex], CurrentTurnIndex);
+			return;
+		}
+
+		// 그룹 내 모든 멤버가 행동 완료 → 그룹 전원 OnTurnEnd
+		SetCombatState(EPBCombatState::TurnEnding);
+		for (const FPBInitiativeEntry& Entry : InitiativeOrder)
+		{
+			if (Entry.SharedTurnGroupId == CurrentGroupId)
+			{
+				if (AActor* Actor = Entry.Combatant.Get())
 				{
-					Participant->OnTurnEnd();
+					if (IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(Actor))
+					{
+						Participant->OnTurnEnd();
+					}
 				}
+			}
+		}
+	}
+	else
+	{
+		// 개별 턴: 현재 멤버에게 OnTurnEnd
+		SetCombatState(EPBCombatState::TurnEnding);
+		if (AActor* Actor = CurrentEntry.Combatant.Get())
+		{
+			if (IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(Actor))
+			{
+				Participant->OnTurnEnd();
 			}
 		}
 	}
@@ -251,6 +308,11 @@ void UPBCombatManagerSubsystem::SwitchToGroupMember(AActor* TargetMember)
 	if (FoundIndex != INDEX_NONE)
 	{
 		SharedTurnActiveIndex = FoundIndex;
+		// 새로 활성화된 멤버에게 행동 차례 통지
+		if (IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(TargetMember))
+		{
+			Participant->OnTurnActivated();
+		}
 		OnActiveTurnChanged.Broadcast(TargetMember, CurrentTurnIndex);
 	}
 }
@@ -530,8 +592,10 @@ void UPBCombatManagerSubsystem::BeginTurnForCurrentEntry()
 			return;
 		}
 
-		// 그룹 내 모든 멤버에게 OnTurnBegin
-		SharedTurnActiveIndex = 0;
+		// 모든 멤버에게 OnTurnBegin (리소스 리셋)
+		// 첫 번째 비행동불능 멤버를 활성으로 설정하고 OnTurnActivated 호출
+		SharedTurnActiveIndex = INDEX_NONE;
+		GroupActedMemberIndices.Empty();
 		for (int32 i = 0; i < Group.Num(); ++i)
 		{
 			if (IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(Group[i]))
@@ -539,8 +603,7 @@ void UPBCombatManagerSubsystem::BeginTurnForCurrentEntry()
 				if (!Participant->IsIncapacitated())
 				{
 					Participant->OnTurnBegin();
-					// 첫 번째 활성 멤버를 기본 활성으로 설정
-					if (SharedTurnActiveIndex == 0 || (i == 0))
+					if (SharedTurnActiveIndex == INDEX_NONE)
 					{
 						SharedTurnActiveIndex = i;
 					}
@@ -548,16 +611,12 @@ void UPBCombatManagerSubsystem::BeginTurnForCurrentEntry()
 			}
 		}
 
-		// 첫 번째 비행동불능 멤버를 활성으로 설정
-		for (int32 i = 0; i < Group.Num(); ++i)
+		// 첫 번째 활성 멤버에게만 OnTurnActivated (AI 행동 트리거)
+		if (Group.IsValidIndex(SharedTurnActiveIndex))
 		{
-			if (IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(Group[i]))
+			if (IPBCombatParticipant* ActiveParticipant = Cast<IPBCombatParticipant>(Group[SharedTurnActiveIndex]))
 			{
-				if (!Participant->IsIncapacitated())
-				{
-					SharedTurnActiveIndex = i;
-					break;
-				}
+				ActiveParticipant->OnTurnActivated();
 			}
 		}
 
@@ -583,6 +642,7 @@ void UPBCombatManagerSubsystem::BeginTurnForCurrentEntry()
 		}
 
 		Participant->OnTurnBegin();
+		Participant->OnTurnActivated();
 		OnActiveTurnChanged.Broadcast(Actor, CurrentTurnIndex);
 	}
 }
@@ -602,6 +662,7 @@ void UPBCombatManagerSubsystem::HandleRoundEnd()
 	CurrentRound++;
 	CurrentTurnIndex = 0;
 	SharedTurnActiveIndex = 0;
+	GroupActedMemberIndices.Empty();
 	OnRoundChanged.Broadcast(CurrentRound);
 
 	// 모든 참가자에게 OnRoundBegin (Reaction 리필)
