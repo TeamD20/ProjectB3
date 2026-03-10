@@ -35,3 +35,21 @@ void APBTestCombatCharacter::SetCanReact(bool bNewCanReact)
 {
 	bTestCanReact = bNewCanReact;
 }
+
+void APBTestCombatCharacter::ResetTurnCallCounts()
+{
+	TurnBeginCount = 0;
+	TurnActivatedCount = 0;
+}
+
+void APBTestCombatCharacter::OnTurnBegin()
+{
+	Super::OnTurnBegin();
+	TurnBeginCount++;
+}
+
+void APBTestCombatCharacter::OnTurnActivated()
+{
+	Super::OnTurnActivated();
+	TurnActivatedCount++;
+}

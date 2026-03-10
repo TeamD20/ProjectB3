@@ -38,6 +38,17 @@ public:
 	// 반응 가능 여부 설정 (테스트용)
 	void SetCanReact(bool bNewCanReact);
 
+	// OnTurnBegin/OnTurnActivated 호출 횟수 초기화
+	void ResetTurnCallCounts();
+
+	/*~ IPBCombatParticipant Interface ~*/
+
+	// OnTurnBegin 호출 시 카운터 증가
+	virtual void OnTurnBegin() override;
+
+	// OnTurnActivated 호출 시 카운터 증가
+	virtual void OnTurnActivated() override;
+
 public:
 	// 이니셔티브 수정치
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Test|Combat")
@@ -54,4 +65,10 @@ public:
 	// 반응 가능 여부
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Test|Combat")
 	bool bTestCanReact = true;
+
+	// OnTurnBegin 호출 횟수 (검증용)
+	int32 TurnBeginCount = 0;
+
+	// OnTurnActivated 호출 횟수 (검증용)
+	int32 TurnActivatedCount = 0;
 };

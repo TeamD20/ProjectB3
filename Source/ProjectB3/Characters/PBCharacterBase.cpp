@@ -91,6 +91,11 @@ void APBCharacterBase::OnTurnBegin()
 	}
 }
 
+void APBCharacterBase::OnTurnActivated()
+{
+	// 기본 구현: 별도 처리 없음 (하위 클래스에서 override)
+}
+
 void APBCharacterBase::OnTurnEnd()
 {
 	// 기본 구현: 별도 처리 없음
