@@ -560,6 +560,7 @@ void UPBCombatManagerSubsystem::AdvanceToNextTurn()
 
 void UPBCombatManagerSubsystem::BeginTurnForCurrentEntry()
 {
+	UE_LOG(LogTemp, Warning, TEXT("ROUND : %d"), CurrentRound);
 	if (!InitiativeOrder.IsValidIndex(CurrentTurnIndex))
 	{
 		return;
