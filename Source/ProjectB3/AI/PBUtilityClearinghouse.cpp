@@ -102,7 +102,7 @@ void UPBUtilityClearinghouse::RestoreTurnResources(AActor *CurrentTurnActor) {
     return;
 
   UAbilitySystemComponent *ASC = MockChar->GetAbilitySystemComponent();
-  const UPBTurnResourceAttributeSet *AttrSet = MockChar->GetAttributeSet();
+  const UPBTurnResourceAttributeSet *AttrSet = MockChar->GetTurnResourceAttributeSet();
 
   if (ASC && AttrSet) {
     // GE_RestoreTurnResources 에셋을 생성하여 턴 시작 자원을 최대치로 초기화

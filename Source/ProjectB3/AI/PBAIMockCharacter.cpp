@@ -6,29 +6,13 @@
 #include "PBGE_RestoreTurnResources.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "StateTreeEvents.h"
+#include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
 
 /*~ 생성자 ~*/
 
 APBAIMockCharacter::APBAIMockCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
-
-	AbilitySystemComponent =
-		CreateDefaultSubobject<UAbilitySystemComponent>(
-			"AbilitySystemComponent");
-	AttributeSet =
-		CreateDefaultSubobject<UPBTurnResourceAttributeSet>(
-			TEXT("AttributeSet"));
-}
-
-UAbilitySystemComponent* APBAIMockCharacter::GetAbilitySystemComponent() const
-{
-	return AbilitySystemComponent;
-}
-
-UPBTurnResourceAttributeSet* APBAIMockCharacter::GetAttributeSet() const
-{
-	return AttributeSet;
 }
 
 /*~ AActor Interface ~*/
@@ -204,7 +188,15 @@ bool APBAIMockCharacter::IsIncapacitated() const
 
 FGameplayTag APBAIMockCharacter::GetFactionTag() const
 {
-	// AI 테스트용 캐릭터로서 적대 진영 태그 반환
+	// 부모(PBCharacterBase)의 CombatIdentity.FactionTag 사용.
+	// BP 인스턴스별로 다른 진영 태그를 설정하면 공유 턴 그룹이 생성되지 않음.
+	// CombatIdentity가 비어있으면 고유 Enemy 태그로 폴백.
+	if (CombatIdentity.FactionTag.IsValid())
+	{
+		return CombatIdentity.FactionTag;
+	}
+
+	// 폴백: 기존 동작 유지
 	return FGameplayTag::RequestGameplayTag(TEXT("Combat.Faction.Enemy"));
 }
 
