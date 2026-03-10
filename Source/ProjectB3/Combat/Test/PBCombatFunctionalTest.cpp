@@ -445,14 +445,16 @@ void APBTest_SharedGroupCycle::StartTest()
 	AssertEqual_Int(GroupIdE3, -1, TEXT("E3는 개별 턴이어야 한다"));
 
 	// --- 한 라운드 순환 및 OnTurnBegin / OnTurnActivated 검증 ---
-	// StartCombat 시점에 슬롯 0([A1+A2])이 이미 시작됨.
-	// EndCurrentTurn 3회 → 슬롯 1([E1+E2]) → 슬롯 2([A3]) → 슬롯 3([E3]) 진입.
-	// 이 시점(슬롯 3 활성)에서 라운드 1의 모든 슬롯 처리가 완료됨.
-	// 4번째 EndCurrentTurn은 라운드 2를 즉시 개시하므로 그 전에 카운터를 검증한다.
-	for (int32 Slot = 0; Slot < 3; ++Slot)
+	// StartCombat 시점에 슬롯 0([A1+A2])이 이미 시작됨, 첫 멤버에 OnTurnActivated 호출됨.
+	// 순차 넘김:
+	//   슬롯 0: EndCurrentTurn ×2 (A1→A2→슬롯1)
+	//   슬롯 1: EndCurrentTurn ×2 (E1→E2→슬롯2)
+	//   슬롯 2: EndCurrentTurn ×1 (A3→슬롯3)
+	// 총 5회 EndCurrentTurn 후 E3 활성 (슬롯 3, 라운드 1의 마지막)
+	for (int32 Step = 0; Step < 5; ++Step)
 	{
 		AssertTrue(CM->IsInCombat() && CM->GetCurrentRound() == 1,
-			FString::Printf(TEXT("슬롯 %d→%d 전환 전 라운드 1이어야 한다"), Slot, Slot + 1));
+			FString::Printf(TEXT("스텝 %d: 라운드 1이어야 한다"), Step));
 		CM->EndCurrentTurn();
 	}
 
@@ -461,18 +463,18 @@ void APBTest_SharedGroupCycle::StartTest()
 	AssertEqual_Int(CM->GetCurrentRound(), 1, TEXT("슬롯 3에서 아직 라운드 1이어야 한다"));
 
 	// --- OnTurnBegin / OnTurnActivated 호출 수 검증 (라운드 1 전체 기준) ---
-	//   그룹([A1+A2], [E1+E2]): OnTurnBegin 각 2회(멤버 수), OnTurnActivated 합산 1회(활성 1명)
+	//   그룹([A1+A2], [E1+E2]): OnTurnBegin 각 멤버 1회씩(합산 2), OnTurnActivated 각 멤버 1회씩(합산 2)
 	//   솔로(A3, E3): OnTurnBegin 1회, OnTurnActivated 1회
 
 	AssertEqual_Int(A1->TurnBeginCount + A2->TurnBeginCount, 2,
 		TEXT("A1·A2 OnTurnBegin 합산 2회여야 한다"));
-	AssertEqual_Int(A1->TurnActivatedCount + A2->TurnActivatedCount, 1,
-		TEXT("A1·A2 OnTurnActivated 합산 1회여야 한다 (활성 멤버 1명만)"));
+	AssertEqual_Int(A1->TurnActivatedCount + A2->TurnActivatedCount, 2,
+		TEXT("A1·A2 OnTurnActivated 합산 2회여야 한다 (각 멤버 순차 활성화)"));
 
 	AssertEqual_Int(E1->TurnBeginCount + E2->TurnBeginCount, 2,
 		TEXT("E1·E2 OnTurnBegin 합산 2회여야 한다"));
-	AssertEqual_Int(E1->TurnActivatedCount + E2->TurnActivatedCount, 1,
-		TEXT("E1·E2 OnTurnActivated 합산 1회여야 한다 (활성 멤버 1명만)"));
+	AssertEqual_Int(E1->TurnActivatedCount + E2->TurnActivatedCount, 2,
+		TEXT("E1·E2 OnTurnActivated 합산 2회여야 한다 (각 멤버 순차 활성화)"));
 
 	AssertEqual_Int(A3->TurnBeginCount, 1, TEXT("A3 OnTurnBegin 1회여야 한다"));
 	AssertEqual_Int(A3->TurnActivatedCount, 1, TEXT("A3 OnTurnActivated 1회여야 한다"));
@@ -485,7 +487,7 @@ void APBTest_SharedGroupCycle::StartTest()
 	if (CM->IsInCombat())
 	{
 		AssertEqual_Int(CM->GetCurrentRound(), 2,
-			TEXT("4개 슬롯 소진 후 라운드 2로 진입해야 한다"));
+			TEXT("6회 EndCurrentTurn 후 라운드 2로 진입해야 한다"));
 	}
 
 	FinishTest(EFunctionalTestResult::Succeeded, TEXT("멀티 그룹 한 바퀴 순환 테스트 통과"));
