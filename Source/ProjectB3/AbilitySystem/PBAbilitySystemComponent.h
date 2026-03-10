@@ -34,6 +34,11 @@ public:
 	// 특정 출처에 부여된 핸들이 있는지 확인
 	bool HasAbilitiesFromSource(const FGameplayTag& SourceTag) const;
 
+	// 포함/제외 태그 조건으로 활성화 가능한 어빌리티 Spec 핸들 조회
+	TArray<FGameplayAbilitySpecHandle> GetAbilitySpecHandlesByTagFilter(
+		const FGameplayTagContainer& RequireTags,
+		const FGameplayTagContainer& IgnoreTags = FGameplayTagContainer()) const;
+
 protected:
 	// 출처별 핸들 캐시
 	TMap<FGameplayTag, FPBSourceGrantedHandles> GrantedHandleMap;

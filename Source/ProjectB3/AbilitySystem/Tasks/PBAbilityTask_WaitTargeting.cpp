@@ -34,13 +34,8 @@ void UPBAbilityTask_WaitTargeting::Activate()
 	WeakPC = PC;
 	WeakTargetingComp = PC->GetTargetingComponent();
 
-	// 어빌리티 프로퍼티로부터 타겟팅 요청 구성
-	FPBTargetingRequest Request;
-	Request.RequestingAbility = PBAbility;
-	Request.Mode              = PBAbility->GetTargetingMode();
-	Request.OriginLocation    = PBAbility->GetAvatarActorFromActorInfo()->GetActorLocation();
-	Request.AoERadius         = PBAbility->GetAoERadius();
-	Request.MaxTargetCount    = PBAbility->GetMaxTargetCount();
+	// 어빌리티로부터 타겟팅 요청 구성
+	const FPBTargetingRequest Request = PBAbility->MakeTargetingRequest();
 
 	// 델리게이트 바인딩 후 PC를 통해 타겟팅 모드 진입
 	UPBTargetingComponent* TargetingComp = WeakTargetingComp.Get();

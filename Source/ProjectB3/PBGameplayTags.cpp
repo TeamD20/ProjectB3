@@ -20,6 +20,16 @@ namespace PBGameplayTags
 	
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Active_Move, "Ability.Active.Move", "이동 어빌리티");
 
+	// 어빌리티 타입 태그 (행동 자원 소모 유형)
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Type, "Ability.Type", "어빌리티 타입 구분 태그");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Type_Action, "Ability.Type.Action", "주행동 소모");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Type_BonusAction, "Ability.Type.BonusAction", "보조행동 소모");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Type_Reaction, "Ability.Type.Reaction", "반응 행동 소모");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Type_Free, "Ability.Type.Free", "행동 자원 소모 없음");
+
+	// 어빌리티 분류 태그
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Spell, "Ability.Spell", "주문 어빌리티");
+
 	// 어빌리티 발동 이벤트 태그
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Ability_Activate, "Event.Ability.Activate", "어빌리티 발동 요청 이벤트");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Ability_Confirm, "Event.Ability.Confirm", "타겟 확정 이벤트");

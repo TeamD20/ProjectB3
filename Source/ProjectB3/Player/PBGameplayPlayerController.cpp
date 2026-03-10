@@ -267,7 +267,7 @@ void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value
 		// 이동 Payload 구성 후 이동 어빌리티에 이벤트 전송
 		UPBTargetPayload* MovePayload = NewObject<UPBTargetPayload>(this);
 		MovePayload->TargetData.TargetingMode = EPBTargetingMode::Location;
-		MovePayload->TargetData.TargetLocation = HitResult.Location;
+		MovePayload->TargetData.TargetLocations = { HitResult.Location };
 
 		UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(MyPawn);
 		if (IsValid(ASC))
