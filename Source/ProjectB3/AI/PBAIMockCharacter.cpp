@@ -129,11 +129,21 @@ void APBAIMockCharacter::OnRoundBegin()
 
 void APBAIMockCharacter::OnTurnBegin()
 {
+	// 부모 호출: Action/BonusAction/Movement 자원 리셋
+	Super::OnTurnBegin();
+
 	UE_LOG(LogTemp, Display,
-	       TEXT("=== %s: OnTurnBegin 호출, StateTree 이벤트 전송 ==="),
+	       TEXT("=== %s: OnTurnBegin 호출 (자원 리셋 완료) ==="),
+	       *GetName());
+}
+
+void APBAIMockCharacter::OnTurnActivated()
+{
+	UE_LOG(LogTemp, Display,
+	       TEXT("=== %s: OnTurnActivated 호출, StateTree 이벤트 전송 ==="),
 	       *GetName());
 
-	// 턴 시작 시 StateTree에 Event.Combat.TurnStarted 이벤트 전송
+	// 실제 행동 차례가 되었을 때 StateTree에 이벤트 전송
 	if (AController* CharacterController = GetController())
 	{
 		if (UStateTreeComponent* StateTreeComp =
@@ -188,15 +198,7 @@ bool APBAIMockCharacter::IsIncapacitated() const
 
 FGameplayTag APBAIMockCharacter::GetFactionTag() const
 {
-	// 부모(PBCharacterBase)의 CombatIdentity.FactionTag 사용.
-	// BP 인스턴스별로 다른 진영 태그를 설정하면 공유 턴 그룹이 생성되지 않음.
-	// CombatIdentity가 비어있으면 고유 Enemy 태그로 폴백.
-	if (CombatIdentity.FactionTag.IsValid())
-	{
-		return CombatIdentity.FactionTag;
-	}
-
-	// 폴백: 기존 동작 유지
+	// AI 적대 진영. OnTurnActivated 도입으로 공유 턴 그룹에서도 개별 행동 가능.
 	return FGameplayTag::RequestGameplayTag(TEXT("Combat.Faction.Enemy"));
 }
 
