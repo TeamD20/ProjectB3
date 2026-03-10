@@ -72,6 +72,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
 	void ClearCache();
 
+	// AP 소진 시 방어적 후퇴 위치 계산.
+	// 적 평균 위치 반대 방향으로 잔여 이동력 범위 내 NavMesh 상 위치 반환.
+	// 실패 시 FVector::ZeroVector 반환 (나중에 EQS FallbackPlan으로 교체 가능).
+	UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
+	FVector CalculateFallbackPosition(AActor* SelfRef, float RemainingMP) const;
+
 	// (테스트 편의용) 턴이 끝난 후 다시 다음 행동을 위해 자원(Action, Movement
 	// 등)을 최대치로 회복시킨다.
 	UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")

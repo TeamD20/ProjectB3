@@ -128,11 +128,23 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction(
       ActiveSpecHandle = AbilitySpec->Handle;
     }
 
+    // Fallback 이동 여부 캡처 (TargetActor가 null이면 Fallback)
+    const bool bIsFallbackMove = !IsValid(CurrentAction.TargetActor);
+
     // Ability 종료 시 bIsActionInProgress를 false로 전환
     DelegateHandle = CachedASC->OnAbilityEnded.AddLambda(
-        [this](const FAbilityEndedData &AbilityEndedData) {
+        [this, bIsFallbackMove](const FAbilityEndedData &AbilityEndedData) {
           if (AbilityEndedData.AbilitySpecHandle == ActiveSpecHandle) {
             bIsActionInProgress = false;
+
+            // Fallback 이동 완료 후 잔여 이동력 전부 소진 (재후퇴 방지)
+            if (bIsFallbackMove && CachedASC) {
+              CachedASC->ApplyModToAttributeUnsafe(
+                  UPBTurnResourceAttributeSet::GetMovementAttribute(),
+                  EGameplayModOp::Override, 0.0f);
+              UE_LOG(LogPBStateTreeExec, Display,
+                     TEXT("[Fallback] 이동 완료 후 이동력 전부 소진."));
+            }
           }
         });
 
@@ -142,11 +154,14 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction(
       return EStateTreeRunStatus::Failed;
     }
 
-    // 타겟 위치를 Payload로 만들어 MoveCommand 이벤트 전송
+    // 이동 목표 위치 결정: TargetActor가 있으면 액터 위치, 없으면 TargetLocation
+    const FVector MoveDestination = IsValid(CurrentAction.TargetActor)
+        ? CurrentAction.TargetActor->GetActorLocation()
+        : CurrentAction.TargetLocation;
+
     UPBTargetPayload *MovePayload = NewObject<UPBTargetPayload>(this);
     MovePayload->TargetData.TargetingMode = EPBTargetingMode::Location;
-    MovePayload->TargetData.TargetLocation =
-        CurrentAction.TargetActor->GetActorLocation();
+    MovePayload->TargetData.TargetLocation = MoveDestination;
 
     FGameplayEventData EventData;
     EventData.OptionalObject = MovePayload;
