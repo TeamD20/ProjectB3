@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <ProjectB3/Combat/IPBCombatTarget.h>
+
 #include "GameFramework/Character.h"
 #include "AbilitySystemInterface.h"
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
@@ -13,7 +15,7 @@ class UPBAbilitySetData;
 
 // 플레이어와 AI가 공유하는 캐릭터 기반 클래스.
 UCLASS()
-class PROJECTB3_API APBCharacterBase : public ACharacter, public IAbilitySystemInterface, public IPBCombatParticipant
+class PROJECTB3_API APBCharacterBase : public ACharacter, public IAbilitySystemInterface, public IPBCombatParticipant, public IPBCombatTarget
 {
 	GENERATED_BODY()
 
@@ -73,6 +75,9 @@ public:
 	// 초상화
 	virtual TSoftObjectPtr<UTexture2D> GetCombatPortrait() const override;
 
+	/*~ ICombatTarget Interface ~*/
+	virtual FVector GetCombatTargetLocation() const override;
+	
 	/*~ APBCharacterBase Interface ~*/
 	// 전투 식별 정보 설정
 	void SetCombatIdentity(const FPBCombatIdentity& InIdentity);

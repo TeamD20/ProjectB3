@@ -128,6 +128,11 @@ TArray<FGameplayAbilitySpecHandle> UPBAbilitySystemComponent::GetAbilitySpecHand
 	return Result;
 }
 
+void UPBAbilitySystemComponent::SetTurnAbilityActive(bool bActive)
+{
+	bIsTurnAbilityActive = bActive;
+}
+
 bool UPBAbilitySystemComponent::CanActivateAbilityByHandle(const FGameplayAbilitySpecHandle& Handle) const
 {
 	// GetActivatableAbilities는 non-const이므로 const_cast 사용

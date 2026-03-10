@@ -2,8 +2,8 @@
 
 #include "PBAbilityTask_WaitTargeting.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
+#include "ProjectB3/Combat/PBTargetingComponent.h"
 #include "ProjectB3/Player/PBGameplayPlayerController.h"
-#include "ProjectB3/Player/PBTargetingComponent.h"
 
 UPBAbilityTask_WaitTargeting* UPBAbilityTask_WaitTargeting::CreateTask(UGameplayAbility* OwningAbility)
 {

@@ -1,6 +1,7 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBTargetingComponent.h"
+#include "IPBCombatTarget.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
 
@@ -38,7 +39,7 @@ void UPBTargetingComponent::UpdateTargetingFromHit(const FHitResult& HitResult)
 	{
 	case EPBTargetingMode::SingleTarget:
 	case EPBTargetingMode::MultiTarget:
-		if (IsValid(HitResult.GetActor()))
+		if (IsValid(HitResult.GetActor()) && HitResult.GetActor()->Implements<UPBCombatTarget>())
 		{
 			NewCandidate.TargetActors.Add(HitResult.GetActor());
 		}

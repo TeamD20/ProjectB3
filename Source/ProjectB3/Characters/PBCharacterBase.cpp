@@ -164,3 +164,9 @@ TSoftObjectPtr<UTexture2D> APBCharacterBase::GetCombatPortrait() const
 {
 	return CombatIdentity.Portrait;
 }
+
+FVector APBCharacterBase::GetCombatTargetLocation() const
+{
+	// TODO: 허리 위치나 흉부 위치 반환.
+	return GetActorLocation();
+}

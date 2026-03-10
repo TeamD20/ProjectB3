@@ -219,7 +219,7 @@ void UPBGameplayAbility_Targeted::OnTargetingConfirmed(const FPBAbilityTargetDat
 		return;
 	}
 
-	ExecuteTargetLogic(TargetData);
+	K2_ExecuteTargetLogic(TargetData);
 	TryAutoEndAbility(CurrentSpecHandle, ActorInfo, CurrentActivationInfo);
 }
 
