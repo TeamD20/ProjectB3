@@ -23,6 +23,16 @@ namespace PBGameplayTags
 	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Active_Move);
 
+	// 어빌리티 타입 태그 (행동 자원 소모 유형)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Type);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Type_Action);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Type_BonusAction);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Type_Reaction);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Type_Free);
+
+	// 어빌리티 분류 태그
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Spell);
+
 	// 어빌리티 발동 이벤트 태그
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Ability_Activate);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Ability_Confirm);

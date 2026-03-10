@@ -2,6 +2,8 @@
 
 
 #include "PBPartyMemberViewmodel.h"
+#include "GameFramework/PlayerController.h"
+#include "ProjectB3/Player/PBGameplayPlayerState.h"
 
 
 FText UPBPartyMemberViewModel::GetCharacterName() const
@@ -151,6 +153,14 @@ void UPBPartyMemberViewModel::SetIsMyTurn(bool InMyTurn)
 
 void UPBPartyMemberViewModel::OnSelected()
 {
+	if (APlayerController* OwningPlayerController = GetOwningPlayerController())
+	{
+		if (APBGameplayPlayerState* GameplayPlayerState = OwningPlayerController->GetPlayerState<APBGameplayPlayerState>())
+		{
+			GameplayPlayerState->SelectPartyMember(GetTargetActor());
+		}
+	}
+
 	OnPartyMemberSelected.Broadcast(GetTargetActor());
 }
 

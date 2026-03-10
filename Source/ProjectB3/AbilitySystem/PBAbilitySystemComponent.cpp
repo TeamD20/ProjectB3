@@ -91,3 +91,51 @@ bool UPBAbilitySystemComponent::HasAbilitiesFromSource(const FGameplayTag& Sourc
 {
 	return GrantedHandleMap.Contains(SourceTag);
 }
+
+TArray<FGameplayAbilitySpecHandle> UPBAbilitySystemComponent::GetAbilitySpecHandlesByTagFilter(
+	const FGameplayTagContainer& RequireTags,
+	const FGameplayTagContainer& IgnoreTags) const
+{
+	TArray<FGameplayAbilitySpecHandle> Result;
+
+	// GetActivatableAbilities()는 non-const이므로 const_cast 사용
+	// (Spec 데이터 자체는 수정하지 않음)
+	const TArray<FGameplayAbilitySpec>& Specs =
+		const_cast<UPBAbilitySystemComponent*>(this)->GetActivatableAbilities();
+
+	for (const FGameplayAbilitySpec& Spec : Specs)
+	{
+		// AssetTags + DynamicSpecSourceTags 합산
+		FGameplayTagContainer CombinedTags;
+		CombinedTags.AppendTags(Spec.Ability->GetAssetTags());
+		CombinedTags.AppendTags(Spec.GetDynamicSpecSourceTags());
+
+		// RequireTags를 모두 포함하는지 확인
+		if (!CombinedTags.HasAll(RequireTags))
+		{
+			continue;
+		}
+
+		// IgnoreTags 중 하나라도 있으면 제외
+		if (IgnoreTags.Num() > 0 && CombinedTags.HasAny(IgnoreTags))
+		{
+			continue;
+		}
+
+		Result.Add(Spec.Handle);
+	}
+
+	return Result;
+}
+
+bool UPBAbilitySystemComponent::CanActivateAbilityByHandle(const FGameplayAbilitySpecHandle& Handle) const
+{
+	// GetActivatableAbilities는 non-const이므로 const_cast 사용
+	const FGameplayAbilitySpec* Spec = FindAbilitySpecFromHandle(Handle);
+	if (Spec == nullptr || !IsValid(Spec->Ability))
+	{
+		return false;
+	}
+
+	return Spec->Ability->CanActivateAbility(Handle, AbilityActorInfo.Get());
+}

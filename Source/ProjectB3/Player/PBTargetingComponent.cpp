@@ -42,11 +42,16 @@ void UPBTargetingComponent::UpdateTargetingFromHit(const FHitResult& HitResult)
 		{
 			NewCandidate.TargetActors.Add(HitResult.GetActor());
 		}
+		else if (CurrentRequest.bAllowGroundTarget)
+		{
+			// 액터 미히트 시 지면 위치로 폴백
+			NewCandidate.TargetLocations.Add(HitResult.ImpactPoint);
+		}
 		break;
 
 	case EPBTargetingMode::Location:
 	case EPBTargetingMode::AoE:
-		NewCandidate.TargetLocation = HitResult.ImpactPoint;
+		NewCandidate.TargetLocations.Add(HitResult.ImpactPoint);
 		NewCandidate.AoERadius = CurrentRequest.AoERadius;
 		break;
 
@@ -83,7 +88,7 @@ void UPBTargetingComponent::AddTargetSelection()
 	}
 
 	// 호버 중인 액터를 후보에 추가 (같은 타겟 중복 지정 허용)
-	AActor* Target = HoverPreviewData.GetSingleTarget();
+	AActor* Target = HoverPreviewData.GetSingleTargetActor();
 	if (!IsValid(Target) || !bIsHoverValid)
 	{
 		return;
