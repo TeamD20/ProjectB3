@@ -2,6 +2,7 @@
 #include "AbilitySystemComponent.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
+#include "NavigationSystem.h"
 #include "PBAIMockCharacter.h"
 #include "PBGE_RestoreTurnResources.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
@@ -306,4 +307,90 @@ TArray<FPBTargetScore> UPBUtilityClearinghouse::GetTopKTargets(int32 K)
 		Result.Add(AllScores[i]);
 	}
 	return Result;
+}
+
+/*~ Fallback 위치 계산 ~*/
+
+FVector UPBUtilityClearinghouse::CalculateFallbackPosition(
+	AActor* SelfRef, float RemainingMP) const
+{
+	if (!IsValid(SelfRef) || CachedTargets.Num() == 0)
+	{
+		UE_LOG(LogPBUtility, Warning,
+		       TEXT("[Fallback] Self 또는 CachedTargets가 유효하지 않습니다."));
+		return FVector::ZeroVector;
+	}
+
+	// 1. 적들의 평균 위치(Centroid) 계산
+	FVector EnemyCentroid = FVector::ZeroVector;
+	int32 ValidCount = 0;
+	for (const TWeakObjectPtr<AActor>& WeakTarget : CachedTargets)
+	{
+		if (AActor* Target = WeakTarget.Get())
+		{
+			EnemyCentroid += Target->GetActorLocation();
+			++ValidCount;
+		}
+	}
+
+	if (ValidCount == 0)
+	{
+		return FVector::ZeroVector;
+	}
+
+	EnemyCentroid /= ValidCount;
+
+	// 2. 적 중심에서 반대 방향 벡터 (XY 평면)
+	const FVector AIPos = SelfRef->GetActorLocation();
+	FVector RetreatDir = AIPos - EnemyCentroid;
+	RetreatDir.Z = 0.0f; // 수평 이동만 고려
+
+	if (RetreatDir.IsNearlyZero())
+	{
+		// AI가 적 중심에 겹쳐있으면 임의 방향 (전방)
+		RetreatDir = SelfRef->GetActorForwardVector();
+	}
+
+	RetreatDir.Normalize();
+
+	// 3. 잔여 이동력 범위 내 최대 거리 지점
+	const FVector CandidatePos = AIPos + RetreatDir * RemainingMP;
+
+	// 4. NavMesh 프로젝션으로 도달 가능 위치 보정
+	UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(
+		SelfRef->GetWorld());
+
+	if (!NavSys)
+	{
+		UE_LOG(LogPBUtility, Warning,
+		       TEXT("[Fallback] NavigationSystem을 찾을 수 없습니다."));
+		return FVector::ZeroVector;
+	}
+
+	FNavLocation ProjectedLocation;
+	const bool bProjected = NavSys->ProjectPointToNavigation(
+		CandidatePos, ProjectedLocation, FVector(200.0f, 200.0f, 200.0f));
+
+	if (!bProjected)
+	{
+		// NavMesh에 투영 실패 → 거리를 절반으로 줄여 재시도
+		const FVector HalfCandidate = AIPos + RetreatDir * (RemainingMP * 0.5f);
+		const bool bHalfProjected = NavSys->ProjectPointToNavigation(
+			HalfCandidate, ProjectedLocation, FVector(200.0f, 200.0f, 200.0f));
+
+		if (!bHalfProjected)
+		{
+			UE_LOG(LogPBUtility, Warning,
+			       TEXT("[Fallback] NavMesh 투영 실패. 후퇴 불가."));
+			return FVector::ZeroVector;
+		}
+	}
+
+	UE_LOG(LogPBUtility, Display,
+	       TEXT("[Fallback] 후퇴 위치 계산 완료: (%s) → (%s), 적 Centroid: (%s)"),
+	       *AIPos.ToCompactString(),
+	       *ProjectedLocation.Location.ToCompactString(),
+	       *EnemyCentroid.ToCompactString());
+
+	return ProjectedLocation.Location;
 }

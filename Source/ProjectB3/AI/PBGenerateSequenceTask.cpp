@@ -139,52 +139,83 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	GeneratedSequence.TotalUtilityScore =
 		FMath::Min(DistanceScore, VulnerabilityScore);
 
-	// 6. 상황에 따른 모의(Mock) 단일 행동 결정 로직
+	// 6. 행동 결정 (AP/MP 조기 배제 → 거리 기반 분기)
 	UE_LOG(LogPBStateTree, Display, TEXT("=== 시퀀스 조합(Combo) 분석 개시 ==="));
 
 	FPBSequenceAction DecidedAction;
-
-	// 간단한 거리 기반 분기 로직: 타겟과의 실제 거리가 200.0f 이하면 공격, 멀면
-	// 이동
 	float RealDistance = SelfActor->GetDistanceTo(BestTargetActor);
 
-	// 공격 사거리 이내일 경우
-	if (RealDistance <= 200.0f)
+	// ─── 조기 배제: AP+MP 자원 검증 (거리 분기 전) ───
+	// AP 소진 시 거리와 무관하게 Fallback 또는 턴 종료
+	if (CurrentAction < 1.0f)
 	{
-		// 안전 장치: 현재 GAS 세팅에서 Cost 처리가 완벽하지 않을 수 있으므로,
-		// 명시적으로 Action 잔량이 1.0 이상인지 교차 검증하여 무한 루프를 막습니다.
-		if (ValidAbilities.Num() > 0 && CurrentAction >= 1.0f)
+		if (CurrentMovement > 10.0f)
+		{
+			// AP 없음 + 이동력 있음 → 방어적 후퇴
+			const FVector FallbackPos =
+				Clearinghouse->CalculateFallbackPosition(
+					SelfActor, CurrentMovement);
+
+			if (!FallbackPos.IsZero())
+			{
+				DecidedAction.ActionType = EPBActionType::Move;
+				DecidedAction.TargetActor = nullptr;
+				DecidedAction.TargetLocation = FallbackPos;
+				DecidedAction.Cost.MovementCost = CurrentMovement;
+				UE_LOG(LogPBStateTree, Display,
+				       TEXT("[Fallback] AP 소진, 방어적 후퇴 이동. "
+					       "목표: (%s)"),
+				       *FallbackPos.ToCompactString());
+			}
+			else
+			{
+				UE_LOG(LogPBStateTree, Warning,
+				       TEXT("[Fallback] 후퇴 위치 계산 실패. "
+					       "턴을 종료합니다."));
+				return EStateTreeRunStatus::Failed;
+			}
+		}
+		else
+		{
+			// AP 없음 + 이동력 없음 → 턴 종료
+			UE_LOG(LogPBStateTree, Warning,
+			       TEXT("GenerateSequenceTask: AP 및 이동력 모두 부족. "
+				       "턴을 종료(Failed)합니다."));
+			return EStateTreeRunStatus::Failed;
+		}
+	}
+	// ─── AP 있음: 거리 기반 행동 결정 ───
+	else if (RealDistance <= 200.0f)
+	{
+		// 공격 사거리 이내 → Attack
+		if (ValidAbilities.Num() > 0)
 		{
 			DecidedAction.ActionType = EPBActionType::Attack;
 			DecidedAction.TargetActor = BestTargetActor;
-			DecidedAction.Cost.ActionCost = 1.0f; // 공격은 1 Action 소모
+			DecidedAction.Cost.ActionCost = 1.0f;
 			UE_LOG(LogPBStateTree, Display,
-			       TEXT("결정된 행동: 타겟이 근접하여 거리가 %f이고 발동 가능한 "
-				       "스킬이 있으므로 "
+			       TEXT("결정된 행동: 타겟이 근접(거리: %f), "
 				       "[%s] 등 Attack을 결정합니다."),
 			       RealDistance, *ValidAbilities[0]->GetName());
 		}
 		else
 		{
 			UE_LOG(LogPBStateTree, Warning,
-			       TEXT("GenerateSequenceTask: 타겟에 근접했으나 발동 가능한 "
-				       "어빌리티(Action/AP 부족 등)가 "
-				       "없어 턴을 종료(Failed)합니다."));
+			       TEXT("GenerateSequenceTask: 사거리 내이나 발동 가능한 "
+				       "어빌리티가 없어 턴을 종료(Failed)합니다."));
 			return EStateTreeRunStatus::Failed;
 		}
 	}
-	// 공격 사거리 밖일 경우 (이동 접근 시도)
 	else
 	{
-		// 실제 이동력(Movement) 계산 속성을 활용
+		// 공격 사거리 밖 → 타겟 접근 이동
 		float MovementCost = RealDistance;
-		if (TurnResourceSet && CurrentMovement < MovementCost &&
-			CurrentMovement <= 10.0f)
+		if (TurnResourceSet && CurrentMovement <= 10.0f)
 		{
-			// 남은 이동력마저 없다면 턴 종료 처리 (Failed)
 			UE_LOG(LogPBStateTree, Warning,
 			       TEXT("GenerateSequenceTask: 타겟에 접근해야 하나 남은 "
-				       "이동력(Movement: %f)이 부족하여 턴을 종료(Failed)합니다."),
+				       "이동력(Movement: %f)이 부족하여 턴을 종료(Failed)"
+				       "합니다."),
 			       CurrentMovement);
 			return EStateTreeRunStatus::Failed;
 		}
@@ -194,7 +225,7 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		DecidedAction.Cost.MovementCost = MovementCost;
 
 		UE_LOG(LogPBStateTree, Display,
-		       TEXT("결정된 행동: 타겟이 멀어 거리가 %f이므로 [Move]를 결정합니다. "
+		       TEXT("결정된 행동: 타겟이 멀어(거리: %f) [Move]를 결정합니다. "
 			       "(예상 소모 이동력: %f)"),
 		       RealDistance, MovementCost);
 	}
