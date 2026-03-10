@@ -5,16 +5,9 @@
 #include "PBSkillSlotWidget.h"
 #include "PBSkillBarTypes.h"
 #include "ProjectB3/UI/PBUIBlueprintLibrary.h"
-#include "Components/HorizontalBox.h"
-#include "Components/HorizontalBoxSlot.h"
 #include "Components/WidgetSwitcher.h"
+#include "ProjectB3/UI/PBUITypes.h"
 
-namespace PBSkillBarTabIndex
-{
-	static constexpr int32 Action = 0;
-	static constexpr int32 BonusAction = 1;
-	static constexpr int32 Spell = 2;
-}
 
 void UPBSkillBarWidget::SetCurrentTab(int32 InTabIndex)
 {

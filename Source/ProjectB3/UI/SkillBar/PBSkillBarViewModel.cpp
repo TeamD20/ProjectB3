@@ -9,13 +9,7 @@
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
 #include "ProjectB3/Player/PBGameplayPlayerState.h"
-
-namespace PBSkillBarTabIndex
-{
-	static constexpr int32 Action = 0;
-	static constexpr int32 BonusAction = 1;
-	static constexpr int32 Spell = 2;
-}
+#include "ProjectB3/UI/PBUITypes.h"
 
 void UPBSkillBarViewModel::InitializeForPlayer(ULocalPlayer* InLocalPlayer)
 {
