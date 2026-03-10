@@ -2,6 +2,7 @@
 
 
 #include "PBPartyMemberViewmodel.h"
+#include "ProjectB3/UI/Test/PBUITestGameMode.h"
 
 
 FText UPBPartyMemberViewModel::GetCharacterName() const
@@ -44,9 +45,9 @@ float UPBPartyMemberViewModel::GetHealthPercent() const
 	return HealthPercent;
 }
 
-bool UPBPartyMemberViewModel::IsMyTurn() const
+bool UPBPartyMemberViewModel::bIsCharacterSelect() const
 {
-	return bIsMyTurn;
+	return bIsCharSelect;
 }
 
 void UPBPartyMemberViewModel::SetCharacterName(FText InCharacterName)
@@ -136,11 +137,11 @@ void UPBPartyMemberViewModel::SetPortrait(TSoftObjectPtr<UTexture2D> InPortrait)
 	}
 }
 
-void UPBPartyMemberViewModel::SetIsMyTurn(bool InMyTurn)
+void UPBPartyMemberViewModel::SetIsSelectedCharacter(bool InMyTurn)
 {
-	if (bIsMyTurn != InMyTurn)
+	if (bIsCharSelect != InMyTurn)
 	{
-		bIsMyTurn = InMyTurn;
+		bIsCharSelect = InMyTurn;
 		
 		if (OnIsMyTurnChanged.IsBound())
 		{
@@ -151,6 +152,15 @@ void UPBPartyMemberViewModel::SetIsMyTurn(bool InMyTurn)
 
 void UPBPartyMemberViewModel::OnSelected()
 {
+	APBUITestGameMode* GM = Cast<APBUITestGameMode>(GetWorld()->GetAuthGameMode());
+	
+	if (!IsValid(GM))
+	{
+		return;
+	}
+	
 	OnPartyMemberSelected.Broadcast(GetTargetActor());
+	
+	GM->SimulateCharacterChange(GetTargetActor());
 }
 

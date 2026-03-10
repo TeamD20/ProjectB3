@@ -34,7 +34,7 @@ protected:
 	void UpdataHPText();
 	
 	void HandleImageChanged(TSoftObjectPtr<UTexture2D> InPortrait);
-	void HandleMyTurnChanged(bool bInMyTurn);
+	void HandleCharacterSelected(bool bInMyTurn);
 
 public:
 	// UPROPERTY(meta = (BindWidget))
@@ -50,10 +50,10 @@ public:
 	UTextBlock* CharacterHPTextBlock;
 	
 	UPROPERTY(meta = (BindWidget))
-	UImage* CharacterImage;
+	class UPBPortraitBaseWidget* PortraitWidget;
 	
 	UPROPERTY(meta = (BindWidget))
-	UOverlay* TurnOverlay;
+	UOverlay* SelectedOverlay;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ViewModel")
 	UPBPartyMemberViewModel* MemberViewModel;

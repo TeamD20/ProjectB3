@@ -4,7 +4,9 @@
 #include "Blueprint/UserWidget.h"
 #include "ProjectB3/UI/PBUIBlueprintLibrary.h"
 #include "ProjectB3/UI/PartyMemeber/PBPartyMemberListViewmodel.h"
-#include "ProjectB3/UI/PartyMemeber/PBPartyMemberViewmodel.h"
+#include "ProjectB3/UI/PartyMemeber/PBPartyMemberViewModel.h"
+#include "ProjectB3/UI/TurnInfoHUD/PBTurnOrderViewModel.h"
+#include "ProjectB3/UI/TurnInfoHUD/PBTurnPortraitViewModel.h"
 #include "Kismet/GameplayStatics.h"
 
 void APBUITestGameMode::BeginPlay()
@@ -18,14 +20,19 @@ void APBUITestGameMode::BeginPlay()
 
 	UE_LOG(LogTemp, Warning, TEXT("Spawned Members: %d"), SpawnPartyMembers.Num());
 
+	// 1-5. 더미 몬스터 스폰 (최대 12마리)
+	SpawnDummyMonsters();
+
 	// 2. 데이터 셋업 (이름, HP 등)
 	SetupDummyCharacterData();
 
 	// 3. 뷰모델 라이브러리를 통해 초기화 및 데이터 등록
 	InitializePartyViewModel();
+	InitializeTurnViewModel();
 
 	// 4. UI 생성 및 화면 출력
 	CreatePartyUI();
+	CreateTurnUI(); // 턴 전용 위젯 별도 생성
 }
 
 void APBUITestGameMode::SpawnDummyPartyMember()
@@ -45,6 +52,26 @@ void APBUITestGameMode::SpawnDummyPartyMember()
 		if (NewMember)
 		{
 			SpawnPartyMembers.Add(NewMember);
+		}
+	}
+}
+
+void APBUITestGameMode::SpawnDummyMonsters()
+{
+	if (!DummyMonsterClass) return;
+
+	for (int32 i = 0; i < MaxMonsterSpawnCount; ++i)
+	{
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+		// 몬스터는 파티원과 반대쪽(-Y축 방향)에 스폰
+		FVector SpawnLocation(i * 150.f, -500.f, 200.f); 
+		AActor* NewMonster = GetWorld()->SpawnActor<AActor>(DummyMonsterClass, SpawnLocation, FRotator::ZeroRotator, SpawnParams);
+		
+		if (NewMonster)
+		{
+			SpawnMonsters.Add(NewMonster);
 		}
 	}
 }
@@ -85,7 +112,7 @@ void APBUITestGameMode::SetupDummyCharacterData()
 			}
 			
 			// 초기 턴 설정 (첫 번째 멤버)
-			VM->SetIsMyTurn(i == 0);
+			VM->SetIsSelectedCharacter(i == 0);
 			
 			VM->OnPartyMemberSelected.AddWeakLambda(this,	[this,VM](AActor* SelectedActor)
 			{
@@ -130,7 +157,41 @@ void APBUITestGameMode::CreatePartyUI()
 	}
 }
 
-void APBUITestGameMode::SimulateTurnChange()
+void APBUITestGameMode::CreateTurnUI()
+{
+	APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	if (!PC) return;
+
+	if (TurnInfoHUDClass)
+	{
+		CreatedTurnInfoWidget = CreateWidget<UUserWidget>(PC, TurnInfoHUDClass);
+		if (CreatedTurnInfoWidget)
+		{
+			CreatedTurnInfoWidget->AddToViewport();
+			UE_LOG(LogTemp, Warning, TEXT("Turn Info HUD Widget Added to Viewport"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TurnInfoHUDClass is NOT SET in GameMode!"));
+	}
+
+	if (TurnIndicatorHUDClass)
+	{
+		CreatedTurnIndicatorWidget = CreateWidget<UUserWidget>(PC, TurnIndicatorHUDClass);
+		if (CreatedTurnIndicatorWidget)
+		{
+			CreatedTurnIndicatorWidget->AddToViewport();
+			UE_LOG(LogTemp, Warning, TEXT("Turn Indicator HUD Widget Added to Viewport"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("TurnIndicatorHUDClass is NOT SET in GameMode!"));
+	}
+}
+
+void APBUITestGameMode::SimulateCharacterChange(AActor* TargetActor)
 {
 	if (SpawnPartyMembers.Num() == 0) return;
 
@@ -139,20 +200,85 @@ void APBUITestGameMode::SimulateTurnChange()
 	{
 		if (UPBPartyMemberViewModel* OldVM = UPBUIBlueprintLibrary::GetOrCreateActorViewModel<UPBPartyMemberViewModel>(GetWorld()->GetFirstLocalPlayerFromController(), SpawnPartyMembers[CurrentTurnIndex]))
 		{
-			OldVM->SetIsMyTurn(false);
+			OldVM->SetIsSelectedCharacter(false);
 		}
 	}
 
-	// 다음 인덱스로 이동
-	CurrentTurnIndex = (CurrentTurnIndex + 1) % SpawnPartyMembers.Num();
+	// 입력된 타겟 액터가 존재하면 해당 액터의 인덱스를 찾아 지정하고, 없다면 순차 이동
+	if (TargetActor)
+	{
+		int32 FoundIndex = SpawnPartyMembers.Find(TargetActor);
+		if (FoundIndex != INDEX_NONE)
+		{
+			CurrentTurnIndex = FoundIndex;
+		}
+	}
+	else
+	{
+		// 다음 인덱스로 이동 (기존 콘솔 커맨드용)
+		CurrentTurnIndex = (CurrentTurnIndex + 1) % SpawnPartyMembers.Num();
+	}
 
 	// 새로운 턴 시작
 	if (SpawnPartyMembers.IsValidIndex(CurrentTurnIndex))
 	{
 		if (UPBPartyMemberViewModel* NewVM = UPBUIBlueprintLibrary::GetOrCreateActorViewModel<UPBPartyMemberViewModel>(GetWorld()->GetFirstLocalPlayerFromController(), SpawnPartyMembers[CurrentTurnIndex]))
 		{
-			NewVM->SetIsMyTurn(true);
+			NewVM->SetIsSelectedCharacter(true);
 		}
+	}
+}
+
+void APBUITestGameMode::SimulateSkillCast()
+{
+	// TODO: SkillHUD 구현 후 다시 작업 예정
+}
+
+void APBUITestGameMode::InitializeTurnViewModel()
+{
+	UPBTurnOrderViewModel* TurnVM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBTurnOrderViewModel>(GetWorld()->GetFirstLocalPlayerFromController());
+	
+	if (TurnVM)
+	{
+		TArray<FPBTurnOrderEntry> TurnEntries;
+        
+		// 1. 파티원 (최대 4명) 등록
+		for (int32 i = 0; i < SpawnPartyMembers.Num(); ++i)
+		{
+			FPBTurnOrderEntry Entry;
+			Entry.DisplayName = DummyNamesPool.IsValidIndex(i) ? DummyNamesPool[i] : FText::Format(NSLOCTEXT("Test", "DefaultName", "Member_{0}"), i);
+			Entry.Portrait = DummyPortraitPool.IsValidIndex(i) ? DummyPortraitPool[i] : nullptr;
+			Entry.bIsAlly = true; // 플레이어블 파티원
+			Entry.TargetActor = SpawnPartyMembers[i];
+
+			TurnEntries.Add(Entry);
+		}
+
+		// 2. 몬스터 (최대 12마리) 등록
+		for (int32 i = 0; i < SpawnMonsters.Num(); ++i)
+		{
+			FPBTurnOrderEntry Entry;
+			// 몬스터는 임시로 "Monster_0", "Monster_1"... 등의 이름 부여
+			Entry.DisplayName = FText::Format(NSLOCTEXT("Test", "MonsterName", "Monster_{0}"), i);
+			Entry.Portrait = nullptr; // 몬스터 포트레이트가 있다면 추후 추가 가능
+			Entry.bIsAlly = false; // 적군
+			Entry.TargetActor = SpawnMonsters[i];
+
+			TurnEntries.Add(Entry);
+		}
+
+		TurnVM->SetTurnOrder(TurnEntries);
+		// Initialize the first turn
+		TurnVM->AdvanceTurn();
+	}
+}
+
+void APBUITestGameMode::SimulateTurnAdvance()
+{
+	if (UPBTurnOrderViewModel* TurnVM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBTurnOrderViewModel>(GetWorld()->GetFirstLocalPlayerFromController()))
+	{
+		TurnVM->AdvanceTurn();
+		UE_LOG(LogTemp, Warning, TEXT("SimulateTurnAdvance Called"));
 	}
 }
 

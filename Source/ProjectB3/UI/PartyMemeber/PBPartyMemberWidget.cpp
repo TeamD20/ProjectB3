@@ -18,28 +18,30 @@ void UPBPartyMemberWidget::UpdataHPText()
 	}
 }
 
+#include "ProjectB3/UI/Common/PBPortraitBaseWidget.h"
+
 void UPBPartyMemberWidget::HandleImageChanged(TSoftObjectPtr<UTexture2D> InPortrait)
 {
-	if (CharacterImage)
+	if (PortraitWidget)
 	{
-		CharacterImage->SetBrushFromSoftTexture(InPortrait);
+		PortraitWidget->SetPortraitImage(InPortrait);
 	}
 }
 
-void UPBPartyMemberWidget::HandleMyTurnChanged(bool bInMyTurn)
+void UPBPartyMemberWidget::HandleCharacterSelected(bool bInMyTurn)
 {
-	if (!TurnOverlay)
+			if (!SelectedOverlay)
 	{
 		return;
 	}
 	
 	if (bInMyTurn)
 	{
-		TurnOverlay->SetVisibility(ESlateVisibility::HitTestInvisible);
+		SelectedOverlay->SetVisibility(ESlateVisibility::HitTestInvisible);
 	}
 	else
 	{
-		TurnOverlay->SetVisibility(ESlateVisibility::Hidden);
+		SelectedOverlay->SetVisibility(ESlateVisibility::Hidden);
 	}
 }
 
@@ -54,7 +56,7 @@ void UPBPartyMemberWidget::InitializeWithViewModel(UPBPartyMemberViewModel* View
 	
 	ViewModel->OnHPChanged.AddUObject(this, &ThisClass::HandleHPChanged);
 	ViewModel->OnPortraitChanged.AddUObject(this, &ThisClass::HandleImageChanged);
-	ViewModel->OnIsMyTurnChanged.AddUObject(this, &ThisClass::HandleMyTurnChanged);
+	ViewModel->OnIsMyTurnChanged.AddUObject(this, &ThisClass::HandleCharacterSelected);
 	
 	RefreshUI();
 }
@@ -68,7 +70,7 @@ void UPBPartyMemberWidget::RefreshUI()
 	
 	HandleHPChanged(MemberViewModel->GetCharacterHPText());
 	HandleImageChanged(MemberViewModel->GetPortrait());
-	HandleMyTurnChanged(MemberViewModel->IsMyTurn());
+	HandleCharacterSelected(MemberViewModel->bIsCharacterSelect());
 }
 
 void UPBPartyMemberWidget::NativeDestruct()

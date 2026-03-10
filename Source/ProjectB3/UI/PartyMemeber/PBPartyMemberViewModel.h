@@ -39,7 +39,7 @@ public:
 	float GetHealthPercent() const;
 	
 	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
-	bool IsMyTurn() const;
+	bool bIsCharacterSelect() const;
 	
 public:
 	// 세터
@@ -48,7 +48,7 @@ public:
 	void SetCharacterClass(FText InCharacterClass);
 	void SetHP(int32 InCurrentHP, int32 InMaxHP);
 	void SetPortrait(TSoftObjectPtr<UTexture2D> InPortrait);
-	void SetIsMyTurn(bool InMyTurn);
+	void SetIsSelectedCharacter(bool InMyTurn);
 	
 	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
 	void OnSelected();
@@ -78,5 +78,5 @@ private:
 	int32 CurrentHP;
 	int32 MaxHP;
 	float HealthPercent;
-	bool bIsMyTurn;
+	bool bIsCharSelect;
 };
