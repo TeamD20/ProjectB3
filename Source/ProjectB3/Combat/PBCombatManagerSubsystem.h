@@ -146,4 +146,7 @@ private:
 
 	// 반응 대기 중인 컨텍스트
 	FPBReactionContext PendingReactionContext;
+
+	// 공유 턴 그룹에서 이번 그룹 턴 동안 행동을 완료한 멤버 인덱스 (그룹 배열 기준)
+	TSet<int32> GroupActedMemberIndices;
 };
