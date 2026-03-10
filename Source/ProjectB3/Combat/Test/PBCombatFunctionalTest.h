@@ -149,3 +149,19 @@ class PROJECTB3_API APBTest_DelegateEvents : public APBCombatFunctionalTestBase
 protected:
 	virtual void StartTest() override;
 };
+
+/**
+ * 멀티 그룹 한 바퀴 순환 테스트
+ * - 두 진영에 걸쳐 최소 3개(실제 4개) 턴 그룹 형성 확인
+ * - 이니셔티브 수정치 차이로 그룹 순서 결정론적 보장
+ * - 각 그룹 턴 시 OnTurnBegin은 그룹 전원, OnTurnActivated는 활성 1명에게만 호출 확인
+ * - 한 라운드 내 모든 그룹 순환 후 라운드 2로 진입 확인
+ */
+UCLASS()
+class PROJECTB3_API APBTest_SharedGroupCycle : public APBCombatFunctionalTestBase
+{
+	GENERATED_BODY()
+
+protected:
+	virtual void StartTest() override;
+};
