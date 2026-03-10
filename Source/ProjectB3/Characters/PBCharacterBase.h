@@ -9,6 +9,7 @@
 
 class UPBAbilitySystemComponent;
 class UPBTurnResourceAttributeSet;
+class UPBAbilitySetData;
 
 // 플레이어와 AI가 공유하는 캐릭터 기반 클래스.
 UCLASS()
@@ -102,4 +103,16 @@ protected:
 	// 전투 중 여부
 	UPROPERTY(BlueprintReadOnly, Category = "Combat")
 	bool bIsInCombat = false;
+
+	// 공통 기본 어빌리티 (Attack, Dash 등)
+	UPROPERTY(EditDefaultsOnly, Category = "Abilities")
+	TObjectPtr<UPBAbilitySetData> CommonAbilitySet;
+
+	// 직업별 어빌리티
+	UPROPERTY(EditDefaultsOnly, Category = "Abilities")
+	TObjectPtr<UPBAbilitySetData> ClassAbilitySet;
+
+private:
+	// 어빌리티 초기 부여 (InitAbilityActorInfo 이후 호출)
+	void GrantInitialAbilities();
 };
