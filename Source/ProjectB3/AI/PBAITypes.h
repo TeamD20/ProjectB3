@@ -61,6 +61,10 @@ struct FPBSequenceAction
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
 	TObjectPtr<AActor> TargetActor = nullptr;
 
+	// 위치 기반 이동 시 사용 (Fallback 등). TargetActor가 null이면 이 좌표를 사용
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
+	FVector TargetLocation = FVector::ZeroVector;
+
 	// 행동 발생 코스트
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
 	FPBCostData Cost;

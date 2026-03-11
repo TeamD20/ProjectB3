@@ -4,19 +4,17 @@
 #include "AbilitySystemInterface.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "ProjectB3/Characters/PBCharacterBase.h"
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
 #include "PBAIMockCharacter.generated.h"
 
 
-class UAbilitySystemComponent;
 class UPBTurnResourceAttributeSet;
 class UGameplayAbility;
 
 // AI 샌드박스 구동 전용 더미 캐릭터 클래스
 UCLASS()
-class APBAIMockCharacter : public ACharacter,
-                           public IAbilitySystemInterface,
-                           public IPBCombatParticipant
+class APBAIMockCharacter : public APBCharacterBase
 {
 	GENERATED_BODY()
 
@@ -25,9 +23,7 @@ public:
 	APBAIMockCharacter();
 
 	/*~ IAbilitySystemInterface ~*/
-public:
-	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
-	UPBTurnResourceAttributeSet* GetAttributeSet() const;
+
 
 	/*~ AActor Interface ~*/
 protected:
@@ -38,12 +34,7 @@ public:
 	float StartingHP = 100.0f;
 
 protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "EnemyAbility")
-	TObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "EnemyAbility")
-	TObjectPtr<UPBTurnResourceAttributeSet> AttributeSet;
-
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "EnemyAbility")
 	TSubclassOf<class UGameplayAbility> DefaultAttackAbility;
 
@@ -56,7 +47,7 @@ public:
 	virtual void OnRoundBegin() override;
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	virtual void OnTurnBegin() override;
-	virtual void OnTurnActivated() override {}
+	virtual void OnTurnActivated() override;
 	virtual void OnTurnEnd() override;
 	virtual bool CanReact() const override;
 	virtual void
