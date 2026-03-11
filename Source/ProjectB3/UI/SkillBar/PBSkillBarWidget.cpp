@@ -62,9 +62,11 @@ void UPBSkillBarWidget::HandleSlotsChanged()
 		return;
 	}
 
-	RebuildSlots(ActionSlotContainer, SkillBarViewModel->ActionSlots, PBSkillBarTabIndex::Action, ActionSlotCount);
-	RebuildSlots(BonusActionSlotContainer, SkillBarViewModel->BonusActionSlots, PBSkillBarTabIndex::BonusAction, BonusActionSlotCount);
-	RebuildSlots(SpellSlotContainer, SkillBarViewModel->SpellSlots, PBSkillBarTabIndex::Spell, SpellSlotCount);
+	RebuildSlots(CommonSlotContainer, SkillBarViewModel->CommonSlots, 0, CommonSlotCount);
+	RebuildSlots(ClassSlotContainer, SkillBarViewModel->ClassSlots, 1, ClassSlotCount);
+	RebuildSlots(ItemSlotContainer, SkillBarViewModel->ItemSlots, 2, ItemSlotCount);
+	RebuildSlots(PassiveSlotContainer, SkillBarViewModel->PassiveSlots, 3, PassiveSlotCount);
+	RebuildSlots(CustomSlotContainer, SkillBarViewModel->CustomSlots, 4, CustomSlotCount);
 }
 
 void UPBSkillBarWidget::HandleSlotUpdated(int32 TabIndex, int32 SlotIndex)
@@ -127,13 +129,11 @@ UPanelWidget* UPBSkillBarWidget::GetContainerByTab(int32 TabIndex) const
 {
 	switch (TabIndex)
 	{
-	case PBSkillBarTabIndex::Action:
-		return ActionSlotContainer;
-	case PBSkillBarTabIndex::BonusAction:
-		return BonusActionSlotContainer;
-	case PBSkillBarTabIndex::Spell:
-		return SpellSlotContainer;
-	default:
-		return nullptr;
+	case 0: return CommonSlotContainer;
+	case 1: return ClassSlotContainer;
+	case 2: return ItemSlotContainer;
+	case 3: return PassiveSlotContainer;
+	case 4: return CustomSlotContainer;
+	default: return nullptr;
 	}
 }

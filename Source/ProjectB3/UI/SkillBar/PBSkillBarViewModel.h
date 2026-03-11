@@ -62,14 +62,20 @@ private:
 	UAbilitySystemComponent* GetSelectedAbilitySystemComponent() const;
 
 public:
-	// 주행동 탭 슬롯
-	TArray<FPBSkillSlotData> ActionSlots;
+	// 일반 탭 슬롯 (Common)
+	TArray<FPBSkillSlotData> CommonSlots;
 
-	// 보조행동 탭 슬롯
-	TArray<FPBSkillSlotData> BonusActionSlots;
+	// 직업 탭 슬롯 (Class)
+	TArray<FPBSkillSlotData> ClassSlots;
 
-	// 주문 탭 슬롯
-	TArray<FPBSkillSlotData> SpellSlots;
+	// 아이템 탭 슬롯 (Item)
+	TArray<FPBSkillSlotData> ItemSlots;
+
+	// 상시 발동 탭 슬롯 (Passive)
+	TArray<FPBSkillSlotData> PassiveSlots;
+
+	// 커스텀 탭 슬롯 (Custom)
+	TArray<FPBSkillSlotData> CustomSlots;
 
 	// 전체 슬롯 재구성 이벤트
 	FOnSkillSlotsChanged OnSlotsChanged;
