@@ -43,11 +43,17 @@ public:
 	void SetIsDead(bool bInIsDead);
 
 public:
-	// Delegates
 	PBUIDelegate::FOnBoolValueChangedSignature OnCurrentTurnChanged;
 	PBUIDelegate::FOnBoolValueChangedSignature OnDeathStateChanged;
 	PBUIDelegate::FOnTextChangedSignature OnDisplayNameChanged;
 	PBUIDelegate::FOnImageChangedSignature OnPortraitChanged;
+	PBUIDelegate::FOnFloatValueChangedSignature OnHPPercentValueChanged;
+
+	UFUNCTION(BlueprintPure, Category = "Turn|Portrait")
+	float GetHealthPercent() const { return HealthPercent; }
+
+	UFUNCTION(BlueprintCallable, Category = "Turn|Portrait")
+	void SetHealthPercent(float bInHealthPercent);
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn|Portrait")
@@ -64,4 +70,7 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn|Portrait")
 	bool bIsDead = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn|Portrait")
+	float HealthPercent = 0.0f;
 };

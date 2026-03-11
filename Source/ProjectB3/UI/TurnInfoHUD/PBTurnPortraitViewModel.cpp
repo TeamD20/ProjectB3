@@ -8,10 +8,12 @@ void UPBTurnPortraitViewModel::InitializeTurnPortrait(const FPBTurnOrderEntry& I
 	Portrait = InEntry.Portrait;
 	bIsAlly = InEntry.bIsAlly;
 	bIsCurrentTurn = false;
-	bIsDead = false;        
+	bIsDead = false;
+	HealthPercent = InEntry.InitialHealthPercent;
 
 	OnDisplayNameChanged.Broadcast(DisplayName);
 	OnPortraitChanged.Broadcast(Portrait);
+	OnHPPercentValueChanged.Broadcast(HealthPercent);
 }
 
 void UPBTurnPortraitViewModel::SetIsCurrentTurn(bool bInIsCurrentTurn)
@@ -29,5 +31,14 @@ void UPBTurnPortraitViewModel::SetIsDead(bool bInIsDead)
 	{
 		bIsDead = bInIsDead;
 		OnDeathStateChanged.Broadcast(bIsDead);
+	}
+}
+
+void UPBTurnPortraitViewModel::SetHealthPercent(float InHealthPercent)
+{
+	if (HealthPercent != InHealthPercent)
+	{
+		HealthPercent = InHealthPercent;
+		OnHPPercentValueChanged.Broadcast(HealthPercent);
 	}
 }

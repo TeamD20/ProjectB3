@@ -9,8 +9,8 @@
 #include "ProjectB3/UI/TurnInfoHUD/PBTurnPortraitViewModel.h"
 #include "ProjectB3/UI/TurnInfoHUD/PBTurnOrderInfoWidget.h"
 #include "ProjectB3/UI/TurnInfoHUD/PBTurnIndicatorWidget.h"
-#include "Kismet/GameplayStatics.h"
 #include "Algo/RandomShuffle.h"
+#include "ProjectB3/UI/SkillBar/PBSkillBarViewModel.h"
 
 void APBUITestGameMode::BeginPlay()
 {
@@ -32,10 +32,10 @@ void APBUITestGameMode::BeginPlay()
 	// 3. 뷰모델 라이브러리를 통해 초기화 및 데이터 등록
 	InitializePartyViewModel();
 	InitializeTurnViewModel();
+	InitializeSkillBarViewModel();
 
 	// 4. UI 생성 및 화면 출력
-	CreatePartyUI();
-	CreateTurnUI(); // 턴 전용 위젯 별도 생성
+	CreateMainHUD();
 }
 
 void APBUITestGameMode::SpawnDummyPartyMember()
@@ -142,71 +142,23 @@ void APBUITestGameMode::InitializePartyViewModel()
 	}
 }
 
-void APBUITestGameMode::CreatePartyUI()
+void APBUITestGameMode::CreateMainHUD()
 {
-	if (!PartyUIWidgetClass)
+	if (!MainHUDClass)
 	{
-		UE_LOG(LogTemp, Error, TEXT("PartyUIWidgetClass is NOT SET in GameMode!"));
+		UE_LOG(LogTemp, Error, TEXT("MainHUDClass is NOT SET in GameMode!"));
 		return;
 	}
 
 	APlayerController* PC = GetWorld()->GetFirstPlayerController();
 	if (PC)
 	{
-		CreatedPartyUIWidget = CreateWidget<UUserWidget>(PC, PartyUIWidgetClass);
-		if (CreatedPartyUIWidget)
+		CreatedMainHUDWidget = CreateWidget<UUserWidget>(PC, MainHUDClass);
+		if (CreatedMainHUDWidget)
 		{
-			CreatedPartyUIWidget->AddToViewport();
-			UE_LOG(LogTemp, Warning, TEXT("Party UI Widget Added to Viewport"));
+			CreatedMainHUDWidget->AddToViewport();
+			UE_LOG(LogTemp, Warning, TEXT("Main HUD Widget Added to Viewport"));
 		}
-	}
-}
-
-void APBUITestGameMode::CreateTurnUI()
-{
-	APlayerController* PC = GetWorld()->GetFirstPlayerController();
-	if (!PC) return;
-
-	if (TurnInfoHUDClass)
-	{
-		CreatedTurnInfoWidget = CreateWidget<UUserWidget>(PC, TurnInfoHUDClass);
-		if (CreatedTurnInfoWidget)
-		{
-			if (UPBTurnOrderInfoWidget* InfoWidget = Cast<UPBTurnOrderInfoWidget>(CreatedTurnInfoWidget))
-			{
-				if (UPBTurnOrderViewModel* TurnVM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBTurnOrderViewModel>(GetWorld()->GetFirstLocalPlayerFromController()))
-				{
-					InfoWidget->SetupViewModel(TurnVM);
-				}
-			}
-			CreatedTurnInfoWidget->AddToViewport();
-			UE_LOG(LogTemp, Warning, TEXT("Turn Info HUD Widget Added to Viewport"));
-		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("TurnInfoHUDClass is NOT SET in GameMode!"));
-	}
-
-	if (TurnIndicatorHUDClass)
-	{
-		CreatedTurnIndicatorWidget = CreateWidget<UUserWidget>(PC, TurnIndicatorHUDClass);
-		if (CreatedTurnIndicatorWidget)
-		{
-			if (UPBTurnIndicatorWidget* IndicatorWidget = Cast<UPBTurnIndicatorWidget>(CreatedTurnIndicatorWidget))
-			{
-				if (UPBTurnOrderViewModel* TurnVM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBTurnOrderViewModel>(GetWorld()->GetFirstLocalPlayerFromController()))
-				{
-					IndicatorWidget->SetupViewModel(TurnVM);
-				}
-			}
-			CreatedTurnIndicatorWidget->AddToViewport();
-			UE_LOG(LogTemp, Warning, TEXT("Turn Indicator HUD Widget Added to Viewport"));
-		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("TurnIndicatorHUDClass is NOT SET in GameMode!"));
 	}
 }
 
@@ -270,6 +222,12 @@ void APBUITestGameMode::InitializeTurnViewModel()
 			Entry.bIsAlly = true; // 플레이어블 파티원
 			Entry.TargetActor = SpawnPartyMembers[i];
 
+			// 초기 체력 전달
+			if (UPBPartyMemberViewModel* VM = UPBUIBlueprintLibrary::GetOrCreateActorViewModel<UPBPartyMemberViewModel>(GetWorld()->GetFirstLocalPlayerFromController(), SpawnPartyMembers[i]))
+			{
+				Entry.InitialHealthPercent = VM->GetHealthPercent();
+			}
+
 			TurnEntries.Add(Entry);
 		}
 
@@ -295,6 +253,48 @@ void APBUITestGameMode::InitializeTurnViewModel()
 	}
 }
 
+void APBUITestGameMode::InitializeSkillBarViewModel()
+{
+	UPBSkillBarViewModel* SkillBarVM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBSkillBarViewModel>(GetWorld()->GetFirstLocalPlayerFromController());
+	
+	if (SkillBarVM)
+	{
+		// 임시로 각 탭에 넣을 더미 데이터 생성
+		auto CreateDummySlots = [this](int32 Count, const FString& Prefix) -> TArray<FPBSkillSlotData>
+		{
+			TArray<FPBSkillSlotData> DummySlots;
+			for (int32 i = 0; i < Count; ++i)
+			{
+				FPBSkillSlotData SlotData;
+				SlotData.DisplayName = FText::FromString(FString::Printf(TEXT("%s Skill %d"), *Prefix, i + 1));
+				SlotData.bCanActivate = (i % 2 == 0); // 홀수/짝수로 활성화 상태 시뮬레이션
+				SlotData.CooldownRemaining = (i % 3 == 0) ? 2 : 0; // 일부는 쿨다운 부여
+				
+				// 스킬 아이콘 풀에서 순환하며 이미지 할당
+				if (DummySkillIconPool.Num() > 0)
+				{
+					SlotData.Icon = DummySkillIconPool[i % DummySkillIconPool.Num()];
+				}
+				
+				DummySlots.Add(SlotData);
+			}
+			return DummySlots;
+		};
+
+		// 5개의 탭 컨테이너에 각각 더미 데이터 밀어넣기
+		SkillBarVM->CommonSlots = CreateDummySlots(10, TEXT("Common"));
+		SkillBarVM->ClassSlots = CreateDummySlots(5, TEXT("Class"));
+		SkillBarVM->ItemSlots = CreateDummySlots(8, TEXT("Item"));
+		SkillBarVM->PassiveSlots = CreateDummySlots(3, TEXT("Passive"));
+		SkillBarVM->CustomSlots = CreateDummySlots(12, TEXT("Custom"));
+		
+		// 스킬 UI 갱신 이벤트 트리거
+		SkillBarVM->OnSlotsChanged.Broadcast();
+		
+		UE_LOG(LogTemp, Warning, TEXT("SkillBar ViewModel Initialized with Dummy Data."));
+	}
+}
+
 void APBUITestGameMode::SimulateTurnAdvance()
 {
 	if (UPBTurnOrderViewModel* TurnVM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBTurnOrderViewModel>(GetWorld()->GetFirstLocalPlayerFromController()))
@@ -307,3 +307,35 @@ void APBUITestGameMode::SimulateTurnAdvance()
 // 명시적인 이름이 필요한 경우를 위해 남겨두되, 현재는 BeginPlay에서 순차 실행
 void APBUITestGameMode::SetPartyMembers() {}
 void APBUITestGameMode::BindPartyDataToUI() {}
+
+void APBUITestGameMode::SimulateDamage(int32 DamageAmount)
+{
+	// 현재 포커스 맞춰진(선택된) 캐릭터(CurrentTurnIndex 위치)에게 데미지 적용
+	if (SpawnPartyMembers.IsValidIndex(CurrentTurnIndex))
+	{
+		AActor* TargetActor = SpawnPartyMembers[CurrentTurnIndex];
+		if (UPBPartyMemberViewModel* VM = UPBUIBlueprintLibrary::GetOrCreateActorViewModel<UPBPartyMemberViewModel>(GetWorld()->GetFirstLocalPlayerFromController(), TargetActor))
+		{
+			// 현재 체력에서 감산 (최소 0 유지)
+			int32 NewHP = FMath::Max(0, VM->GetCurrentHP() - DamageAmount);
+			VM->SetHP(NewHP, VM->GetMaxHP());
+			
+			UE_LOG(LogTemp, Warning, TEXT("[SimulateDamage] %s took %d damage. Current HP: %d / %d"), 
+				*VM->GetCharacterName().ToString(), DamageAmount, NewHP, VM->GetMaxHP());
+
+			// [임시 테스트 로직] 턴 오더 HUD의 초상화 뷰모델에도 데미지(체력 비율) 정보를 동기화
+			if (UPBTurnOrderViewModel* TurnVM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBTurnOrderViewModel>(GetWorld()->GetFirstLocalPlayerFromController()))
+			{
+				for (UPBTurnPortraitViewModel* PortraitVM : TurnVM->GetPortraitViewModels())
+				{
+					// 더미 캐릭터의 이름이 동일한 초상화 뷰모델을 찾아 퍼센트 전달
+					if (PortraitVM && PortraitVM->GetDisplayName().EqualTo(VM->GetCharacterName()))
+					{
+						PortraitVM->SetHealthPercent(VM->GetHealthPercent());
+						break;
+					}
+				}
+			}
+		}
+	}
+}

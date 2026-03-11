@@ -27,8 +27,7 @@ protected:
 	void SpawnDummyMonsters();
 	void SetupDummyCharacterData();
 	void BindPartyDataToUI();
-	void CreatePartyUI();
-	void CreateTurnUI();
+	void CreateMainHUD();
 
 public:
 	// Exec - 콘솔창(~)에 'SimulateTurnChange' 입력 시 바로 호출되어 실행 가능
@@ -39,8 +38,15 @@ public:
 	UFUNCTION(BlueprintCallable, Exec, Category = "Test|Simulation") 
 	void SimulateSkillCast();
 	
+	// Exec - 콘솔창(~)에 'SimulateDamage' 입력 시 현재 선택된 캐릭터에게 데미지 인가
+	UFUNCTION(BlueprintCallable, Exec, Category = "Test|Simulation")
+	void SimulateDamage(int32 DamageAmount = 10);
+	
 	// Turn HUD 초기화 용도
 	void InitializeTurnViewModel();
+
+	// SkillBar HUD 더미 데이터 초기화 용도
+	void InitializeSkillBarViewModel();
 
 	// Exec - 콘솔창(~)에 'SimulateTurnAdvance' 입력 시 턴 진행 시뮬레이션
 	UFUNCTION(BlueprintCallable, Exec, Category = "Test|Simulation")
@@ -55,17 +61,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
 	TSubclassOf<AActor> DummyPartyMemberClass;
 
-	// 화면에 띄울 파티 리스트 메인 UI 위젯 클래스
+	// 통합된 메인 HUD 위젯 클래스 (GameplayHUD 용 역할)
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
-	TSubclassOf<UUserWidget> PartyUIWidgetClass;
-
-	// 화면에 띄울 상단 턴 순서 리스트 UI 위젯 클래스
-	UPROPERTY(EditAnywhere, Category = "Test|Settings")
-	TSubclassOf<UUserWidget> TurnInfoHUDClass;
-
-	// 화면 중앙 턴 알림 인디케이터 UI 위젯 클래스
-	UPROPERTY(EditAnywhere, Category = "Test|Settings")
-	TSubclassOf<UUserWidget> TurnIndicatorHUDClass;
+	TSubclassOf<UUserWidget> MainHUDClass;
 
 	// 스폰할 더미 몬스터 액터의 클래스
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
@@ -91,6 +89,10 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Test|Data")
 	TArray<TSoftObjectPtr<UTexture2D>> DummyMonsterPortraitPool;
 
+	// 랜덤으로 부여할 스킬 슬롯 아이콘 모음 (SkillBar 테스트용)
+	UPROPERTY(EditAnywhere, Category = "Test|Data")
+	TArray<TSoftObjectPtr<UTexture2D>> DummySkillIconPool;
+
 private:
 	/* ============================================================ */
 	/* 런타임 캐싱 및 상태 저장 변수 */
@@ -100,17 +102,9 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Test|Runtime")
 	TArray<TObjectPtr<AActor>> SpawnPartyMembers;
 
-	// 화면에 생성되어 띄워진 파티 UI 위젯 임시 보관
+	// 화면에 띄워진 통합 메인 HUD 위젯
 	UPROPERTY()
-	TObjectPtr<UUserWidget> CreatedPartyUIWidget;
-	
-	// 화면에 생성되어 띄워진 턴 정보 UI 위젯 임시 보관
-	UPROPERTY()
-	TObjectPtr<UUserWidget> CreatedTurnInfoWidget;
-
-	// 화면에 생성되어 띄워진 턴 인디케이터 UI 위젯 임시 보관
-	UPROPERTY()
-	TObjectPtr<UUserWidget> CreatedTurnIndicatorWidget;
+	TObjectPtr<UUserWidget> CreatedMainHUDWidget;
 
 	// 생성된 몬스터들을 보관
 	UPROPERTY(VisibleAnywhere, Category = "Test|Runtime")

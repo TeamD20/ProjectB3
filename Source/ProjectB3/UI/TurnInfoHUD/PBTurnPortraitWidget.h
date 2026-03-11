@@ -36,6 +36,7 @@ private:
 	void HandleDeathStateChanged(bool bIsDead);
 	void HandleDisplayNameChanged(FText NewName);
 	void HandlePortraitChanged(TSoftObjectPtr<UTexture2D> NewPortrait);
+	void HandleHPPercentChanged(float InHealthPercent);
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Turn")
@@ -43,4 +44,20 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidget), Category = "Turn")
 	class UPBPortraitBaseWidget* PortraitWidget;
+
+	// 체력바(데미지 바) 연결용
+	UPROPERTY(meta = (BindWidgetOptional))
+	class UProgressBar* DamageProgressBar;
+
+	// 적군/아군 테두리 표시용
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Turn|Portrait")
+	class UImage* OutlineImage;
+
+	// 아군 테두리 색상 (블루프린트에서 편집 가능)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Turn|Portrait|Colors")
+	FLinearColor AllyBorderColor = FLinearColor(0.0f, 0.2f, 1.0f, 1.0f);
+
+	// 적군 테두리 색상 (블루프린트에서 편집 가능)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Turn|Portrait|Colors")
+	FLinearColor EnemyBorderColor = FLinearColor(1.0f, 0.0f, 0.0f, 1.0f);
 };

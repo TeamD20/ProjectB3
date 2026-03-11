@@ -49,6 +49,10 @@ public:
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* CharacterHPTextBlock;
 	
+	// 체력바(데미지 바) 연결용
+	UPROPERTY(meta = (BindWidgetOptional))
+	class UProgressBar* DamageProgressBar;
+	
 	UPROPERTY(meta = (BindWidget))
 	class UPBPortraitBaseWidget* PortraitWidget;
 	
@@ -57,4 +61,7 @@ public:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ViewModel")
 	UPBPartyMemberViewModel* MemberViewModel;
+
+protected:
+	void HandleHPPercentChanged(float InHealthPercent);
 };

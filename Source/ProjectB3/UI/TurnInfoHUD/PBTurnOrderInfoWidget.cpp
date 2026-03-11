@@ -5,7 +5,23 @@
 #include "PBTurnPortraitViewModel.h"
 #include "PBTurnPortraitWidget.h"
 #include "Components/HorizontalBox.h"
-#include "Components/HorizontalBoxSlot.h"
+#include "ProjectB3/UI/PBUIBlueprintLibrary.h"
+
+
+void UPBTurnOrderInfoWidget::NativeConstruct()
+{
+	Super::NativeConstruct();
+
+	// 이제 통합 위젯(W_HUD) 내부에 배치되므로 스스로 ViewModel을 찾아 바인딩합니다.
+	if (!TurnOrderViewModel)
+	{
+		UPBTurnOrderViewModel* TurnVM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBTurnOrderViewModel>(GetOwningLocalPlayer());
+		if (TurnVM)
+		{
+			SetupViewModel(TurnVM);
+		}
+	}
+}
 
 void UPBTurnOrderInfoWidget::SetupViewModel(UPBTurnOrderViewModel* InViewModel)
 {

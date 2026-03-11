@@ -24,6 +24,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Turn")
 	AActor* TargetActor = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Turn")
+	float InitialHealthPercent = 0.0f;
 };
 
 namespace PBUIDelegate

@@ -2,6 +2,8 @@
 
 #include "PBTurnPortraitWidget.h"
 #include "PBTurnPortraitViewModel.h"
+#include "Components/ProgressBar.h"
+#include "Components/Image.h"
 
 void UPBTurnPortraitWidget::SetPortraitViewModel(UPBTurnPortraitViewModel* InViewModel)
 {
@@ -11,6 +13,7 @@ void UPBTurnPortraitWidget::SetPortraitViewModel(UPBTurnPortraitViewModel* InVie
 		PortraitViewModel->OnDeathStateChanged.RemoveAll(this);
 		PortraitViewModel->OnDisplayNameChanged.RemoveAll(this);
 		PortraitViewModel->OnPortraitChanged.RemoveAll(this);
+		PortraitViewModel->OnHPPercentValueChanged.RemoveAll(this);
 	}
 
 	PortraitViewModel = InViewModel;
@@ -21,13 +24,25 @@ void UPBTurnPortraitWidget::SetPortraitViewModel(UPBTurnPortraitViewModel* InVie
 		PortraitViewModel->OnDeathStateChanged.AddUObject(this, &UPBTurnPortraitWidget::HandleDeathStateChanged);
 		PortraitViewModel->OnDisplayNameChanged.AddUObject(this, &UPBTurnPortraitWidget::HandleDisplayNameChanged);
 		PortraitViewModel->OnPortraitChanged.AddUObject(this, &UPBTurnPortraitWidget::HandlePortraitChanged);
+		PortraitViewModel->OnHPPercentValueChanged.AddUObject(this, &UPBTurnPortraitWidget::HandleHPPercentChanged);
 
 		// 초기 동기화
 		HandleDisplayNameChanged(PortraitViewModel->GetDisplayName());
 		HandlePortraitChanged(PortraitViewModel->GetPortrait());
-		BP_OnInitAllyState(PortraitViewModel->IsAlly());
 		HandleCurrentTurnChanged(PortraitViewModel->IsCurrentTurn());
 		HandleDeathStateChanged(PortraitViewModel->IsDead());
+		HandleHPPercentChanged(PortraitViewModel->GetHealthPercent());
+		
+		bool bIsAlly = PortraitViewModel->IsAlly();
+		BP_OnInitAllyState(bIsAlly);
+
+		// 아군/적군 테두리 색상 처리
+		if (OutlineImage)
+		{
+			// 블루프린트에서 설정한 아군/적군 테두리 색상 적용
+			FLinearColor BorderColor = bIsAlly ? AllyBorderColor : EnemyBorderColor;
+			OutlineImage->SetColorAndOpacity(BorderColor);
+		}
 	}
 }
 
@@ -39,6 +54,7 @@ void UPBTurnPortraitWidget::NativeDestruct()
 		PortraitViewModel->OnDeathStateChanged.RemoveAll(this);
 		PortraitViewModel->OnDisplayNameChanged.RemoveAll(this);
 		PortraitViewModel->OnPortraitChanged.RemoveAll(this);
+		PortraitViewModel->OnHPPercentValueChanged.RemoveAll(this);
 	}
 
 	Super::NativeDestruct();
@@ -69,5 +85,13 @@ void UPBTurnPortraitWidget::HandlePortraitChanged(TSoftObjectPtr<UTexture2D> New
 	if (PortraitWidget)
 	{
 		PortraitWidget->SetPortraitImage(NewPortrait);
+	}
+}
+
+void UPBTurnPortraitWidget::HandleHPPercentChanged(float InHealthPercent)
+{
+	if (DamageProgressBar)
+	{
+		DamageProgressBar->SetPercent(InHealthPercent);
 	}
 }

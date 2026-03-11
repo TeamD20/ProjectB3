@@ -39,6 +39,12 @@ public:
 	float GetHealthPercent() const;
 	
 	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
+	int32 GetCurrentHP() const { return CurrentHP; }
+	
+	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
+	int32 GetMaxHP() const { return MaxHP; }
+	
+	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
 	bool bIsCharacterSelect() const;
 	
 public:

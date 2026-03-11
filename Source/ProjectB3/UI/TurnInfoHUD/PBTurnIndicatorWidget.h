@@ -18,6 +18,7 @@ public:
 	void SetupViewModel(UPBTurnOrderViewModel* InViewModel);
 
 protected:
+	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
 
 	// OnTurnAdvanced 알림 수신
@@ -31,4 +32,8 @@ protected:
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Turn")
 	UPBTurnOrderViewModel* TurnOrderViewModel;
+
+	// 시작 시 숨길 턴 인디케이터용 배경 Border
+	UPROPERTY(meta = (BindWidgetOptional))
+	class UBorder* TurnIndicatorBorder;
 };

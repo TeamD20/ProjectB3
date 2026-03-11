@@ -20,6 +20,7 @@ public:
 	void SetupViewModel(UPBTurnOrderViewModel* InViewModel);
 
 protected:
+	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
 
 	// View Model의 OnTurnOrderListChanged 등에 바인딩할 함수

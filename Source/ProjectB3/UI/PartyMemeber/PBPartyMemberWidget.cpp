@@ -6,7 +6,7 @@
 #include "Components/Image.h"
 #include "Components/Overlay.h"
 #include "Components/TextBlock.h"
-
+#include "Components/ProgressBar.h"
 
 
 void UPBPartyMemberWidget::UpdataHPText()
@@ -57,6 +57,7 @@ void UPBPartyMemberWidget::InitializeWithViewModel(UPBPartyMemberViewModel* View
 	ViewModel->OnHPChanged.AddUObject(this, &ThisClass::HandleHPChanged);
 	ViewModel->OnPortraitChanged.AddUObject(this, &ThisClass::HandleImageChanged);
 	ViewModel->OnIsMyTurnChanged.AddUObject(this, &ThisClass::HandleCharacterSelected);
+	ViewModel->OnHPPercentValueChanged.AddUObject(this, &ThisClass::HandleHPPercentChanged);
 	
 	RefreshUI();
 }
@@ -71,6 +72,7 @@ void UPBPartyMemberWidget::RefreshUI()
 	HandleHPChanged(MemberViewModel->GetCharacterHPText());
 	HandleImageChanged(MemberViewModel->GetPortrait());
 	HandleCharacterSelected(MemberViewModel->bIsCharacterSelect());
+	HandleHPPercentChanged(MemberViewModel->GetHealthPercent());
 }
 
 void UPBPartyMemberWidget::NativeDestruct()
@@ -80,6 +82,7 @@ void UPBPartyMemberWidget::NativeDestruct()
 		MemberViewModel->OnHPChanged.RemoveAll(this);
 		MemberViewModel->OnPortraitChanged.RemoveAll(this);
 		MemberViewModel->OnIsMyTurnChanged.RemoveAll(this);
+		MemberViewModel->OnHPPercentValueChanged.RemoveAll(this);
 		MemberViewModel = nullptr;
 	}
 	
@@ -89,4 +92,12 @@ void UPBPartyMemberWidget::NativeDestruct()
 void UPBPartyMemberWidget::HandleHPChanged(FText InCurrentHP)
 {
 	UpdataHPText();
+}
+
+void UPBPartyMemberWidget::HandleHPPercentChanged(float InHealthPercent)
+{
+	if (DamageProgressBar)
+	{
+		DamageProgressBar->SetPercent(InHealthPercent);
+	}
 }

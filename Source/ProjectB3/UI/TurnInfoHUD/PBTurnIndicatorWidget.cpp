@@ -2,6 +2,8 @@
 
 #include "PBTurnIndicatorWidget.h"
 #include "PBTurnPortraitViewModel.h"
+#include "Components/Border.h"
+#include "ProjectB3/UI/PBUIBlueprintLibrary.h"
 
 void UPBTurnIndicatorWidget::SetupViewModel(UPBTurnOrderViewModel* InViewModel)
 {
@@ -18,6 +20,26 @@ void UPBTurnIndicatorWidget::SetupViewModel(UPBTurnOrderViewModel* InViewModel)
 	}
 }
 
+void UPBTurnIndicatorWidget::NativeConstruct()
+{
+	Super::NativeConstruct();
+
+	// 스스로 ViewModel을 찾아 바인딩
+	if (!TurnOrderViewModel)
+	{
+		UPBTurnOrderViewModel* TurnVM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBTurnOrderViewModel>(GetOwningLocalPlayer());
+		if (TurnVM)
+		{
+			SetupViewModel(TurnVM);
+		}
+	}
+
+	if (TurnIndicatorBorder)
+	{
+		TurnIndicatorBorder->SetVisibility(ESlateVisibility::Hidden);
+	}
+}
+
 void UPBTurnIndicatorWidget::NativeDestruct()
 {
 	if (TurnOrderViewModel)
@@ -30,6 +52,11 @@ void UPBTurnIndicatorWidget::NativeDestruct()
 
 void UPBTurnIndicatorWidget::HandleTurnAdvanced(UPBTurnPortraitViewModel* NewTurnOwner)
 {
+	if (TurnIndicatorBorder)
+	{
+		TurnIndicatorBorder->SetVisibility(ESlateVisibility::HitTestInvisible);
+	}
+	
 	if (NewTurnOwner)
 	{
 		BP_PlayTurnIndicatorAnimation(NewTurnOwner->GetDisplayName(), NewTurnOwner->IsAlly());

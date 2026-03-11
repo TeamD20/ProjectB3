@@ -101,9 +101,10 @@ void UPBPartyMemberViewModel::SetHP(int32 InCurrentHP, int32 InMaxHP)
 		}
 		
 		float Percent = 0.f;
-		if (!FMath::IsNearlyEqual(MaxHP,0.f))
+		if (MaxHP > 0)
 		{
-			Percent = CurrentHP / MaxHP; 
+			float ClampedCurrentHP = FMath::Max(0, CurrentHP);
+			Percent = 1.0f - (ClampedCurrentHP / static_cast<float>(MaxHP));
 		}
 		
 		SetHealthPercent(Percent);
