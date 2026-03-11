@@ -6,29 +6,13 @@
 #include "PBGE_RestoreTurnResources.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "StateTreeEvents.h"
+#include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
 
 /*~ 생성자 ~*/
 
 APBAIMockCharacter::APBAIMockCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
-
-	AbilitySystemComponent =
-		CreateDefaultSubobject<UAbilitySystemComponent>(
-			"AbilitySystemComponent");
-	AttributeSet =
-		CreateDefaultSubobject<UPBTurnResourceAttributeSet>(
-			TEXT("AttributeSet"));
-}
-
-UAbilitySystemComponent* APBAIMockCharacter::GetAbilitySystemComponent() const
-{
-	return AbilitySystemComponent;
-}
-
-UPBTurnResourceAttributeSet* APBAIMockCharacter::GetAttributeSet() const
-{
-	return AttributeSet;
 }
 
 /*~ AActor Interface ~*/
@@ -145,11 +129,21 @@ void APBAIMockCharacter::OnRoundBegin()
 
 void APBAIMockCharacter::OnTurnBegin()
 {
+	// 부모 호출: Action/BonusAction/Movement 자원 리셋
+	Super::OnTurnBegin();
+
 	UE_LOG(LogTemp, Display,
-	       TEXT("=== %s: OnTurnBegin 호출, StateTree 이벤트 전송 ==="),
+	       TEXT("=== %s: OnTurnBegin 호출 (자원 리셋 완료) ==="),
+	       *GetName());
+}
+
+void APBAIMockCharacter::OnTurnActivated()
+{
+	UE_LOG(LogTemp, Display,
+	       TEXT("=== %s: OnTurnActivated 호출, StateTree 이벤트 전송 ==="),
 	       *GetName());
 
-	// 턴 시작 시 StateTree에 Event.Combat.TurnStarted 이벤트 전송
+	// 실제 행동 차례가 되었을 때 StateTree에 이벤트 전송
 	if (AController* CharacterController = GetController())
 	{
 		if (UStateTreeComponent* StateTreeComp =
@@ -204,7 +198,7 @@ bool APBAIMockCharacter::IsIncapacitated() const
 
 FGameplayTag APBAIMockCharacter::GetFactionTag() const
 {
-	// AI 테스트용 캐릭터로서 적대 진영 태그 반환
+	// AI 적대 진영. OnTurnActivated 도입으로 공유 턴 그룹에서도 개별 행동 가능.
 	return FGameplayTag::RequestGameplayTag(TEXT("Combat.Faction.Enemy"));
 }
 
