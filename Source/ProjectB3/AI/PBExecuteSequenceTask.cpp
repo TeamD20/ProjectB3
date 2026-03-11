@@ -158,11 +158,11 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction(
     const FVector MoveDestination = IsValid(CurrentAction.TargetActor)
         ? CurrentAction.TargetActor->GetActorLocation()
         : CurrentAction.TargetLocation;
-
+  
     UPBTargetPayload *MovePayload = NewObject<UPBTargetPayload>(this);
     MovePayload->TargetData.TargetingMode = EPBTargetingMode::Location;
-    MovePayload->TargetData.TargetLocation = MoveDestination;
-
+    MovePayload->TargetData.TargetLocations.Add(MoveDestination);
+  
     FGameplayEventData EventData;
     EventData.OptionalObject = MovePayload;
     CachedASC->HandleGameplayEvent(PBGameplayTags::Event_Movement_MoveCommand,

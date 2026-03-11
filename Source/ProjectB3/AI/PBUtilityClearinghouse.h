@@ -43,7 +43,7 @@ public:
 	/*~ 스코어링 (ActionScore 산출) ~*/
 
 	// 단일 타겟에 대한 ActionScore를 계산하여 FPBTargetScore로 반환
-	// AI_System.md §7.1: HitProbability x VulnerabilityWeight x ArchetypeWeight
+	// AI Scoring Example.md: (BaseScore × HitProb × TargetModifier + Situational) × Archetype
 	UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
 	FPBTargetScore EvaluateActionScore(AActor* TargetActor);
 

@@ -94,9 +94,9 @@ struct PROJECTB3_API FPBActionSequence
 };
 
 // 타겟 1명에 대한 ActionScore 평가 결과
-// AI_System.md §7.1: ActionScore = BaseScore × HitProbability × ArchetypeWeight
-// + TargetModifiers (현재 샌드박스 단계: BaseScore=1.0f,
-// TargetModifiers=VulnerabilityWeight, SituationalBonus=0.0f)
+// AI Scoring Example.md 공식:
+//   ActionScore = (BaseScore × HitProbability × TargetModifier
+//                  + SituationalBonus) × ArchetypeWeight
 USTRUCT(BlueprintType)
 struct FPBTargetScore
 {
@@ -106,27 +106,39 @@ struct FPBTargetScore
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
 	TObjectPtr<AActor> TargetActor = nullptr;
 
+	// HP 기준 절대값 기본 점수
+	// 공격: ExpectedDamage (예: 2d6+3 = 10.0)
+	// 치유: EffectiveHeal × UrgencyMultiplier
+	// TODO: 다이스 시스템 연동 후 실값 교체
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
+	float BaseScore = 10.0f;
+
 	// 명중 확률 (0.05 ~ 0.95 클램프)
-	// §7.1: (d20 + 공격보정 - 대상 AC) / 20 → 추후 AC 속성 연동으로 교체
+	// TODO: AI AttackModifier, 대상 AC 연동 후 실값 교체
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
 	float HitProbability = 0.65f;
 
-	// 취약성 가중치 (0.0 ~ 1.0)
-	// §7.1 TargetModifiers: HP 비율 기반 → 추후 Health AS 연동으로 교체
+	// 대상 보정 배수 (ThreatMultiplier × RoleMultiplier)
+	// TODO: ThreatScore, 역할 시스템 연동 후 실값 교체
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
-	float VulnerabilityWeight = 0.8f;
+	float TargetModifier = 1.0f;
 
-	// 아키타입 공격 가중치 (§4.4 Archetype.ScoreWeights.AttackWeight)
-	// 현재 1.0f 고정 → 추후 UCurveFloat 에셋 연동
+	// 상황 보너스 (환경 상호작용, 처치 보너스 등)
+	// TODO: 지형/CC/집중 파괴 등 상황 시스템 연동
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
+	float SituationalBonus = 0.0f;
+
+	// 아키타입 가중치 (행동 카테고리별)
+	// TODO: Archetype 데이터 에셋 연동
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
 	float ArchetypeWeight = 1.0f;
 
 	// 최종 ActionScore 산출
-	// §7.1: BaseScore(1.0f) × HitProbability × ArchetypeWeight +
-	// TargetModifiers(Vulnerability)
+	// 공식: (BaseScore × HitProb × TargetModifier + Situational) × Archetype
 	float GetActionScore() const
 	{
-		return HitProbability * VulnerabilityWeight * ArchetypeWeight;
+		return (BaseScore * HitProbability * TargetModifier
+		        + SituationalBonus) * ArchetypeWeight;
 	}
 
 	// 이동 비용 기반 점수 (0.0 ~ 1.0)
