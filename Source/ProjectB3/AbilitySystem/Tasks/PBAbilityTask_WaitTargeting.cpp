@@ -1,6 +1,8 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBAbilityTask_WaitTargeting.h"
+
+#include "AbilitySystemBlueprintLibrary.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
 #include "ProjectB3/Combat/PBTargetingComponent.h"
 #include "ProjectB3/Player/PBGameplayPlayerController.h"
@@ -20,9 +22,16 @@ void UPBAbilityTask_WaitTargeting::Activate()
 	}
 
 	const FGameplayAbilityActorInfo* ActorInfo = PBAbility->GetCurrentActorInfo();
-	APBGameplayPlayerController* PC = ActorInfo
-		? Cast<APBGameplayPlayerController>(ActorInfo->PlayerController.Get())
-		: nullptr;
+	if (!ActorInfo)
+	{
+		return;
+	}
+	
+	APBGameplayPlayerController* PC = nullptr;
+	if (APawn* Avatar = Cast<APawn>(ActorInfo->AvatarActor.Get()))
+	{
+		PC = Avatar->GetController<APBGameplayPlayerController>();
+	}
 
 	if (!IsValid(PC))
 	{

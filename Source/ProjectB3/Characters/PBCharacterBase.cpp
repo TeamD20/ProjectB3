@@ -2,9 +2,11 @@
 
 #include "PBCharacterBase.h"
 #include "ProjectB3/PBGameplayTags.h"
+#include "ProjectB3/AbilitySystem/PBAbilitySystemLibrary.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "ProjectB3/AbilitySystem/Data/PBAbilitySetData.h"
+#include "ProjectB3/AbilitySystem/Data/PBAbilitySystemRegistry.h"
 
 APBCharacterBase::APBCharacterBase()
 {
@@ -13,7 +15,8 @@ APBCharacterBase::APBCharacterBase()
 	// ASC 생성
 	AbilitySystemComponent = CreateDefaultSubobject<UPBAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
 
-	// 턴 자원 AttributeSet 생성 (ASC에 자동 등록)
+	// AttributeSet 생성
+	CharacterAttributeSet = CreateDefaultSubobject<UPBCharacterAttributeSet>(TEXT("CharacterAttributeSet"));
 	TurnResourceAttributeSet = CreateDefaultSubobject<UPBTurnResourceAttributeSet>(TEXT("TurnResourceAttributeSet"));
 }
 
@@ -30,29 +33,34 @@ void APBCharacterBase::BeginPlay()
 	if (IsValid(AbilitySystemComponent))
 	{
 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+		InitTags();
 		GrantInitialAbilities();
 	}
 }
 
 void APBCharacterBase::GrantInitialAbilities()
 {
-	if (IsValid(CommonAbilitySet))
-	{
-		AbilitySystemComponent->GrantAbilitiesFromData(
-			PBGameplayTags::Ability_Source_Common, CommonAbilitySet);
-	}
+	// TODO: 레벨 전달
+	FPBAbilityGrantedHandles Handles;
+	UPBAbilitySystemLibrary::ApplyStatsInitialization(AbilitySystemComponent,Handles,CombatIdentity.ClassTag);
+	UPBAbilitySystemLibrary::ApplyCommonAbilitySet(AbilitySystemComponent);
+	UPBAbilitySystemLibrary::ApplyClassAbilitySet(AbilitySystemComponent,CombatIdentity.ClassTag);
+}
 
-	if (IsValid(ClassAbilitySet))
+void APBCharacterBase::InitTags()
+{
+	if (AbilitySystemComponent)
 	{
-		// TODO: 캐릭터 레벨 시스템 연동 시 실제 레벨 전달
-		AbilitySystemComponent->GrantAbilitiesFromData(
-			PBGameplayTags::Ability_Source_Class, ClassAbilitySet, 1);
+		if (CombatIdentity.ClassTag.IsValid())
+		{
+			AbilitySystemComponent->AddLooseGameplayTag(CombatIdentity.ClassTag);	
+		}
 	}
 }
 
 int32 APBCharacterBase::GetInitiativeModifier() const
 {
-	// 하위 클래스에서 DEX 수정치 기반으로 override
+	// TODO: Attribute 수정치 기반으로 반환
 	return 0;
 }
 

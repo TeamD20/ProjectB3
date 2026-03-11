@@ -34,7 +34,7 @@ void UPBAbilitySystemComponent::GrantAbilitiesFromData(
 	// 실제 부여 로직은 DA에 위임, 결과 핸들만 저장
 	GrantedHandleMap.Add(SourceTag, Data->GrantToAbilitySystem(this, CharacterLevel));
 
-	const FPBSourceGrantedHandles& Handles = GrantedHandleMap[SourceTag];
+	const FPBAbilityGrantedHandles& Handles = GrantedHandleMap[SourceTag];
 	UE_LOG(LogPBAbilitySystem, Log,
 		TEXT("어빌리티 부여 완료: Source [%s] — 어빌리티 %d개, GE %d개"),
 		*SourceTag.ToString(), Handles.AbilityHandles.Num(), Handles.EffectHandles.Num());
@@ -42,7 +42,7 @@ void UPBAbilitySystemComponent::GrantAbilitiesFromData(
 
 void UPBAbilitySystemComponent::RemoveAbilitiesBySource(const FGameplayTag& SourceTag)
 {
-	FPBSourceGrantedHandles* Handles = GrantedHandleMap.Find(SourceTag);
+	FPBAbilityGrantedHandles* Handles = GrantedHandleMap.Find(SourceTag);
 	if (!Handles)
 	{
 		UE_LOG(LogPBAbilitySystem, Verbose,

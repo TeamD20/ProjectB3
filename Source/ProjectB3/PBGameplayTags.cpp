@@ -6,7 +6,12 @@ namespace PBGameplayTags
 {
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(System_Test, "System.Test", "This is Test GameplayTag");
 
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_Class_Fighter, "Character.Class.Fighter", "근접 전투원"); // 임시
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_Class_Ranger, "Character.Class.Ranger", "원거리 전투원");  // 임시
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_Class_Magician, "Character.Class.Magician", "마법 전투원");  // 임시
+	
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_State_InCombat, "Combat.State.InCombat", "전투 중 상태 표시");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Hit_Critical, "Combat.Hit.Critical", "치명타 명중 — GE SourceTags로 전달해 ExecCalc/UI에서 참조");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Faction_Player, "Combat.Faction.Player", "플레이어 진영");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Faction_Enemy, "Combat.Faction.Enemy", "적 진영");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Faction_Neutral, "Combat.Faction.Neutral", "중립 진영");
@@ -37,4 +42,19 @@ namespace PBGameplayTags
 
 	// 이동 이벤트 태그
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Movement_MoveCommand, "Event.Movement.MoveCommand", "이동 명령 이벤트");
+
+	// SetByCaller 어트리뷰트 초기화 태그
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Attribute_Strength, "SetByCaller.Attribute.Strength", "근력 초기값");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Attribute_Dexterity, "SetByCaller.Attribute.Dexterity", "민첩 초기값");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Attribute_Constitution, "SetByCaller.Attribute.Constitution", "건강 초기값");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Attribute_Intelligence, "SetByCaller.Attribute.Intelligence", "지능 초기값");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Attribute_MaxHP, "SetByCaller.Attribute.MaxHP", "기본 최대 체력");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Attribute_ArmorClass, "SetByCaller.Attribute.ArmorClass", "기본 방어력");
+
+	// SetByCaller 데미지 태그
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_DiceRoll, "SetByCaller.Damage.DiceRoll", "무기 데미지 주사위 결과 (치명타 포함)");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_AttackModifier, "SetByCaller.Damage.AttackModifier", "공격 수정치 (Str 또는 Dex)");
+
+	// SetByCaller 회복 태그
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Heal_Amount, "SetByCaller.Heal.Amount", "회복량");
 }

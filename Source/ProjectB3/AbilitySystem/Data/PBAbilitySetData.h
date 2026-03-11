@@ -26,5 +26,5 @@ public:
 	TArray<FPBEffectGrantEntry> PassiveEffects;
 
 	// ASC에 어빌리티 셋을 부여하고 핸들을 반환한다.
-	FPBSourceGrantedHandles GrantToAbilitySystem(UAbilitySystemComponent* ASC, int32 CharacterLevel = 1) const;
+	FPBAbilityGrantedHandles GrantToAbilitySystem(UAbilitySystemComponent* ASC, int32 CharacterLevel = 1) const;
 };

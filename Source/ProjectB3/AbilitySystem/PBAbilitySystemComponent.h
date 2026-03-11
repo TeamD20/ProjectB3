@@ -50,7 +50,7 @@ public:
 
 protected:
 	// 출처별 핸들 캐시
-	TMap<FGameplayTag, FPBSourceGrantedHandles> GrantedHandleMap;
+	TMap<FGameplayTag, FPBAbilityGrantedHandles> GrantedHandleMap;
 
 private:
 	// 턴 기반 어빌리티(EPBAbilityType != None) 실행 중 플래그
