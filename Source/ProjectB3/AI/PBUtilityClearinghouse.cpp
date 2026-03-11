@@ -209,14 +209,26 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 	FPBTargetScore Score;
 	Score.TargetActor = TargetActor;
 
+	// --- BaseScore 산정 ---
+	// HP 기준 절대값: 현재 MockAttack 기준 ExpectedDamage
+	// TODO: 어빌리티 데이터에서 DiceCount/DiceMax/FlatModifier 읽어서 계산
+	// 예: 2d6+3 = 2 * 3.5 + 3 = 10.0
+	Score.BaseScore = 10.0f;
+
 	// --- HitProbability 산정 ---
 	// TODO: AI AttackModifier(GAS AS) 및 대상 ArmorClass(GAS AS) 연동 후 실값
 	// 교체
 	Score.HitProbability = FMath::Clamp(0.65f, 0.05f, 0.95f);
 
-	// --- VulnerabilityWeight 산정 ---
-	// GetTargetVulnerabilityScore가 Health AS 연동 후 실값 제공
-	Score.VulnerabilityWeight = GetTargetVulnerabilityScore(TargetActor);
+	// --- TargetModifier 산정 ---
+	// ThreatMultiplier × RoleMultiplier
+	// 현재는 취약성 점수를 TargetModifier로 사용 (임시)
+	// TODO: ThreatScore 시스템 연동 후 실값 교체
+	Score.TargetModifier = GetTargetVulnerabilityScore(TargetActor);
+
+	// --- SituationalBonus 산정 ---
+	// TODO: 환경 상호작용, 처치 보너스, 집중 파괴 등
+	Score.SituationalBonus = 0.0f;
 
 	// --- ArchetypeWeight 산정 ---
 	// TODO: Archetype 데이터 에셋 또는 UCurveFloat 연동 후 실값 교체
@@ -224,7 +236,7 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 
 	// --- MovementScore 산정 ---
 	// 공식: 1.0 - (DistToTarget / MaxMovementRange), 클램프 [0.0, 1.0]
-	// 거리가 가까울수록 1.0, 몜수록 0.0
+	// 거리가 가까울수록 1.0, 멀수록 0.0
 	// TODO: 이동력 AttributeSet 연동 후 Movement 실값 사용
 	constexpr float MaxMovementRange = 1000.0f; // 임시 Default(10m)
 	if (IsValid(ActiveTurnActor))
@@ -240,12 +252,13 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 
 	UE_LOG(LogPBUtility, Log,
 	       TEXT("[Scoring] AI [%s] → 타겟 [%s]: "
-		       "HitProb=%.2f, Vuln=%.2f, Archetype=%.2f, Move=%.2f → "
+		       "Base=%.1f, HitProb=%.2f, TargetMod=%.2f, "
+		       "Situational=%.1f, Archetype=%.2f, Move=%.2f → "
 		       "TotalScore=%.4f"),
 	       *(ActiveTurnActor ? ActiveTurnActor->GetName() : TEXT("Unknown")),
-	       *TargetActor->GetName(), Score.HitProbability,
-	       Score.VulnerabilityWeight, Score.ArchetypeWeight,
-	       Score.MovementScore,
+	       *TargetActor->GetName(), Score.BaseScore, Score.HitProbability,
+	       Score.TargetModifier, Score.SituationalBonus,
+	       Score.ArchetypeWeight, Score.MovementScore,
 	       FinalScore);
 
 	// 결과 캐싱
