@@ -43,7 +43,10 @@ public:
 	/*~ 스코어링 (ActionScore 산출) ~*/
 
 	// 단일 타겟에 대한 ActionScore를 계산하여 FPBTargetScore로 반환
-	// AI Scoring Example.md: (BaseScore × HitProb × TargetModifier + Situational) × Archetype
+	// Damage_Process.md 연동 공식:
+	//   ActionScore = (ExpectedDamage × TargetModifier + SituationalBonus) × ArchetypeWeight
+	// ExpectedDamage는 SourceASC의 모든 활성 어빌리티 중 최고 기대 피해량
+	// (CalcExpectedAttackDamage / CalcExpectedSavingThrowDamage / CalcExpectedDamage)
 	UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
 	FPBTargetScore EvaluateActionScore(AActor* TargetActor);
 

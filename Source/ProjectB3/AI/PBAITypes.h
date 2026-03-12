@@ -2,6 +2,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "PBAITypes.generated.h"
 
 
@@ -68,6 +69,12 @@ struct FPBSequenceAction
 	// 행동 발생 코스트
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
 	FPBCostData Cost;
+
+	// 실행할 어빌리티의 이벤트 트리거 태그
+	// Execute에서 HandleGameplayEvent(AbilityTag, &EventData)로 발동
+	// Move의 경우 비어있음 (기존 Ability_Active_Move 경로 사용)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
+	FGameplayTag AbilityTag;
 };
 
 // 조합 점수를 관리하고, 단일 행동(Single Action) 결과를 담는 객체
@@ -94,9 +101,9 @@ struct PROJECTB3_API FPBActionSequence
 };
 
 // 타겟 1명에 대한 ActionScore 평가 결과
-// AI Scoring Example.md 공식:
-//   ActionScore = (BaseScore × HitProbability × TargetModifier
-//                  + SituationalBonus) × ArchetypeWeight
+// Damage_Process.md 연동 공식:
+//   ActionScore = (ExpectedDamage × TargetModifier + SituationalBonus) × ArchetypeWeight
+// ExpectedDamage는 명중 확률을 내포한 유효 기대 피해량 (GetExpectedXxxDamage 결과)
 USTRUCT(BlueprintType)
 struct FPBTargetScore
 {
@@ -106,17 +113,18 @@ struct FPBTargetScore
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
 	TObjectPtr<AActor> TargetActor = nullptr;
 
-	// HP 기준 절대값 기본 점수
-	// 공격: ExpectedDamage (예: 2d6+3 = 10.0)
-	// 치유: EffectiveHeal × UrgencyMultiplier
-	// TODO: 다이스 시스템 연동 후 실값 교체
+	// 유효 기대 피해량 (명중 확률 내포)
+	// DiceSpec.RollType에 따라:
+	//   HitRoll     → GetExpectedHitDamage()
+	//   SavingThrow → GetExpectedSavingThrowDamage()
+	//   None        → GetExpectedDirectDamage()
+	// TODO: Phase 2에서 어빌리티 DiceSpec 기반 실값 연결
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
-	float BaseScore = 10.0f;
+	float ExpectedDamage = 0.0f;
 
-	// 명중 확률 (0.05 ~ 0.95 클램프)
-	// TODO: AI AttackModifier, 대상 AC 연동 후 실값 교체
+	// 이 점수를 산출한 어빌리티의 이벤트 트리거 태그
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
-	float HitProbability = 0.65f;
+	FGameplayTag AbilityTag;
 
 	// 대상 보정 배수 (ThreatMultiplier × RoleMultiplier)
 	// TODO: ThreatScore, 역할 시스템 연동 후 실값 교체
@@ -134,11 +142,10 @@ struct FPBTargetScore
 	float ArchetypeWeight = 1.0f;
 
 	// 최종 ActionScore 산출
-	// 공식: (BaseScore × HitProb × TargetModifier + Situational) × Archetype
+	// 공식: (ExpectedDamage × TargetModifier + SituationalBonus) × ArchetypeWeight
 	float GetActionScore() const
 	{
-		return (BaseScore * HitProbability * TargetModifier
-		        + SituationalBonus) * ArchetypeWeight;
+		return (ExpectedDamage * TargetModifier + SituationalBonus) * ArchetypeWeight;
 	}
 
 	// 이동 비용 기반 점수 (0.0 ~ 1.0)
