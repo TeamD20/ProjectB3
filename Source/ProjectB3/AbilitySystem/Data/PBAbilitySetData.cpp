@@ -6,11 +6,11 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogPBAbilitySetData, Log, All);
 
-FPBSourceGrantedHandles UPBAbilitySetData::GrantToAbilitySystem(
+FPBAbilityGrantedHandles UPBAbilitySetData::GrantToAbilitySystem(
 	UAbilitySystemComponent* ASC,
 	int32 CharacterLevel) const
 {
-	FPBSourceGrantedHandles Handles;
+	FPBAbilityGrantedHandles Handles;
 
 	if (!IsValid(ASC))
 	{
@@ -41,7 +41,7 @@ FPBSourceGrantedHandles UPBAbilitySetData::GrantToAbilitySystem(
 			*GetName(), *Entry.AbilityClass->GetName(), Entry.AbilityLevel);
 	}
 
-	// 패시브 GE 부여
+	// GE 부여
 	for (const FPBEffectGrantEntry& Entry : PassiveEffects)
 	{
 		if (!Entry.IsValidData())

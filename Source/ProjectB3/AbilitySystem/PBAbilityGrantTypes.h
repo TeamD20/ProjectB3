@@ -60,7 +60,7 @@ struct FPBEffectGrantEntry
 
 // SourceTag별 부여된 핸들 래퍼
 USTRUCT()
-struct FPBSourceGrantedHandles
+struct FPBAbilityGrantedHandles
 {
 	GENERATED_BODY()
 

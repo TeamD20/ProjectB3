@@ -24,14 +24,33 @@ public:
 
 protected:
 	void SpawnDummyPartyMember();
+	void SpawnDummyMonsters();
 	void SetupDummyCharacterData();
 	void BindPartyDataToUI();
-	void CreatePartyUI();
+	void CreateMainHUD();
 
 public:
 	// Exec - 콘솔창(~)에 'SimulateTurnChange' 입력 시 바로 호출되어 실행 가능
 	UFUNCTION(BlueprintCallable, Exec, Category = "Test|Simulation") 
-	void SimulateTurnChange();
+	void SimulateCharacterChange(AActor* TargetActor = nullptr);
+
+	// Exec - 콘솔창(~)에 'SimulateSkillCast' 입력 시 실행 (단축키 할당 목적)
+	UFUNCTION(BlueprintCallable, Exec, Category = "Test|Simulation") 
+	void SimulateSkillCast();
+	
+	// Exec - 콘솔창(~)에 'SimulateDamage' 입력 시 현재 선택된 캐릭터에게 데미지 인가
+	UFUNCTION(BlueprintCallable, Exec, Category = "Test|Simulation")
+	void SimulateDamage(int32 DamageAmount = 10);
+	
+	// Turn HUD 초기화 용도
+	void InitializeTurnViewModel();
+
+	// SkillBar HUD 더미 데이터 초기화 용도
+	void InitializeSkillBarViewModel();
+
+	// Exec - 콘솔창(~)에 'SimulateTurnAdvance' 입력 시 턴 진행 시뮬레이션
+	UFUNCTION(BlueprintCallable, Exec, Category = "Test|Simulation")
+	void SimulateTurnAdvance();
 	
 protected:
 	/* ============================================================ */
@@ -42,13 +61,21 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
 	TSubclassOf<AActor> DummyPartyMemberClass;
 
-	// 화면에 띄울 파티 리스트 메인 UI 위젯 클래스
+	// 통합된 메인 HUD 위젯 클래스 (GameplayHUD 용 역할)
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
-	TSubclassOf<UUserWidget> PartyUIWidgetClass;
+	TSubclassOf<UUserWidget> MainHUDClass;
+
+	// 스폰할 더미 몬스터 액터의 클래스
+	UPROPERTY(EditAnywhere, Category = "Test|Settings")
+	TSubclassOf<AActor> DummyMonsterClass;
 
 	// 최대 스폰 개수
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
 	int32 MaxSpawnCount = 4;
+	
+	// 최대 몬스터 스폰 개수
+	UPROPERTY(EditAnywhere, Category = "Test|Settings")
+	int32 MaxMonsterSpawnCount = 12;
 	
 	// 랜덤으로 부여할 이름들 모음
 	UPROPERTY(EditAnywhere, Category = "Test|Data")
@@ -57,6 +84,14 @@ protected:
 	// 랜덤으로 부여할 프로필 이미지들 모음
 	UPROPERTY(EditAnywhere, Category = "Test|Data")
 	TArray<TSoftObjectPtr<UTexture2D>> DummyPortraitPool;
+
+	// 랜덤으로 부여할 몬스터 프로필 이미지들 모음
+	UPROPERTY(EditAnywhere, Category = "Test|Data")
+	TArray<TSoftObjectPtr<UTexture2D>> DummyMonsterPortraitPool;
+
+	// 랜덤으로 부여할 스킬 슬롯 아이콘 모음 (SkillBar 테스트용)
+	UPROPERTY(EditAnywhere, Category = "Test|Data")
+	TArray<TSoftObjectPtr<UTexture2D>> DummySkillIconPool;
 
 private:
 	/* ============================================================ */
@@ -67,10 +102,14 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Test|Runtime")
 	TArray<TObjectPtr<AActor>> SpawnPartyMembers;
 
-	// 화면에 생성되어 띄워진 UI 위젯 임시 보관
+	// 화면에 띄워진 통합 메인 HUD 위젯
 	UPROPERTY()
-	TObjectPtr<UUserWidget> CreatedPartyUIWidget;
-	
+	TObjectPtr<UUserWidget> CreatedMainHUDWidget;
+
+	// 생성된 몬스터들을 보관
+	UPROPERTY(VisibleAnywhere, Category = "Test|Runtime")
+	TArray<TObjectPtr<AActor>> SpawnMonsters;
+
 	// 턴 변경 시뮬레이션을 위한 현재 턴 인덱스
 	int32 CurrentTurnIndex = 0;
 };

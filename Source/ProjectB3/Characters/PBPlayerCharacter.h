@@ -1,7 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #pragma once
-
 #include "PBCharacterBase.h"
 #include "PBPlayerCharacter.generated.h"
 
@@ -16,13 +15,13 @@ class PROJECTB3_API APBPlayerCharacter : public APBCharacterBase
 
 public:
 	APBPlayerCharacter();
-
+	
 	// SpringArm 컴포넌트 반환
 	USpringArmComponent* GetSpringArm() const { return SpringArmComponent; }
 
 	// Camera 컴포넌트 반환
 	UCameraComponent* GetFollowCamera() const { return FollowCamera; }
-
+	
 protected:
 	/*~ AActor Interface ~*/
 	virtual void BeginPlay() override;
