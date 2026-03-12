@@ -261,6 +261,7 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 
 	float BestExpectedDamage = 0.0f;
 	FGameplayTag BestAbilityTag;
+	bool bBestCanKill = false;
 
 	if (IsValid(SourceASC) && IsValid(TargetASC))
 	{
@@ -274,6 +275,11 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 		bool bACFound = false;
 		const int32 TargetAC = static_cast<int32>(TargetASC->GetGameplayAttributeValue(
 			UPBCharacterAttributeSet::GetArmorClassAttribute(), bACFound));
+
+		// 타겟 현재 HP (KillBonus / OverhealPenalty 판정용)
+		bool bHPFound = false;
+		const float TargetCurrentHP = TargetASC->GetGameplayAttributeValue(
+			UPBCharacterAttributeSet::GetHPAttribute(), bHPFound);
 
 		const TArray<FGameplayAbilitySpec> &Specs = SourceASC->GetActivatableAbilities();
 		for (const FGameplayAbilitySpec &Spec : Specs)
@@ -301,6 +307,7 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 			}
 
 			float CandidateDamage = 0.0f;
+			int32 AtkMod = 0;
 
 			switch (Dice.RollType)
 			{
@@ -308,7 +315,7 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 			{
 				const int32 HitBonus = UPBAbilitySystemLibrary::GetHitBonus(
 					SourceASC, Dice.BonusAttributeOverride);
-				const int32 AtkMod = UPBAbilitySystemLibrary::GetAttackModifier(
+				AtkMod = UPBAbilitySystemLibrary::GetAttackModifier(
 					SourceASC, Dice.AttackModifierAttributeOverride);
 
 				CandidateDamage = UPBAbilitySystemLibrary::CalcExpectedAttackDamage(
@@ -323,7 +330,7 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 					SourceASC, Dice.BonusAttributeOverride);
 				const int32 SaveBonus = UPBAbilitySystemLibrary::GetSaveBonus(
 					TargetASC, Dice.TargetSaveAttribute);
-				const int32 AtkMod = UPBAbilitySystemLibrary::GetAttackModifier(
+				AtkMod = UPBAbilitySystemLibrary::GetAttackModifier(
 					SourceASC, Dice.AttackModifierAttributeOverride);
 
 				CandidateDamage = UPBAbilitySystemLibrary::CalcExpectedSavingThrowDamage(
@@ -334,7 +341,7 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 
 			case EPBDiceRollType::None:
 			{
-				const int32 AtkMod = UPBAbilitySystemLibrary::GetAttackModifier(
+				AtkMod = UPBAbilitySystemLibrary::GetAttackModifier(
 					SourceASC, Dice.AttackModifierAttributeOverride);
 
 				CandidateDamage = UPBAbilitySystemLibrary::CalcExpectedDamage(
@@ -342,6 +349,29 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 					SourceTags, TargetTags);
 				break;
 			}
+			}
+
+			// --- KillBonus / OverhealPenalty 적용 (AI Scoring Example.md §3.1) ---
+			// RawAvgDamage = 명중 시 평균 피해 (확률 미반영)
+			// bCanKill = 명중하면 처치 가능한가?
+			bool bCandidateCanKill = false;
+			if (bHPFound && TargetCurrentHP > 0.0f)
+			{
+				const float RawAvgDamage =
+					Dice.DiceCount * (Dice.DiceFaces + 1) / 2.0f
+					+ static_cast<float>(AtkMod);
+
+				bCandidateCanKill = (RawAvgDamage >= TargetCurrentHP);
+
+				if (bCandidateCanKill)
+				{
+					// OverhealPenalty: 초과 데미지 비율만큼 기대값 축소
+					// KillBonus: 처치 보상으로 상쇄 (1.0 + KillBonusRate)
+					const float EffectiveRatio =
+						TargetCurrentHP / FMath::Max(RawAvgDamage, 1.0f);
+					CandidateDamage *= EffectiveRatio * (1.0f + KillBonusRate);
+				}
+				// else: 초과 피해 없으므로 수정 없음
 			}
 
 			if (CandidateDamage > BestExpectedDamage)
@@ -366,6 +396,7 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 				{
 					BestExpectedDamage = CandidateDamage;
 					BestAbilityTag = CandidateTag;
+					bBestCanKill = bCandidateCanKill;
 				}
 			}
 		}
@@ -380,8 +411,20 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 	Score.TargetModifier = GetTargetVulnerabilityScore(TargetActor);
 
 	// --- SituationalBonus 산정 ---
-	// TODO: 환경 상호작용, 처치 보너스, 집중 파괴 등
 	Score.SituationalBonus = 0.0f;
+
+	// FinishOffBonus (AI Scoring Example.md §6):
+	// 처치 가능 시, 적이 살아있으면 가할 미래 위협을 제거하는 가치
+	// = TargetThreatPerTurn × 잔여 라운드 (최대 3)
+	if (bBestCanKill)
+	{
+		Score.SituationalBonus += FinishOffBaseThreat * MaxFinishOffRounds;
+		UE_LOG(LogPBUtility, Log,
+			TEXT("[KillBonus] 타겟 [%s] 처치 가능 → FinishOffBonus +%.1f 가산"),
+			*TargetActor->GetName(),
+			FinishOffBaseThreat * MaxFinishOffRounds);
+	}
+	// TODO: ConcentrationBreakBonus, CliffShoveBonus 등 환경 상호작용
 
 	// --- ArchetypeWeight 산정 ---
 	// TODO: Archetype 데이터 에셋 또는 UCurveFloat 연동 후 실값 교체

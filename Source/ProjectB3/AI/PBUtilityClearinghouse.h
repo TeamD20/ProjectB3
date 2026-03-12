@@ -115,4 +115,17 @@ protected:
 	// 타겟 당 ActionScore 선가 결과 캐시 (GetBestActionScoreTarget 연산 중복
 	// 방지)
 	TMap<AActor*, FPBTargetScore> CachedActionScoreMap;
+
+	/*~ SituationalBonus 튜닝 상수 ~*/
+
+	// 처치 보너스 배율 (처치 가능 시 1.0 + KillBonusRate 적용)
+	// AI Scoring Example.md §3.1: KillBonus = 1.0 + KillBonusRate
+	float KillBonusRate = 0.5f;
+
+	// 처치 시 제거되는 적 턴당 위협 추정값 (HP 기준 절대값)
+	// TODO: ThreatScore 시스템 구현 후 실제 TargetThreatPerTurn으로 교체
+	float FinishOffBaseThreat = 5.0f;
+
+	// FinishOffBonus 잔여 라운드 최대치
+	float MaxFinishOffRounds = 3.0f;
 };
