@@ -209,16 +209,11 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 	FPBTargetScore Score;
 	Score.TargetActor = TargetActor;
 
-	// --- BaseScore 산정 ---
-	// HP 기준 절대값: 현재 MockAttack 기준 ExpectedDamage
-	// TODO: 어빌리티 데이터에서 DiceCount/DiceMax/FlatModifier 읽어서 계산
-	// 예: 2d6+3 = 2 * 3.5 + 3 = 10.0
-	Score.BaseScore = 10.0f;
-
-	// --- HitProbability 산정 ---
-	// TODO: AI AttackModifier(GAS AS) 및 대상 ArmorClass(GAS AS) 연동 후 실값
-	// 교체
-	Score.HitProbability = FMath::Clamp(0.65f, 0.05f, 0.95f);
+	// --- ExpectedDamage 산정 ---
+	// 명중 확률을 내포한 유효 기대 피해량
+	// TODO: Phase 2에서 어빌리티의 GetExpectedXxxDamage() 호출로 교체
+	// 현재 더미값: 기존 BaseScore(10.0) × HitProbability(0.65) 등가
+	Score.ExpectedDamage = 6.5f;
 
 	// --- TargetModifier 산정 ---
 	// ThreatMultiplier × RoleMultiplier
@@ -252,11 +247,11 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 
 	UE_LOG(LogPBUtility, Log,
 	       TEXT("[Scoring] AI [%s] → 타겟 [%s]: "
-		       "Base=%.1f, HitProb=%.2f, TargetMod=%.2f, "
+		       "ExpDmg=%.1f, TargetMod=%.2f, "
 		       "Situational=%.1f, Archetype=%.2f, Move=%.2f → "
 		       "TotalScore=%.4f"),
 	       *(ActiveTurnActor ? ActiveTurnActor->GetName() : TEXT("Unknown")),
-	       *TargetActor->GetName(), Score.BaseScore, Score.HitProbability,
+	       *TargetActor->GetName(), Score.ExpectedDamage,
 	       Score.TargetModifier, Score.SituationalBonus,
 	       Score.ArchetypeWeight, Score.MovementScore,
 	       FinalScore);
