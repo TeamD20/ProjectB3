@@ -263,6 +263,14 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 		const TArray<FGameplayAbilitySpec>& Specs = SourceASC->GetActivatableAbilities();
 		for (const FGameplayAbilitySpec& Spec : Specs)
 		{
+			// 발동 불가 어빌리티 스킵 (쿨다운, 자원 부족 등)
+			// UGameplayAbility::CanActivateAbility는 public이므로 Spec.Ability를 통해 호출
+			if (!Spec.Ability || !Spec.Ability->CanActivateAbility(
+					Spec.Handle, SourceASC->AbilityActorInfo.Get()))
+			{
+				continue;
+			}
+
 			const UPBGameplayAbility* AbilityCDO = Cast<UPBGameplayAbility>(Spec.Ability);
 			if (!AbilityCDO)
 			{
@@ -323,20 +331,26 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 
 			if (CandidateDamage > BestExpectedDamage)
 			{
-				BestExpectedDamage = CandidateDamage;
-
 				// 어빌리티 이벤트 트리거 태그 추출 (Spec의 DynamicAbilityTags 또는 CDO AbilityTags 첫 번째)
+				FGameplayTag CandidateTag;
 				if (Spec.DynamicAbilityTags.Num() > 0)
 				{
-					BestAbilityTag = Spec.DynamicAbilityTags.First();
+					CandidateTag = Spec.DynamicAbilityTags.First();
 				}
 				else
 				{
 					const FGameplayTagContainer& AbilityTags = AbilityCDO->GetAssetTags();
 					if (AbilityTags.Num() > 0)
 					{
-						BestAbilityTag = AbilityTags.First();
+						CandidateTag = AbilityTags.First();
 					}
+				}
+
+				// 태그가 유효한 어빌리티만 채택 (Execute에서 HandleGameplayEvent 발동에 필수)
+				if (CandidateTag.IsValid())
+				{
+					BestExpectedDamage = CandidateDamage;
+					BestAbilityTag = CandidateTag;
 				}
 			}
 		}
