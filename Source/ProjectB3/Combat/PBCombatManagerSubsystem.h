@@ -7,11 +7,11 @@
 #include "PBCombatTypes.h"
 #include "PBCombatManagerSubsystem.generated.h"
 
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnCombatStateChanged, EPBCombatState);
-DECLARE_MULTICAST_DELEGATE_TwoParams(FOnActiveTurnChanged, AActor*, int32);
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundChanged, int32);
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnCombatantIncapacitated, AActor*);
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnReactionTriggered, const FPBReactionContext&);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnCombatStateChangedSignature, EPBCombatState);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnActiveTurnChangedSignature, AActor*, int32);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundChangedSignature, int32);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnCombatantIncapacitatedSignature, AActor*);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnReactionTriggeredSignature, const FPBReactionContext&);
 
 /**
  * 턴 관리의 핵심 서브시스템.
@@ -113,14 +113,16 @@ protected:
 
 	// 행동불능 처리
 	void HandleIncapacitated(AActor* Combatant);
-
+	
+	// 조회
+	int32 GetGroupMemberTurnIndex(int32 InGroupMemberIndex) const;
 public:
 	/*~ 이벤트 ~*/
-	FOnCombatStateChanged OnCombatStateChanged;
-	FOnActiveTurnChanged OnActiveTurnChanged;
-	FOnRoundChanged OnRoundChanged;
-	FOnCombatantIncapacitated OnCombatantIncapacitated;
-	FOnReactionTriggered OnReactionTriggered;
+	FOnCombatStateChangedSignature OnCombatStateChanged;
+	FOnActiveTurnChangedSignature OnActiveTurnChanged;
+	FOnRoundChangedSignature OnRoundChanged;
+	FOnCombatantIncapacitatedSignature OnCombatantIncapacitated;
+	FOnReactionTriggeredSignature OnReactionTriggered;
 	
 private:
 	// 등록된 전투 참가자 목록

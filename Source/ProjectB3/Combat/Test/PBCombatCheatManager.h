@@ -32,7 +32,7 @@ class PROJECTB3_API UPBCombatCheatManager : public UCheatManager
 public:
 	// 전투 시작. 더미 캐릭터 스폰 후 전투 개시
 	UFUNCTION(Exec)
-	void Combat_Start(int32 NumAllies = 2, int32 NumEnemies = 2);
+	void Combat_Start(int32 NumEnemies = 2);
 
 	// 현재 턴 종료
 	UFUNCTION(Exec)
@@ -76,14 +76,14 @@ private:
 	UPBCombatManagerSubsystem* GetCombatManager() const;
 
 	// 테스트 캐릭터 스폰
-	void SpawnTestCharacters(int32 NumAllies, int32 NumEnemies);
+	void SpawnTestEnemies(int32 NumEnemies);
 
 	// 테스트 캐릭터 정리
 	void CleanupTestCharacters();
 
 	// 스폰된 테스트 캐릭터들
 	UPROPERTY()
-	TArray<TObjectPtr<APBTestCombatCharacter>> SpawnedCharacters;
+	TArray<TObjectPtr<APBTestCombatCharacter>> SpawnedEnemies;
 
 	// Status HUD 표시 여부
 	bool bStatusHUDVisible = false;
