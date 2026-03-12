@@ -1,11 +1,15 @@
 #include "PBUtilityClearinghouse.h"
 #include "AbilitySystemComponent.h"
+#include "AbilitySystemGlobals.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "NavigationSystem.h"
 #include "PBAIMockCharacter.h"
 #include "PBGE_RestoreTurnResources.h"
+#include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
+#include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
+#include "ProjectB3/AbilitySystem/PBAbilitySystemLibrary.h"
 
 // 임시 로깅을 위한 로그 카테고리 정의
 DEFINE_LOG_CATEGORY_STATIC(LogPBUtility, Log, All);
@@ -67,13 +71,36 @@ float UPBUtilityClearinghouse::GetTargetVulnerabilityScore(
 		return *CachedValue;
 	}
 
-	float CalculatedVulnerabilityScore = 0.8f; // 기본 더미값
-	// TODO: Health AttributeSet이 추가되면 실제 HP 기반 취약성 계산으로 교체
-	// 현재 UPBTurnResourceAttributeSet에는 Health가 없으므로 기본값 반환
+	// HP/MaxHP 기반 취약성 점수 산출
+	// HP가 낮을수록 취약(= 마무리 우선) → 1.0 - (HP / MaxHP)
+	float CalculatedVulnerabilityScore = 0.5f; // ASC 미발견 시 중립 기본값
+
+	if (const UAbilitySystemComponent* TargetASC =
+			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(TargetActor))
+	{
+		bool bFound = false;
+		const float HP = TargetASC->GetGameplayAttributeValue(
+			UPBCharacterAttributeSet::GetHPAttribute(), bFound);
+
+		float MaxHP = 1.0f;
+		if (bFound)
+		{
+			bool bMaxFound = false;
+			MaxHP = TargetASC->GetGameplayAttributeValue(
+				UPBCharacterAttributeSet::GetMaxHPAttribute(), bMaxFound);
+
+			if (!bMaxFound || MaxHP <= 0.0f)
+			{
+				MaxHP = 1.0f;
+			}
+
+			// HP가 낮을수록 높은 취약성 (마무리 우선순위)
+			CalculatedVulnerabilityScore = FMath::Clamp(1.0f - (HP / MaxHP), 0.0f, 1.0f);
+		}
+	}
 
 	UE_LOG(LogPBUtility, Log,
-	       TEXT("AI [%s]가 타겟 [%s]의 '취약성 점수'를 요청함 -> 반환값: %f "
-		       "(기본 더미값)"),
+	       TEXT("AI [%s]가 타겟 [%s]의 '취약성 점수'를 요청함 -> 반환값: %f"),
 	       *(ActiveTurnActor ? ActiveTurnActor->GetName() : TEXT("Unknown")),
 	       *TargetActor->GetName(), CalculatedVulnerabilityScore);
 
@@ -209,14 +236,137 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 	FPBTargetScore Score;
 	Score.TargetActor = TargetActor;
 
-	// --- HitProbability 산정 ---
-	// TODO: AI AttackModifier(GAS AS) 및 대상 ArmorClass(GAS AS) 연동 후 실값
-	// 교체
-	Score.HitProbability = FMath::Clamp(0.65f, 0.05f, 0.95f);
+	// --- ExpectedDamage 산정 ---
+	// SourceASC의 모든 활성 어빌리티를 순회하여 최고 기대 피해량 + 해당 AbilityTag 추출
+	// CDO에서 DiceSpec을 읽고, PBAbilitySystemLibrary 정적 함수로 안전하게 계산
+	UAbilitySystemComponent* SourceASC =
+		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(ActiveTurnActor);
+	UAbilitySystemComponent* TargetASC =
+		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(TargetActor);
 
-	// --- VulnerabilityWeight 산정 ---
-	// GetTargetVulnerabilityScore가 Health AS 연동 후 실값 제공
-	Score.VulnerabilityWeight = GetTargetVulnerabilityScore(TargetActor);
+	float BestExpectedDamage = 0.0f;
+	FGameplayTag BestAbilityTag;
+
+	if (IsValid(SourceASC) && IsValid(TargetASC))
+	{
+		// 태그 컨텍스트 (향후 저항/취약 등 확장용)
+		FGameplayTagContainer SourceTags;
+		SourceASC->GetOwnedGameplayTags(SourceTags);
+		FGameplayTagContainer TargetTags;
+		TargetASC->GetOwnedGameplayTags(TargetTags);
+
+		// 타겟 AC (HitRoll 경로용)
+		bool bACFound = false;
+		const int32 TargetAC = static_cast<int32>(TargetASC->GetGameplayAttributeValue(
+			UPBCharacterAttributeSet::GetArmorClassAttribute(), bACFound));
+
+		const TArray<FGameplayAbilitySpec>& Specs = SourceASC->GetActivatableAbilities();
+		for (const FGameplayAbilitySpec& Spec : Specs)
+		{
+			// 발동 불가 어빌리티 스킵 (쿨다운, 자원 부족 등)
+			// UGameplayAbility::CanActivateAbility는 public이므로 Spec.Ability를 통해 호출
+			if (!Spec.Ability || !Spec.Ability->CanActivateAbility(
+					Spec.Handle, SourceASC->AbilityActorInfo.Get()))
+			{
+				continue;
+			}
+
+			const UPBGameplayAbility* AbilityCDO = Cast<UPBGameplayAbility>(Spec.Ability);
+			if (!AbilityCDO)
+			{
+				continue;
+			}
+
+			const FPBDiceSpec& Dice = AbilityCDO->GetDiceSpec();
+
+			// 데미지 주사위가 없는 어빌리티는 스킵 (이동, 버프 등)
+			if (Dice.DiceCount <= 0 || Dice.DiceFaces <= 0)
+			{
+				continue;
+			}
+
+			float CandidateDamage = 0.0f;
+
+			switch (Dice.RollType)
+			{
+			case EPBDiceRollType::HitRoll:
+				{
+					const int32 HitBonus = UPBAbilitySystemLibrary::GetHitBonus(
+						SourceASC, Dice.BonusAttributeOverride);
+					const int32 AtkMod = UPBAbilitySystemLibrary::GetAttackModifier(
+						SourceASC, Dice.AttackModifierAttributeOverride);
+
+					CandidateDamage = UPBAbilitySystemLibrary::CalcExpectedAttackDamage(
+						Dice.DiceCount, Dice.DiceFaces, static_cast<float>(AtkMod),
+						HitBonus, TargetAC, SourceTags, TargetTags);
+					break;
+				}
+
+			case EPBDiceRollType::SavingThrow:
+				{
+					const int32 SpellDC = UPBAbilitySystemLibrary::CalcSpellSaveDC(
+						SourceASC, Dice.BonusAttributeOverride);
+					const int32 SaveBonus = UPBAbilitySystemLibrary::GetSaveBonus(
+						TargetASC, Dice.TargetSaveAttribute);
+					const int32 AtkMod = UPBAbilitySystemLibrary::GetAttackModifier(
+						SourceASC, Dice.AttackModifierAttributeOverride);
+
+					CandidateDamage = UPBAbilitySystemLibrary::CalcExpectedSavingThrowDamage(
+						Dice.DiceCount, Dice.DiceFaces, static_cast<float>(AtkMod),
+						SaveBonus, SpellDC, SourceTags, TargetTags);
+					break;
+				}
+
+			case EPBDiceRollType::None:
+				{
+					const int32 AtkMod = UPBAbilitySystemLibrary::GetAttackModifier(
+						SourceASC, Dice.AttackModifierAttributeOverride);
+
+					CandidateDamage = UPBAbilitySystemLibrary::CalcExpectedDamage(
+						Dice.DiceCount, Dice.DiceFaces, static_cast<float>(AtkMod),
+						SourceTags, TargetTags);
+					break;
+				}
+			}
+
+			if (CandidateDamage > BestExpectedDamage)
+			{
+				// 어빌리티 이벤트 트리거 태그 추출 (Spec의 DynamicAbilityTags 또는 CDO AbilityTags 첫 번째)
+				FGameplayTag CandidateTag;
+				if (Spec.DynamicAbilityTags.Num() > 0)
+				{
+					CandidateTag = Spec.DynamicAbilityTags.First();
+				}
+				else
+				{
+					const FGameplayTagContainer& AbilityTags = AbilityCDO->GetAssetTags();
+					if (AbilityTags.Num() > 0)
+					{
+						CandidateTag = AbilityTags.First();
+					}
+				}
+
+				// 태그가 유효한 어빌리티만 채택 (Execute에서 HandleGameplayEvent 발동에 필수)
+				if (CandidateTag.IsValid())
+				{
+					BestExpectedDamage = CandidateDamage;
+					BestAbilityTag = CandidateTag;
+				}
+			}
+		}
+	}
+
+	Score.ExpectedDamage = BestExpectedDamage;
+	Score.AbilityTag = BestAbilityTag;
+
+	// --- TargetModifier 산정 ---
+	// HP 기반 취약성 점수를 TargetModifier로 사용
+	// TODO: ThreatScore, 역할 시스템 연동 후 ThreatMultiplier × RoleMultiplier로 교체
+	Score.TargetModifier = GetTargetVulnerabilityScore(TargetActor);
+
+	// --- SituationalBonus 산정 ---
+	// TODO: 환경 상호작용, 처치 보너스, 집중 파괴 등
+	Score.SituationalBonus = 0.0f;
 
 	// --- ArchetypeWeight 산정 ---
 	// TODO: Archetype 데이터 에셋 또는 UCurveFloat 연동 후 실값 교체
@@ -224,7 +374,7 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 
 	// --- MovementScore 산정 ---
 	// 공식: 1.0 - (DistToTarget / MaxMovementRange), 클램프 [0.0, 1.0]
-	// 거리가 가까울수록 1.0, 몜수록 0.0
+	// 거리가 가까울수록 1.0, 멀수록 0.0
 	// TODO: 이동력 AttributeSet 연동 후 Movement 실값 사용
 	constexpr float MaxMovementRange = 1000.0f; // 임시 Default(10m)
 	if (IsValid(ActiveTurnActor))
@@ -240,12 +390,14 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 
 	UE_LOG(LogPBUtility, Log,
 	       TEXT("[Scoring] AI [%s] → 타겟 [%s]: "
-		       "HitProb=%.2f, Vuln=%.2f, Archetype=%.2f, Move=%.2f → "
+		       "ExpDmg=%.2f (Ability=%s), TargetMod=%.2f, "
+		       "Situational=%.1f, Archetype=%.2f, Move=%.2f → "
 		       "TotalScore=%.4f"),
 	       *(ActiveTurnActor ? ActiveTurnActor->GetName() : TEXT("Unknown")),
-	       *TargetActor->GetName(), Score.HitProbability,
-	       Score.VulnerabilityWeight, Score.ArchetypeWeight,
-	       Score.MovementScore,
+	       *TargetActor->GetName(), Score.ExpectedDamage,
+	       *Score.AbilityTag.ToString(),
+	       Score.TargetModifier, Score.SituationalBonus,
+	       Score.ArchetypeWeight, Score.MovementScore,
 	       FinalScore);
 
 	// 결과 캐싱

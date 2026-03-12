@@ -6,6 +6,7 @@
 #include "AbilitySystemGlobals.h"
 #include "Engine/World.h"
 #include "PBUtilityClearinghouse.h"
+#include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "StateTreeExecutionContext.h"
 
@@ -145,6 +146,34 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	FPBSequenceAction DecidedAction;
 	float RealDistance = SelfActor->GetDistanceTo(BestTargetActor);
 
+	// 최적 어빌리티의 실제 사거리 조회 (TopTargets[0].AbilityTag 기반)
+	// Range == 0이면 사거리 무제한 → 항상 Attack 가능
+	float AbilityRange = 0.0f; // 기본: 사거리 무제한
+	constexpr float RangeBuffer = 50.0f; // NavMesh 오차 보정
+
+	if (TopTargets[0].AbilityTag.IsValid())
+	{
+		FGameplayTagContainer SearchTags;
+		SearchTags.AddTag(TopTargets[0].AbilityTag);
+		TArray<FGameplayAbilitySpec*> MatchingSpecs;
+		ASC->GetActivatableGameplayAbilitySpecsByAllMatchingTags(SearchTags, MatchingSpecs);
+
+		if (MatchingSpecs.Num() > 0)
+		{
+			if (const UPBGameplayAbility_Targeted* TargetedAbility =
+					Cast<UPBGameplayAbility_Targeted>(MatchingSpecs[0]->Ability))
+			{
+				AbilityRange = TargetedAbility->GetRange();
+			}
+		}
+	}
+
+	// 사거리 무제한(0)이면 실거리와 무관하게 Attack 가능하도록 큰 값으로 설정
+	const bool bUnlimitedRange = (AbilityRange <= 0.0f);
+	const float EffectiveRange = bUnlimitedRange
+		? TNumericLimits<float>::Max()
+		: AbilityRange + RangeBuffer;
+
 	// ─── 조기 배제: AP+MP 자원 검증 (거리 분기 전) ───
 	// AP 소진 시 거리와 무관하게 Fallback 또는 턴 종료
 	if (CurrentAction < 1.0f)
@@ -184,19 +213,21 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 			return EStateTreeRunStatus::Failed;
 		}
 	}
-	// ─── AP 있음: 거리 기반 행동 결정 ───
-	else if (RealDistance <= 200.0f)
+	// ─── AP 있음: 거리 기반 행동 결정 (실제 어빌리티 사거리 사용) ───
+	else if (RealDistance <= EffectiveRange)
 	{
 		// 공격 사거리 이내 → Attack
 		if (ValidAbilities.Num() > 0)
 		{
 			DecidedAction.ActionType = EPBActionType::Attack;
 			DecidedAction.TargetActor = BestTargetActor;
+			DecidedAction.AbilityTag = TopTargets[0].AbilityTag;
 			DecidedAction.Cost.ActionCost = 1.0f;
 			UE_LOG(LogPBStateTree, Display,
-			       TEXT("결정된 행동: 타겟이 근접(거리: %f), "
-				       "[%s] 등 Attack을 결정합니다."),
-			       RealDistance, *ValidAbilities[0]->GetName());
+			       TEXT("결정된 행동: 타겟이 사거리 내(거리: %.0f, 사거리: %.0f), "
+				       "Ability [%s] Attack을 결정합니다."),
+			       RealDistance, AbilityRange,
+			       *DecidedAction.AbilityTag.ToString());
 		}
 		else
 		{
@@ -209,7 +240,18 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	else
 	{
 		// 공격 사거리 밖 → 타겟 접근 이동
-		float MovementCost = RealDistance;
+		// 도달 불가 체크: 남은 이동력으로 사거리에 닿을 수 있는가?
+		// (직선 거리 기준 — NavMesh 경로는 더 길 수 있으므로 보수적 추정)
+		const float NeededMovement = RealDistance - EffectiveRange;
+		if (NeededMovement > 0.0f && CurrentMovement < NeededMovement)
+		{
+			UE_LOG(LogPBStateTree, Warning,
+			       TEXT("[도달 불가] 사거리까지 %.0fcm 필요, 보유 이동력 %.0f. "
+				       "턴을 종료합니다."),
+			       NeededMovement, CurrentMovement);
+			return EStateTreeRunStatus::Failed;
+		}
+
 		if (TurnResourceSet && CurrentMovement <= 10.0f)
 		{
 			UE_LOG(LogPBStateTree, Warning,
@@ -220,6 +262,7 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 			return EStateTreeRunStatus::Failed;
 		}
 
+		float MovementCost = RealDistance;
 		DecidedAction.ActionType = EPBActionType::Move;
 		DecidedAction.TargetActor = BestTargetActor;
 		DecidedAction.Cost.MovementCost = MovementCost;

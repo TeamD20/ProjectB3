@@ -70,11 +70,20 @@ EStateTreeRunStatus UPBExecuteSequenceTask::EnterState(
 void UPBExecuteSequenceTask::ExitState(
     FStateTreeExecutionContext &Context,
     const FStateTreeTransitionResult &Transition) {
-  if (CachedAIController && bIsActionInProgress &&
-      CurrentAction.ActionType == EPBActionType::Move) {
-    UE_LOG(LogPBStateTreeExec, Display,
-           TEXT("ExitState: Cancelling active movement."));
-    CachedAIController->StopMovement();
+  if (bIsActionInProgress) {
+    if (CurrentAction.ActionType == EPBActionType::Move &&
+        CachedAIController) {
+      UE_LOG(LogPBStateTreeExec, Display,
+             TEXT("ExitState: 진행 중인 이동을 취소합니다."));
+      CachedAIController->StopMovement();
+    }
+
+    // 진행 중인 어빌리티 강제 취소 (Attack 등 GAS 어빌리티)
+    if (CachedASC && ActiveSpecHandle.IsValid()) {
+      CachedASC->CancelAbilityHandle(ActiveSpecHandle);
+      UE_LOG(LogPBStateTreeExec, Display,
+             TEXT("ExitState: 진행 중인 어빌리티를 취소합니다."));
+    }
   }
 
   if (CachedASC) {
@@ -150,6 +159,8 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction(
 
     const bool bActivated = CachedASC->TryActivateAbility(ActiveSpecHandle);
     if (!bActivated) {
+      CachedASC->OnAbilityEnded.Remove(DelegateHandle);
+      DelegateHandle.Reset();
       bIsActionInProgress = false;
       return EStateTreeRunStatus::Failed;
     }
@@ -158,7 +169,7 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction(
     const FVector MoveDestination = IsValid(CurrentAction.TargetActor)
         ? CurrentAction.TargetActor->GetActorLocation()
         : CurrentAction.TargetLocation;
-
+  
     UPBTargetPayload *MovePayload = NewObject<UPBTargetPayload>(this);
     MovePayload->TargetData.TargetingMode = EPBTargetingMode::Location;
     MovePayload->TargetData.TargetLocations.Add(MoveDestination);
@@ -173,24 +184,81 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction(
     UE_LOG(LogPBStateTreeExec, Display, TEXT("Executing Attack on [%s]."),
            *TargetName);
 
-    // 실제 Action(AP) 차감 로직
-    UAbilitySystemComponent *ASC =
-        UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(SelfActor);
-    if (IsValid(ASC)) {
-      // 비용만큼 Action 스탯 즉시 차감 (임시 하드코딩 된 어트리뷰트 직접 수정)
-      // *주의: 실제 프로덕션에서는 Gameplay Effect를 통해 차감해야 리플리케이션
-      // 및 버프/디버프 연산이 안전합니다.*
-      ASC->ApplyModToAttributeUnsafe(
-          UPBTurnResourceAttributeSet::GetActionAttribute(),
-          EGameplayModOp::Additive, -CurrentAction.Cost.ActionCost);
-
-      UE_LOG(LogPBStateTreeExec, Display,
-             TEXT("Attack 실행 완료: AP %f 소모됨."),
-             CurrentAction.Cost.ActionCost);
+    // AbilityTag 유효성 검사
+    if (!CurrentAction.AbilityTag.IsValid()) {
+      UE_LOG(LogPBStateTreeExec, Warning,
+             TEXT("Attack: AbilityTag가 설정되지 않았습니다."));
+      bIsActionInProgress = false;
+      return EStateTreeRunStatus::Failed;
     }
 
-    bIsActionInProgress = false;
-    return EStateTreeRunStatus::Succeeded;
+    CachedASC =
+        UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(SelfActor);
+    if (!IsValid(CachedASC)) {
+      bIsActionInProgress = false;
+      return EStateTreeRunStatus::Failed;
+    }
+
+    // AbilityTag로 어빌리티 Spec 조회 (OnAbilityEnded 핸들 매칭용)
+    FGameplayTagContainer AbilityTags;
+    AbilityTags.AddTag(CurrentAction.AbilityTag);
+    TArray<FGameplayAbilitySpec *> MatchingSpecs;
+    CachedASC->GetActivatableGameplayAbilitySpecsByAllMatchingTags(
+        AbilityTags, MatchingSpecs);
+
+    if (MatchingSpecs.IsEmpty()) {
+      UE_LOG(LogPBStateTreeExec, Warning,
+             TEXT("Attack: AbilityTag [%s]에 매칭되는 어빌리티를 찾을 수 "
+                  "없습니다."),
+             *CurrentAction.AbilityTag.ToString());
+      bIsActionInProgress = false;
+      return EStateTreeRunStatus::Failed;
+    }
+
+    ActiveSpecHandle = MatchingSpecs[0]->Handle;
+
+    // 어빌리티 종료 대기 델리게이트 (Move와 동일 패턴)
+    DelegateHandle = CachedASC->OnAbilityEnded.AddLambda(
+        [this](const FAbilityEndedData &AbilityEndedData) {
+          if (AbilityEndedData.AbilitySpecHandle == ActiveSpecHandle) {
+            bIsActionInProgress = false;
+            UE_LOG(LogPBStateTreeExec, Display,
+                   TEXT("Attack 어빌리티 종료. (bWasCancelled: %s)"),
+                   AbilityEndedData.bWasCancelled ? TEXT("true")
+                                                  : TEXT("false"));
+          }
+        });
+
+    // Payload 구성: SingleTarget + 타겟 액터
+    UPBTargetPayload *AttackPayload = NewObject<UPBTargetPayload>(this);
+    AttackPayload->TargetData.TargetingMode = EPBTargetingMode::SingleTarget;
+    AttackPayload->TargetData.TargetActors.Add(
+        TWeakObjectPtr<AActor>(CurrentAction.TargetActor));
+
+    // HandleGameplayEvent로 어빌리티 발동 + Payload 전달
+    // → PBGameplayAbility_Targeted::ActivateAbility의 TriggerEventData로 수신
+    // → CommitAbility가 내부에서 자원(Action) 차감 처리
+    FGameplayEventData EventData;
+    EventData.OptionalObject = AttackPayload;
+    const int32 Triggered = CachedASC->HandleGameplayEvent(
+        CurrentAction.AbilityTag, &EventData);
+
+    if (Triggered == 0) {
+      UE_LOG(LogPBStateTreeExec, Warning,
+             TEXT("Attack: HandleGameplayEvent 트리거 실패. "
+                  "AbilityTag [%s]에 등록된 트리거가 없습니다."),
+             *CurrentAction.AbilityTag.ToString());
+      CachedASC->OnAbilityEnded.Remove(DelegateHandle);
+      DelegateHandle.Reset();
+      bIsActionInProgress = false;
+      return EStateTreeRunStatus::Failed;
+    }
+
+    UE_LOG(LogPBStateTreeExec, Display,
+           TEXT("Attack 어빌리티 발동 성공. AbilityTag: [%s], "
+                "트리거된 어빌리티 수: %d"),
+           *CurrentAction.AbilityTag.ToString(), Triggered);
+    break;
   }
   default:
     bIsActionInProgress = false;

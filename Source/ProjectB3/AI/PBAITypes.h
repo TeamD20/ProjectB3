@@ -2,6 +2,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "PBAITypes.generated.h"
 
 
@@ -68,6 +69,12 @@ struct FPBSequenceAction
 	// 행동 발생 코스트
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
 	FPBCostData Cost;
+
+	// 실행할 어빌리티의 이벤트 트리거 태그
+	// Execute에서 HandleGameplayEvent(AbilityTag, &EventData)로 발동
+	// Move의 경우 비어있음 (기존 Ability_Active_Move 경로 사용)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
+	FGameplayTag AbilityTag;
 };
 
 // 조합 점수를 관리하고, 단일 행동(Single Action) 결과를 담는 객체
@@ -94,9 +101,9 @@ struct PROJECTB3_API FPBActionSequence
 };
 
 // 타겟 1명에 대한 ActionScore 평가 결과
-// AI_System.md §7.1: ActionScore = BaseScore × HitProbability × ArchetypeWeight
-// + TargetModifiers (현재 샌드박스 단계: BaseScore=1.0f,
-// TargetModifiers=VulnerabilityWeight, SituationalBonus=0.0f)
+// Damage_Process.md 연동 공식:
+//   ActionScore = (ExpectedDamage × TargetModifier + SituationalBonus) × ArchetypeWeight
+// ExpectedDamage는 명중 확률을 내포한 유효 기대 피해량 (GetExpectedXxxDamage 결과)
 USTRUCT(BlueprintType)
 struct FPBTargetScore
 {
@@ -106,27 +113,39 @@ struct FPBTargetScore
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
 	TObjectPtr<AActor> TargetActor = nullptr;
 
-	// 명중 확률 (0.05 ~ 0.95 클램프)
-	// §7.1: (d20 + 공격보정 - 대상 AC) / 20 → 추후 AC 속성 연동으로 교체
+	// 유효 기대 피해량 (명중 확률 내포)
+	// DiceSpec.RollType에 따라:
+	//   HitRoll     → GetExpectedHitDamage()
+	//   SavingThrow → GetExpectedSavingThrowDamage()
+	//   None        → GetExpectedDirectDamage()
+	// TODO: Phase 2에서 어빌리티 DiceSpec 기반 실값 연결
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
-	float HitProbability = 0.65f;
+	float ExpectedDamage = 0.0f;
 
-	// 취약성 가중치 (0.0 ~ 1.0)
-	// §7.1 TargetModifiers: HP 비율 기반 → 추후 Health AS 연동으로 교체
+	// 이 점수를 산출한 어빌리티의 이벤트 트리거 태그
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
-	float VulnerabilityWeight = 0.8f;
+	FGameplayTag AbilityTag;
 
-	// 아키타입 공격 가중치 (§4.4 Archetype.ScoreWeights.AttackWeight)
-	// 현재 1.0f 고정 → 추후 UCurveFloat 에셋 연동
+	// 대상 보정 배수 (ThreatMultiplier × RoleMultiplier)
+	// TODO: ThreatScore, 역할 시스템 연동 후 실값 교체
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
+	float TargetModifier = 1.0f;
+
+	// 상황 보너스 (환경 상호작용, 처치 보너스 등)
+	// TODO: 지형/CC/집중 파괴 등 상황 시스템 연동
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
+	float SituationalBonus = 0.0f;
+
+	// 아키타입 가중치 (행동 카테고리별)
+	// TODO: Archetype 데이터 에셋 연동
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
 	float ArchetypeWeight = 1.0f;
 
 	// 최종 ActionScore 산출
-	// §7.1: BaseScore(1.0f) × HitProbability × ArchetypeWeight +
-	// TargetModifiers(Vulnerability)
+	// 공식: (ExpectedDamage × TargetModifier + SituationalBonus) × ArchetypeWeight
 	float GetActionScore() const
 	{
-		return HitProbability * VulnerabilityWeight * ArchetypeWeight;
+		return (ExpectedDamage * TargetModifier + SituationalBonus) * ArchetypeWeight;
 	}
 
 	// 이동 비용 기반 점수 (0.0 ~ 1.0)
