@@ -7,6 +7,8 @@
 #include "ProjectB3/AbilitySystem/PBAbilitySystemLibrary.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogPBGameplayAbility, Log, All);
+
 EPBAbilityType UPBGameplayAbility::GetAbilityType() const
 {
 	// CDO가 아닌 인스턴스에서만 Spec의 DynamicAbilityTags를 포함하여 조회한다.
@@ -100,63 +102,190 @@ UGameplayEffect* UPBGameplayAbility::GetCooldownGameplayEffect() const
 	return nullptr;
 }
 
-FPBHitRollResult UPBGameplayAbility::RollHit(const UAbilitySystemComponent* InSourceASC, const UAbilitySystemComponent* InTargetASC) const
+FPBHitRollResult UPBGameplayAbility::RollHit(const UAbilitySystemComponent* InTargetASC) const
 {
+	if (DiceSpec.RollType != EPBDiceRollType::HitRoll)
+	{
+		UE_LOG(LogPBGameplayAbility, Warning, TEXT("DiceSpec의 RollType이 HitRoll이 아니지만 RollHit()을 호출함"));
+	}
+	
+	const UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
 	// 명중 수정치(숙련 제외) + 숙련 보너스
-	const int32 HitBonus = UPBAbilitySystemLibrary::GetHitBonus(InSourceASC, DiceSpec.KeyAttributeOverride) 
-		+ UPBAbilitySystemLibrary::GetProficiencyBonus(InSourceASC);
+	const int32 HitBonus = UPBAbilitySystemLibrary::GetHitBonus(SourceASC, DiceSpec.BonusAttributeOverride) 
+		+ UPBAbilitySystemLibrary::GetProficiencyBonus(SourceASC);
 
 	bool bFound = false;
 	const float TargetACValue = IsValid(InTargetASC)
 		? InTargetASC->GetGameplayAttributeValue(UPBCharacterAttributeSet::GetArmorClassAttribute(), bFound)
 		: 0.f;
-	const int32 TargetAC = bFound ? static_cast<int32>(TargetACValue) : 0;
+	const int32 TargetAC = static_cast<int32>(TargetACValue);
+
+	const FPBHitRollResult HitRollResult = UPBAbilitySystemLibrary::RollHit(HitBonus, TargetAC);
+	UE_LOG(LogPBGameplayAbility, Warning,
+		TEXT("[%s] RollHit - Roll: %d, HitBonus: %d, TargetAC: %d, bHit: %s, bCritical: %s"),
+		*GetName(),
+		HitRollResult.Roll,
+		HitBonus,
+		TargetAC,
+		HitRollResult.bHit ? TEXT("true") : TEXT("false"),
+		HitRollResult.bCritical ? TEXT("true") : TEXT("false"));
 
 	// TODO: UI 시스템 연동
-	return UPBAbilitySystemLibrary::RollHit(HitBonus, TargetAC);
+	return HitRollResult;
 }
 
-FPBDamageRollResult UPBGameplayAbility::RollDamage(const UAbilitySystemComponent* InSourceASC, bool bCritical) const
+FPBDamageRollResult UPBGameplayAbility::RollDamage(bool bCritical) const
 {
+	const UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
+	const FGameplayAttribute AttackModifierAttributeOverride = DiceSpec.AttackModifierAttributeOverride;
 	// AttackModifier = KeyAttribute 수정치 (숙련 보너스는 데미지에 미포함)
-	const float AttackModifier =  UPBAbilitySystemLibrary::GetAttackModifier(InSourceASC, DiceSpec.KeyAttributeOverride);
+	const float AttackModifier =  UPBAbilitySystemLibrary::GetAttackModifier(SourceASC, AttackModifierAttributeOverride);
+	const FPBDamageRollResult DamageRollResult = UPBAbilitySystemLibrary::RollDamage(DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, bCritical);
+	UE_LOG(LogPBGameplayAbility, Warning,
+		TEXT("[%s] RollDamage - Dice: %dd%d, bCritical: %s, DiceRoll: %.2f, AttackModifier: %.2f"),
+		*GetName(),
+		DiceSpec.DiceCount,
+		DiceSpec.DiceFaces,
+		bCritical ? TEXT("true") : TEXT("false"),
+		DamageRollResult.DiceRoll,
+		DamageRollResult.AttackModifier);
+
 	// TODO: UI 시스템 연동
-	return UPBAbilitySystemLibrary::RollDamage(DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, bCritical);
+	return DamageRollResult;
 }
 
-FPBSavingThrowResult UPBGameplayAbility::RollSavingThrow(const UAbilitySystemComponent* InSourceASC, const UAbilitySystemComponent* InTargetASC) const
+FPBSavingThrowResult UPBGameplayAbility::RollSavingThrow(const UAbilitySystemComponent* InTargetASC) const
 {
-	// SaveBonus = SaveAttributeOverride 능력치 수정치 (숙련 제외)
-	const int32 SaveBonus = UPBAbilitySystemLibrary::GetSaveBonus(InTargetASC, DiceSpec.SaveAttribute);
-	const int32 DC = UPBAbilitySystemLibrary::CalcSpellSaveDC(InSourceASC, DiceSpec.KeyAttributeOverride);
-	// TODO: UI 시스템 연동
+	if (DiceSpec.RollType != EPBDiceRollType::SavingThrow)
+	{
+		UE_LOG(LogPBGameplayAbility, Warning, TEXT("DiceSpec의 RollType이 SavingThrow 아니지만 RollSavingThrow()을 호출함"));
+	}
 	
-	return UPBAbilitySystemLibrary::RollSavingThrow(SaveBonus, DC);
+	const UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
+	// SaveBonus = SaveAttributeOverride 능력치 수정치 (숙련 제외)
+	const int32 SaveBonus = UPBAbilitySystemLibrary::GetSaveBonus(InTargetASC, DiceSpec.TargetSaveAttribute);
+	const int32 SpellSaveDC = UPBAbilitySystemLibrary::CalcSpellSaveDC(SourceASC, DiceSpec.BonusAttributeOverride);
+	const FPBSavingThrowResult SavingThrowResult = UPBAbilitySystemLibrary::RollSavingThrow(SaveBonus, SpellSaveDC);
+	UE_LOG(LogPBGameplayAbility, Warning,
+		TEXT("[%s] RollSavingThrow - Roll: %d, SaveBonus: %d, SpellSaveDC: %d, bSucceeded: %s"),
+		*GetName(),
+		SavingThrowResult.Roll,
+		SaveBonus,
+		SpellSaveDC,
+		SavingThrowResult.bSucceeded ? TEXT("true") : TEXT("false"));
+
+	// TODO: UI 시스템 연동
+	return SavingThrowResult;
 }
 
-float UPBGameplayAbility::GetExpectedHitDamage(int32 TargetAC,
+FGameplayEffectSpecHandle UPBGameplayAbility::MakeDamageEffectSpecFromHitDamageRoll(
+	const UAbilitySystemComponent* InTargetASC, FPBHitRollResult& OutHitRollResult,
+	FPBDamageRollResult& OutDamageRollResult) const
+{
+	const UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
+	if (!IsValid(SourceASC) || !IsValid(InTargetASC))
+	{
+		return FGameplayEffectSpecHandle();
+	}
+
+	const TSubclassOf<UGameplayEffect> DamageGEClass = UPBAbilitySystemLibrary::GetDamageGEClass(SourceASC);
+	if (!DamageGEClass)
+	{
+		return FGameplayEffectSpecHandle();
+	}
+
+	const FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
+	FGameplayEffectSpecHandle SpecHandle = SourceASC->MakeOutgoingSpec(DamageGEClass, 1.f, ContextHandle);
+	if (!SpecHandle.IsValid())
+	{
+		return FGameplayEffectSpecHandle();
+	}
+	
+	// 명중 굴림
+	OutHitRollResult = RollHit(InTargetASC);
+	if (!OutHitRollResult.bHit)
+	{
+		return FGameplayEffectSpecHandle();
+	}
+	
+	// 데미지 굴림
+	OutDamageRollResult = RollDamage(OutHitRollResult.bCritical);
+	
+	// 스펙에 반영
+	SpecHandle.Data->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Damage_DiceRoll,      OutDamageRollResult.DiceRoll);
+	SpecHandle.Data->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Damage_AttackModifier, OutDamageRollResult.AttackModifier);
+	
+	return SpecHandle;
+}
+
+FGameplayEffectSpecHandle UPBGameplayAbility::MakeDamageEffectSpecFromSavingThrowDamageRoll(
+	const UAbilitySystemComponent* InTargetASC, FPBSavingThrowResult& OutSavingThrowResult,
+	FPBDamageRollResult& OutDamageRollResult) const
+{
+	const UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
+	if (!IsValid(SourceASC) || !IsValid(InTargetASC))
+	{
+		return FGameplayEffectSpecHandle();
+	}
+
+	const TSubclassOf<UGameplayEffect> DamageGEClass = UPBAbilitySystemLibrary::GetDamageGEClass(SourceASC);
+	if (!DamageGEClass)
+	{
+		return FGameplayEffectSpecHandle();
+	}
+	
+	const FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
+	FGameplayEffectSpecHandle SpecHandle = SourceASC->MakeOutgoingSpec(DamageGEClass, 1.f, ContextHandle);
+	if (!SpecHandle.IsValid())
+	{
+		return FGameplayEffectSpecHandle();
+	}
+	
+	// 데미지 굴림
+	OutDamageRollResult = RollDamage(false);
+	// 내성 굴림
+	OutSavingThrowResult = RollSavingThrow(InTargetASC);
+	if (OutSavingThrowResult.bSucceeded)
+	{
+		OutDamageRollResult.DiceRoll *= 0.5f;
+	}
+	
+	// 스펙에 반영
+	SpecHandle.Data->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Damage_DiceRoll,      OutDamageRollResult.DiceRoll);
+	SpecHandle.Data->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Damage_AttackModifier, OutDamageRollResult.AttackModifier);
+	
+	return SpecHandle;
+}
+
+float UPBGameplayAbility::GetExpectedHitDamage(const UAbilitySystemComponent* InTargetASC,
                                                const FGameplayTagContainer& SourceTags,
                                                const FGameplayTagContainer& TargetTags) const
 {
-	const UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+	const UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
 	// AttackModifier: 데미지 수정치 (숙련 미포함)
-	const float AttackModifier = static_cast<float>(UPBAbilitySystemLibrary::GetAttackModifier(ASC, DiceSpec.KeyAttributeOverride));
+	const float AttackModifier = static_cast<float>(UPBAbilitySystemLibrary::GetAttackModifier(SourceASC,  DiceSpec.AttackModifierAttributeOverride));
 	// HitBonus: 명중 수정치 + 숙련 보너스
-	const int32 HitBonus = UPBAbilitySystemLibrary::GetHitBonus(ASC, DiceSpec.KeyAttributeOverride)
-		+ UPBAbilitySystemLibrary::GetProficiencyBonus(ASC);
+	const int32 HitBonus = UPBAbilitySystemLibrary::GetHitBonus(SourceASC, DiceSpec.BonusAttributeOverride)
+		+ UPBAbilitySystemLibrary::GetProficiencyBonus(SourceASC);
+	
+	bool bFound = false;
+	const float TargetACValue = IsValid(InTargetASC)
+		? InTargetASC->GetGameplayAttributeValue(UPBCharacterAttributeSet::GetArmorClassAttribute(), bFound)
+		: 0.f;
+	const int32 TargetAC = static_cast<int32>(TargetACValue);
 
 	return UPBAbilitySystemLibrary::CalcExpectedAttackDamage(
 		DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, HitBonus, TargetAC, SourceTags, TargetTags);
 }
 
-float UPBGameplayAbility::GetExpectedSavingThrowDamage(int32 SpellSaveDC,
+float UPBGameplayAbility::GetExpectedSavingThrowDamage(const UAbilitySystemComponent* InTargetASC,
                                                        const FGameplayTagContainer& SourceTags,
                                                        const FGameplayTagContainer& TargetTags) const
 {
-	// D&D 5e: 주문 데미지는 수정치 미적용
-	constexpr float AttackModifier = 0.f;
-	// AI 기댓값 계산 용도 → 피주문자 ASC 없음, SaveBonus = 0으로 최악(최대 피해) 기준 계산
-	constexpr int32 SaveBonus = 0;
+	const UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
+	const float AttackModifier = static_cast<float>(UPBAbilitySystemLibrary::GetAttackModifier(SourceASC, DiceSpec.AttackModifierAttributeOverride));
+	const int32 SaveBonus = UPBAbilitySystemLibrary::GetSaveBonus(InTargetASC, DiceSpec.TargetSaveAttribute);
+	const int32 SpellSaveDC = UPBAbilitySystemLibrary::CalcSpellSaveDC(SourceASC, DiceSpec.BonusAttributeOverride);
 	
 	return UPBAbilitySystemLibrary::CalcExpectedSavingThrowDamage(
 		DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, SaveBonus, SpellSaveDC, SourceTags, TargetTags);
@@ -166,7 +295,7 @@ float UPBGameplayAbility::GetExpectedDirectDamage(
 	const FGameplayTagContainer& SourceTags, const FGameplayTagContainer& TargetTags) const
 {
 	const UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
-	const float AttackModifier = static_cast<float>(UPBAbilitySystemLibrary::GetAttackModifier(ASC, DiceSpec.KeyAttributeOverride));
+	const float AttackModifier = static_cast<float>(UPBAbilitySystemLibrary::GetAttackModifier(ASC,  DiceSpec.AttackModifierAttributeOverride));
 	
 	return UPBAbilitySystemLibrary::CalcExpectedDamage(
 		DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, SourceTags, TargetTags);

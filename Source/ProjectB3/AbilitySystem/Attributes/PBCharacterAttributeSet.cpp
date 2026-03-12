@@ -17,12 +17,12 @@ UPBCharacterAttributeSet::UPBCharacterAttributeSet()
 	InitArmorClass(10.0f);
 	InitInitiativeBonus(0.0f);
 
-	// 3. 파생 전투 어트리뷰트 초기화 (변쾔 전 기본값. Infinite GE로 덮어씁.)
+	// 3. 파생 전투 어트리뷰트 초기화 (기본값. Infinite GE로 덮어씁.)
 	InitHitBonus(0.0f);
 	InitAttackModifier(0.0f);
-	InitSpellSaveDC(8.0f); // D&D 5e 최소치: 8 + 0 + 0
+	InitSpellSaveDCModifier(0.0f); 
 
-	// 4. 숙련 보너스 초기화 (레벨 1 기준: +2)
+	// 4. 숙련 보너스 초기화  (기본값. Infinite GE로 덮어씁.)
 	InitProficiencyBonus(2.0f);
 }
 

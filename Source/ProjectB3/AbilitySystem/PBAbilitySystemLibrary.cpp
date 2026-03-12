@@ -188,8 +188,8 @@ int32 UPBAbilitySystemLibrary::CalcSpellSaveDC(const UAbilitySystemComponent* So
 	// 미지정 시: AttributeSet의 SpellSaveDC 어트리뷰트 값 직접 반환 (Infinite GE로 갱신된 값)
 	bool bFound = false;
 	const float Value = SourceASC->GetGameplayAttributeValue(
-		UPBCharacterAttributeSet::GetSpellSaveDCAttribute(), bFound);
-	return bFound ? static_cast<int32>(Value) : 0;
+		UPBCharacterAttributeSet::GetSpellSaveDCModifierAttribute(), bFound);
+	return 8 + GetProficiencyBonus(SourceASC) + static_cast<int32>(Value);
 }
 
 int32 UPBAbilitySystemLibrary::GetHitBonus(const UAbilitySystemComponent* ASC, const FGameplayAttribute& KeyAttributeOverride)
@@ -259,13 +259,15 @@ FGameplayEffectSpecHandle UPBAbilitySystemLibrary::MakeDamageEffectSpec(
 	}
 
 	FPBDamageRollResult DamageRoll;
+	const FGameplayAttribute BonusAttributeOverride = DiceSpec.BonusAttributeOverride;
+	const FGameplayAttribute AttackModifierAttributeOverride = DiceSpec.AttackModifierAttributeOverride;
 
 	switch (DiceSpec.RollType)
 	{
 	case EPBDiceRollType::HitRoll:
 		{
 			// 명중 수정치 + 숙련 보너스
-			const int32 HitBonus = GetHitBonus(SourceASC, DiceSpec.KeyAttributeOverride) + GetProficiencyBonus(SourceASC);
+			const int32 HitBonus = GetHitBonus(SourceASC, BonusAttributeOverride) + GetProficiencyBonus(SourceASC);
 
 			// TargetASC에서 ArmorClass 조회
 			bool bFound = false;
@@ -279,7 +281,7 @@ FGameplayEffectSpecHandle UPBAbilitySystemLibrary::MakeDamageEffectSpec(
 				return FGameplayEffectSpecHandle();
 			}
 
-			const int32 AttackModifier = GetAttackModifier(SourceASC, DiceSpec.KeyAttributeOverride);
+			const int32 AttackModifier = GetAttackModifier(SourceASC, AttackModifierAttributeOverride);
 			DamageRoll = RollDamage(DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, HitResult.bCritical);
 			break;
 		}
@@ -290,11 +292,11 @@ FGameplayEffectSpecHandle UPBAbilitySystemLibrary::MakeDamageEffectSpec(
 			DamageRoll.AttackModifier = 0.f;
 			DamageRoll.DiceRoll = RollDamage(DiceSpec.DiceCount, DiceSpec.DiceFaces, 0.f, false).DiceRoll;
 
-			// 시전자의 SpellSaveDC: KeyAttributeOverride 지정이면 직접 계산, 아니면 어트리뷰트 폴백
-			const int32 SpellSaveDC = CalcSpellSaveDC(SourceASC, DiceSpec.KeyAttributeOverride);
+			// 시전자의 SpellSaveDC: BonusAttributeOverride 지정이면 직접 계산, 아니면 어트리뷰트 폴백
+			const int32 SpellSaveDC = CalcSpellSaveDC(SourceASC, BonusAttributeOverride);
 
 			// 피주문자 내성 보너스: SaveAttributeOverride로 어떤 능력치를 쓸지 지정
-			const int32 SaveBonus = GetSaveBonus(TargetASC, DiceSpec.SaveAttribute);
+			const int32 SaveBonus = GetSaveBonus(TargetASC, DiceSpec.TargetSaveAttribute);
 
 			const FPBSavingThrowResult SaveResult = RollSavingThrow(SaveBonus, SpellSaveDC);
 			if (SaveResult.bSucceeded)
@@ -307,7 +309,7 @@ FGameplayEffectSpecHandle UPBAbilitySystemLibrary::MakeDamageEffectSpec(
 	case EPBDiceRollType::None:
 	default:
 		{
-			const int32 AttackModifier = GetAttackModifier(SourceASC, DiceSpec.KeyAttributeOverride);
+			const int32 AttackModifier = GetAttackModifier(SourceASC, AttackModifierAttributeOverride);
 			DamageRoll = RollDamage(DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, false);
 			break;
 		}

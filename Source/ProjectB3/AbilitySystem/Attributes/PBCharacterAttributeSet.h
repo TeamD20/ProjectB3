@@ -75,25 +75,25 @@ public:
 
 	// ==== 파생 전투 어트리뷰트 (Infinite GE + MMC로 갱신) ====
 
-	// 명중 수정치 (HitBonus): KeyAttr 수정치.
+	// 명중 수정치 (HitBonus): BonusAttributeOverride 능력치 수정치.
 	// 명중 굴림: d20 + HitBonus + ProficiencyBonus vs 대상 AC.
-	// DiceSpec.KeyAttributeOverride 미지정 시 MakeDamageEffectSpec이 이 값을 폴백으로 사용.
+	// DiceSpec.BonusAttributeOverride 미지정 시 MakeDamageEffectSpec이 이 값을 폴백으로 사용.
 	UPROPERTY(BlueprintReadOnly, Category = "Attributes|Combat")
 	FGameplayAttributeData HitBonus;
 	ATTRIBUTE_ACCESSORS(UPBCharacterAttributeSet, HitBonus)
 
-	// 데미지 수정치 (AttackModifier): KeyAttr 수정치.
+	// 데미지 수정치 (AttackModifier): AttackModifierAttributeOverride 능력치 수정치.
 	// 데미지 굴림: 주사위 합산 + AttackModifier.
-	// DiceSpec.KeyAttributeOverride 미지정 시 MakeDamageEffectSpec이 이 값을 폴백으로 사용.
+	// DiceSpec.AttackModifierAttributeOverride 미지정 시 MakeDamageEffectSpec이 이 값을 폴백으로 사용.
 	UPROPERTY(BlueprintReadOnly, Category = "Attributes|Combat")
 	FGameplayAttributeData AttackModifier;
 	ATTRIBUTE_ACCESSORS(UPBCharacterAttributeSet, AttackModifier)
 
-	// 주문 난이도 (SpellSaveDC): 8 + ProficiencyBonus + 시전 능력치 수정치.
-	// DiceSpec.KeyAttributeOverride 미지정 시 MakeDamageEffectSpec이 이 값을 폴백으로 사용.
+	// 주문 난이도 수정치: 8 + ProficiencyBonus + SpellSaveDCModifier.
+	// DiceSpec.AttackModifierAttributeOverride 미지정 시 MakeDamageEffectSpec이 이 값을 폴백으로 사용.
 	UPROPERTY(BlueprintReadOnly, Category = "Attributes|Combat")
-	FGameplayAttributeData SpellSaveDC;
-	ATTRIBUTE_ACCESSORS(UPBCharacterAttributeSet, SpellSaveDC)
+	FGameplayAttributeData SpellSaveDCModifier;
+	ATTRIBUTE_ACCESSORS(UPBCharacterAttributeSet, SpellSaveDCModifier)
 
 	// ==== 메타 어트리뷰트 (임시 전달용, GE 실행 후 자동 초기화) ====
 

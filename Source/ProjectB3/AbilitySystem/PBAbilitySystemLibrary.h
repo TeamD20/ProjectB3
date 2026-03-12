@@ -93,14 +93,14 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Ability|Stats")
 	static int32 CalcAbilityModifier(float AbilityScore);
 	
-	// 명중 수정치 반환 (KeyAttr 수정치만. 숙련 보너스 미포함).
+	// 명중 수정치 반환 (BonusAttributeOverride 수정치만. 숙련 보너스 미포함).
 	static int32 GetHitBonus(const UAbilitySystemComponent* ASC, const FGameplayAttribute& KeyAttributeOverride = FGameplayAttribute());
 	
-	// AttackModifier 반환 (KeyAttr 수정치만. 숙련 보너스 미포함).
+	// AttackModifier 반환 (AttackModifierAttributeOverride 수정치만. 숙련 보너스 미포함).
 	static int32 GetAttackModifier(const UAbilitySystemComponent* ASC, const FGameplayAttribute& KeyAttributeOverride = FGameplayAttribute());
 	
-	// 주문 난이도(SpellSaveDC) 계산: 8 + ProficiencyBonus + KeyAttribute 수정치.
-	// KeyAttributeOverride 미지정 시 AttributeSet의 SpellSaveDC 폴백 어트리뷰트 반환.
+	// 주문 난이도(SpellSaveDC) 계산: 8 + ProficiencyBonus + AttributeOverride 수정치.
+	// AttributeOverride 미지정 시 AttributeSet의 SpellSaveDCModifier 폴백 어트리뷰트 반환.
 	UFUNCTION(BlueprintPure, Category = "Ability|Stats")
 	static int32 CalcSpellSaveDC(const UAbilitySystemComponent* SourceASC, const FGameplayAttribute& KeyAttributeOverride = FGameplayAttribute());
 
@@ -113,7 +113,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Ability|Stats")
 	static int32 GetProficiencyBonus(const UAbilitySystemComponent* ASC);
 	
-	// 액터의 ASC에서 특정 어트리뷰트 수정치 가져오기. KeyAttributeOverride 지정시 해당 Attribute로 계산하여 반환.
+	// 액터의 ASC에서 특정 어트리뷰트 수정치 가져오기. AttributeOverride 지정시 해당 Attribute로 계산하여 반환.
 	UFUNCTION(BlueprintPure, Category = "Ability|Stats")
 	static int32 GetAbilityModifierValue(const UAbilitySystemComponent* ASC, FGameplayAttribute Attribute, const FGameplayAttribute& KeyAttributeOverride = FGameplayAttribute() );
 	

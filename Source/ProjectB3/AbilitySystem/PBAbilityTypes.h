@@ -194,15 +194,21 @@ struct PROJECTB3_API FPBDiceSpec
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice", meta = (ClampMin = "1"))
 	int32 DiceFaces = 6;
 
-	// 공격자 명중/데미지 핵심 능력치 재정의.
-	// 미지정(IsValid() == false) 시 ASC의 HitBonus/AttackModifier 폴백 어트리뷰트 사용.
-	// AttackRoll 전용. (예: Strength, Dexterity)
+	// 공격자 데미지 수정치 핵심 능력치 재정의.
+	// 미지정(IsValid() == false) 시 ASC의 AttackModifier 폴백 어트리뷰트 사용.
+	// HitRoll / None / SavingThrow(주문 데미지 수정치 계산 경로)에서 사용.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice")
-	FGameplayAttribute KeyAttributeOverride;
+	FGameplayAttribute AttackModifierAttributeOverride;
 
-	// 피주문자가 내성 굴림에 사용할 능력치 어트리뷰트.
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice")
-	FGameplayAttribute SaveAttribute;
+	// 공격자 명중 보너스/주문 난이도(DC) 핵심 능력치 재정의.
+	// 미지정(IsValid() == false) 시 ASC의 HitBonus/SpellSaveDCModifier 폴백 어트리뷰트 사용.
+	// HitRoll / SavingThrow(SpellSaveDC 계산) 전용. (예: Strength, Dexterity, Intelligence)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice", meta = (EditCondition = "RollType != EPBDiceRollType::None"))
+	FGameplayAttribute BonusAttributeOverride;
+
+	// 피주문자가 내성 굴림에 사용할 능력치 어트리뷰트. 이 어트리뷰트에 의해 피주문자가 내성 보너스를 획득.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice", meta = (EditCondition = "RollType == EPBDiceRollType::SavingThrow"))
+	FGameplayAttribute TargetSaveAttribute;
 };
 
 /** d20 명중 굴림 결과 */

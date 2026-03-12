@@ -38,27 +38,40 @@ public:
 
 	// ==== 주사위 굴림 (DiceSpec 기반) ====
 
-	//KeyAttributeOverride 수정치 + 숙련 보너스 기반 명중 굴림 (d20 + HitBonus vs TargetAC)
-	UFUNCTION(BlueprintCallable, Category = "Ability|Dice")
-	FPBHitRollResult RollHit(const UAbilitySystemComponent* InSourceASC, const UAbilitySystemComponent* InTargetASC) const;
+	//BonusAttributeOverride 수정치 + 숙련 보너스 기반 명중 굴림 (d20 + HitBonus vs TargetAC)
+	// TargetASC: 피격 대상 ASC
+	UFUNCTION(BlueprintCallable,BlueprintPure = false, Category = "Ability|Dice")
+	FPBHitRollResult RollHit(const UAbilitySystemComponent* InTargetASC) const;
 
-	//KeyAttributeOverride 수정치 기반 데미지 굴림 (DiceCount·DiceFaces 자동 적용)
-	UFUNCTION(BlueprintCallable, Category = "Ability|Dice")
-	FPBDamageRollResult RollDamage(const UAbilitySystemComponent* InSourceASC, bool bCritical) const;
+	//AttackModifierAttributeOverride 수정치 기반 데미지 굴림 (DiceCount·DiceFaces 자동 적용)
+	UFUNCTION(BlueprintCallable,BlueprintPure = false, Category = "Ability|Dice")
+	FPBDamageRollResult RollDamage(bool bCritical) const;
 
-	// KeyAttributeOverride 수정치 + 숙련 보너스 기반 내성 굴림 (d20 + SaveBonus vs SpellSaveDC)
-	UFUNCTION(BlueprintCallable, Category = "Ability|Dice")
-	FPBSavingThrowResult RollSavingThrow(const UAbilitySystemComponent* InSourceASC, const UAbilitySystemComponent* InTargetASC) const;
+	// BonusAttributeOverride 수정치 기반 주문 난이도(DC)로 내성 굴림 (d20 + SaveBonus vs SpellSaveDC)
+	// TargetASC: 피주문자 ASC
+	UFUNCTION(BlueprintCallable,BlueprintPure = false, Category = "Ability|Dice")
+	FPBSavingThrowResult RollSavingThrow(const UAbilitySystemComponent* InTargetASC) const;
 
+	// 명중 굴림과 데미지 굴림을 시행하고 DamageEffectSpec 반환
+	UFUNCTION(BlueprintCallable,BlueprintPure = false, Category = "Ability|Dice")
+	FGameplayEffectSpecHandle MakeDamageEffectSpecFromHitDamageRoll(const UAbilitySystemComponent* InTargetASC, FPBHitRollResult& OutHitRollResult,FPBDamageRollResult& OutDamageRollResult) const;
+	
+	// 내성 굴림과 데미지 굴림을 시행하고 DamageEffectSpec 반환
+	UFUNCTION(BlueprintCallable,BlueprintPure = false, Category = "Ability|Dice")
+	FGameplayEffectSpecHandle MakeDamageEffectSpecFromSavingThrowDamageRoll(const UAbilitySystemComponent* InTargetASC, FPBSavingThrowResult& OutSavingThrowResult,FPBDamageRollResult& OutDamageRollResult) const;
+
+	
 	// AI 스코링용: 명중 굴림 기반 유효 기댓값 (AttackBonus·AttackModifier 자동 산출)
+	// TargetASC: 피격 대상 ASC
 	UFUNCTION(BlueprintPure, Category = "Ability|Dice")
-	float GetExpectedHitDamage(int32 TargetAC,
+	float GetExpectedHitDamage(const UAbilitySystemComponent* InTargetASC,
 		UPARAM(ref) const FGameplayTagContainer& SourceTags,
 		UPARAM(ref) const FGameplayTagContainer& TargetTags) const;
 
 	// AI 스코링용: 내성 굴림 기반 유효 기댓값 (SaveBonus·AttackModifier 자동 산출)
+	// TargetASC: 피주문자 ASC
 	UFUNCTION(BlueprintPure, Category = "Ability|Dice")
-	float GetExpectedSavingThrowDamage(int32 SpellSaveDC,
+	float GetExpectedSavingThrowDamage(const UAbilitySystemComponent* InTargetASC,
 		UPARAM(ref) const FGameplayTagContainer& SourceTags,
 		UPARAM(ref) const FGameplayTagContainer& TargetTags) const;
 
@@ -68,6 +81,7 @@ public:
 		UPARAM(ref) const FGameplayTagContainer& SourceTags,
 		UPARAM(ref) const FGameplayTagContainer& TargetTags) const;
 	
+
 protected:
 	/*~ UGameplayAbility Interface ~*/
 
