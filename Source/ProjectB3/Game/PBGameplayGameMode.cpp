@@ -1,6 +1,8 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBGameplayGameMode.h"
+
+#include "PBGameplayGameState.h"
 #include "ProjectB3/Combat/PBCombatManagerSubsystem.h"
 #include "ProjectB3/Characters/PBCharacterBase.h"
 #include "ProjectB3/Player/PBGameplayPlayerState.h"
@@ -74,26 +76,39 @@ bool APBGameplayGameMode::SpawnDefaultPartyAndPossess(APlayerController* NewPlay
 	}
 
 	// PlayerState 파티 목록/선택 상태를 런타임 UI(ViewModel) 경로와 동일하게 초기화한다.
-	if (APBGameplayPlayerState* GameplayPlayerState = NewPlayer->GetPlayerState<APBGameplayPlayerState>())
+	if (APBGameplayPlayerState* PS = NewPlayer->GetPlayerState<APBGameplayPlayerState>())
 	{
 		for (APBCharacterBase* PartyMember : NewlySpawnedPartyMembers)
 		{
-			GameplayPlayerState->AddPartyMember(PartyMember);
+			PS->AddPartyMember(PartyMember);
 		}
-
+		
+		if (APBGameplayGameState* GS = GetGameState<APBGameplayGameState>())
+		{
+			GS->NotifyPartyMemberListReady(PS->GetPartyMembers());
+		}
+		
 		// 첫 번째 파티원을 초기 선택 대상으로 지정한다. (내부에서 Possess 처리)
-		GameplayPlayerState->SelectPartyMember(NewlySpawnedPartyMembers[0]);
+		PS->SelectPartyMember(NewlySpawnedPartyMembers[0]);
 	}
 
 	SetPlayerDefaults(NewlySpawnedPartyMembers[0]);
-
+	
 	return true;
 }
 
 void APBGameplayGameMode::InitiateCombat(const TArray<AActor*>& Combatants)
 {
-	if (UPBCombatManagerSubsystem* CombatManager = GetWorld()->GetSubsystem<UPBCombatManagerSubsystem>())
+	UPBCombatManagerSubsystem* CombatManager = GetWorld()->GetSubsystem<UPBCombatManagerSubsystem>();
+	if (!CombatManager)
 	{
-		CombatManager->StartCombat(Combatants);
+		return;
+	}
+	
+	CombatManager->StartCombat(Combatants);
+	
+	if (APBGameplayGameState* GS = GetGameState<APBGameplayGameState>())
+	{
+		GS->NotifyCombatStarted();
 	}
 }

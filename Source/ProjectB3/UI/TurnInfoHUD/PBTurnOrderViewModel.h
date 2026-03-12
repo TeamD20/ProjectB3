@@ -20,7 +20,11 @@ public:
 	// 외부(GameMode 등)에서 전체 턴 목록을 한 번에 주입 시 호출
 	UFUNCTION(BlueprintCallable, Category = "Turn|Order")
 	void SetTurnOrder(const TArray<FPBTurnOrderEntry>& InData);
-
+	
+	// 특정 참가자 인덱스를 현재 턴으로 설정
+	UFUNCTION(BlueprintCallable, Category = "Turn|Order")
+	void SetTurnIndex(int32 NewTurnIndex);
+	
 	// 현재 턴 종료 및 다음 턴으로 넘기기
 	UFUNCTION(BlueprintCallable, Category = "Turn|Order")
 	void AdvanceTurn();

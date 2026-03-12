@@ -7,6 +7,8 @@
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/Utils/PBDebugUtils.h"
 #include "GameFramework/PlayerController.h"
+#include "ProjectB3/Game/PBGameplayGameMode.h"
+#include "ProjectB3/Player/PBGameplayPlayerState.h"
 
 // 화면 출력 Key 정의
 namespace CombatCheatKeys
@@ -60,7 +62,7 @@ UPBCombatManagerSubsystem* UPBCombatCheatManager::GetCombatManager() const
 	return nullptr;
 }
 
-void UPBCombatCheatManager::SpawnTestCharacters(int32 NumAllies, int32 NumEnemies)
+void UPBCombatCheatManager::SpawnTestEnemies(int32 NumEnemies)
 {
 	CleanupTestCharacters();
 
@@ -85,24 +87,6 @@ void UPBCombatCheatManager::SpawnTestCharacters(int32 NumAllies, int32 NumEnemie
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	// 아군 스폰
-	for (int32 i = 0; i < NumAllies; ++i)
-	{
-		FVector SpawnLoc = Origin + FVector(i * 200.0f, -200.0f, 100.0f);
-		APBTestCombatCharacter* Ally = World->SpawnActor<APBTestCombatCharacter>(
-			APBTestCombatCharacter::StaticClass(), SpawnLoc, FRotator::ZeroRotator, SpawnParams);
-
-		if (IsValid(Ally))
-		{
-			FPBCombatIdentity Identity;
-			Identity.FactionTag = PBGameplayTags::Combat_Faction_Player;
-			Identity.DisplayName = FText::FromString(FString::Printf(TEXT("아군_%d"), i + 1));
-			Ally->SetCombatIdentity(Identity);
-			Ally->TestInitiativeModifier = FMath::RandRange(0, 5);
-			SpawnedCharacters.Add(Ally);
-		}
-	}
-
 	// 적 스폰
 	for (int32 i = 0; i < NumEnemies; ++i)
 	{
@@ -117,21 +101,21 @@ void UPBCombatCheatManager::SpawnTestCharacters(int32 NumAllies, int32 NumEnemie
 			Identity.DisplayName = FText::FromString(FString::Printf(TEXT("적_%d"), i + 1));
 			Enemy->SetCombatIdentity(Identity);
 			Enemy->TestInitiativeModifier = FMath::RandRange(0, 3);
-			SpawnedCharacters.Add(Enemy);
+			SpawnedEnemies.Add(Enemy);
 		}
 	}
 }
 
 void UPBCombatCheatManager::CleanupTestCharacters()
 {
-	for (TObjectPtr<APBTestCombatCharacter>& Character : SpawnedCharacters)
+	for (TObjectPtr<APBTestCombatCharacter>& Character : SpawnedEnemies)
 	{
 		if (IsValid(Character))
 		{
 			Character->Destroy();
 		}
 	}
-	SpawnedCharacters.Empty();
+	SpawnedEnemies.Empty();
 }
 
 void UPBCombatCheatManager::RefreshStatusHUD()
@@ -278,7 +262,7 @@ void UPBCombatCheatManager::ClearStatusHUD()
 	}
 }
 
-void UPBCombatCheatManager::Combat_Start(int32 NumAllies, int32 NumEnemies)
+void UPBCombatCheatManager::Combat_Start(int32 NumEnemies)
 {
 	UPBCombatManagerSubsystem* CombatManager = GetCombatManager();
 	if (!IsValid(CombatManager))
@@ -295,23 +279,34 @@ void UPBCombatCheatManager::Combat_Start(int32 NumAllies, int32 NumEnemies)
 		return;
 	}
 
-	NumAllies = FMath::Max(1, NumAllies);
+	TArray<AActor*> PartyMembers;
+	if (APBGameplayPlayerState* PS = GetPlayerController()->GetPlayerState<APBGameplayPlayerState>())
+	{
+		PartyMembers = PS->GetPartyMembers();
+	}
+	
 	NumEnemies = FMath::Max(1, NumEnemies);
-
-	SpawnTestCharacters(NumAllies, NumEnemies);
+	SpawnTestEnemies(NumEnemies);
 
 	TArray<AActor*> Combatants;
-	for (APBTestCombatCharacter* Character : SpawnedCharacters)
+	for (AActor* PartyMember : PartyMembers)
+	{
+		Combatants.Add(PartyMember);
+	}
+	for (APBTestCombatCharacter* Character : SpawnedEnemies)
 	{
 		Combatants.Add(Character);
 	}
-
-	DebugUtils::Print(FString::Printf(TEXT("[Combat.Start] ===== 전투 시작 (아군 %d, 적 %d) ====="), NumAllies, NumEnemies),
+	
+	if (APBGameplayGameMode* GM = GetWorld()->GetAuthGameMode<APBGameplayGameMode>())
+	{
+		DebugUtils::Print(FString::Printf(TEXT("[Combat.Start] ===== 전투 시작 (아군 %d, 적 %d) ====="), PartyMembers.Num(), NumEnemies),
 		true, FColor::Cyan, CombatCheatKeys::CombatStart);
-	CombatManager->StartCombat(Combatants);
-
-	bStatusHUDVisible = true;
-	RefreshStatusHUD();
+		
+		GM->InitiateCombat(Combatants);
+		bStatusHUDVisible = true;
+		RefreshStatusHUD();
+	}
 }
 
 void UPBCombatCheatManager::Combat_EndTurn()
@@ -366,7 +361,7 @@ void UPBCombatCheatManager::Combat_Kill()
 		return;
 	}
 
-	for (APBTestCombatCharacter* Character : SpawnedCharacters)
+	for (APBTestCombatCharacter* Character : SpawnedEnemies)
 	{
 		if (IsValid(Character) && Character->GetFactionTag() == PBGameplayTags::Combat_Faction_Enemy
 			&& !Character->IsIncapacitated())
@@ -409,7 +404,7 @@ void UPBCombatCheatManager::Combat_Reaction()
 
 	FGameplayTag CurrentFaction = CurrentParticipant->GetFactionTag();
 
-	for (APBTestCombatCharacter* Character : SpawnedCharacters)
+	for (APBTestCombatCharacter* Character : SpawnedEnemies)
 	{
 		if (!IsValid(Character) || Character == CurrentActor)
 		{

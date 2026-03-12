@@ -202,7 +202,7 @@ void UPBCombatManagerSubsystem::EndCurrentTurn()
 			{
 				NextParticipant->OnTurnActivated();
 			}
-			OnActiveTurnChanged.Broadcast(Group[NextActiveIndex], CurrentTurnIndex);
+			OnActiveTurnChanged.Broadcast(Group[NextActiveIndex], GetGroupMemberTurnIndex(SharedTurnActiveIndex));
 			return;
 		}
 
@@ -313,7 +313,7 @@ void UPBCombatManagerSubsystem::SwitchToGroupMember(AActor* TargetMember)
 		{
 			Participant->OnTurnActivated();
 		}
-		OnActiveTurnChanged.Broadcast(TargetMember, CurrentTurnIndex);
+		OnActiveTurnChanged.Broadcast(TargetMember, GetGroupMemberTurnIndex(SharedTurnActiveIndex));
 	}
 }
 
@@ -621,7 +621,7 @@ void UPBCombatManagerSubsystem::BeginTurnForCurrentEntry()
 			}
 		}
 
-		OnActiveTurnChanged.Broadcast(GetCurrentCombatant(), CurrentTurnIndex);
+		OnActiveTurnChanged.Broadcast(GetCurrentCombatant(), GetGroupMemberTurnIndex(SharedTurnActiveIndex));
 	}
 	else
 	{
@@ -737,4 +737,9 @@ void UPBCombatManagerSubsystem::HandleIncapacitated(AActor* Combatant)
 	{
 		EndCombat();
 	}
+}
+
+int32 UPBCombatManagerSubsystem::GetGroupMemberTurnIndex(int32 InGroupMemberIndex) const
+{
+	return CurrentTurnIndex + InGroupMemberIndex;
 }
