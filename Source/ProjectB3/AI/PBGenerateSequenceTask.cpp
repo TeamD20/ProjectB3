@@ -209,7 +209,23 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	else
 	{
 		// 공격 사거리 밖 → 타겟 접근 이동
-		float MovementCost = RealDistance;
+		// EffectiveRange: 사거리(100cm) + NavMesh 오차(50cm) = 150cm
+		constexpr float AttackRange = 100.0f;
+		constexpr float RangeBuffer = 50.0f;
+		const float EffectiveRange = AttackRange + RangeBuffer;
+
+		// 도달 불가 체크: 남은 이동력으로 사거리에 닿을 수 있는가?
+		// (직선 거리 기준 — NavMesh 경로는 더 길 수 있으므로 보수적 추정)
+		const float NeededMovement = RealDistance - EffectiveRange;
+		if (NeededMovement > 0.0f && CurrentMovement < NeededMovement)
+		{
+			UE_LOG(LogPBStateTree, Warning,
+			       TEXT("[도달 불가] 사거리까지 %.0fcm 필요, 보유 이동력 %.0f. "
+				       "턴을 종료합니다."),
+			       NeededMovement, CurrentMovement);
+			return EStateTreeRunStatus::Failed;
+		}
+
 		if (TurnResourceSet && CurrentMovement <= 10.0f)
 		{
 			UE_LOG(LogPBStateTree, Warning,
@@ -220,6 +236,7 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 			return EStateTreeRunStatus::Failed;
 		}
 
+		float MovementCost = RealDistance;
 		DecidedAction.ActionType = EPBActionType::Move;
 		DecidedAction.TargetActor = BestTargetActor;
 		DecidedAction.Cost.MovementCost = MovementCost;
