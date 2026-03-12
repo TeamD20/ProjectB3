@@ -14,7 +14,7 @@ class UPBCombatManagerSubsystem;
  * 콘솔 명령(Exec)으로 전투 흐름의 각 단계를 검증한다.
  *
  * 사용법 (콘솔 ~):
- *   Combat_Start [아군수] [적수]    — 더미 캐릭터 스폰 + 전투 시작
+ *   Combat_Start [적수]				  — 더미 캐릭터 스폰 + 전투 시작
  *   Combat_EndTurn                   — 현재 턴 종료
  *   Combat_End                       — 전투 강제 종료
  *   Combat_Kill                      — 첫 번째 생존 적 행동불능
