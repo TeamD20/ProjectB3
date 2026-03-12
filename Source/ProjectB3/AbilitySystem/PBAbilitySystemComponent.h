@@ -42,7 +42,17 @@ public:
 	// Handle 기반으로 해당 어빌리티의 활성화 가능 여부를 조회한다.
 	bool CanActivateAbilityByHandle(const FGameplayAbilitySpecHandle& Handle) const;
 
+	// 턴 기반 어빌리티(EPBAbilityType != None) 실행 중 플래그 설정
+	void SetTurnAbilityActive(bool bActive);
+
+	// 턴 기반 어빌리티가 현재 실행 중인지 확인
+	bool IsTurnAbilityActive() const { return bIsTurnAbilityActive; }
+
 protected:
 	// 출처별 핸들 캐시
-	TMap<FGameplayTag, FPBSourceGrantedHandles> GrantedHandleMap;
+	TMap<FGameplayTag, FPBAbilityGrantedHandles> GrantedHandleMap;
+
+private:
+	// 턴 기반 어빌리티(EPBAbilityType != None) 실행 중 플래그
+	bool bIsTurnAbilityActive = false;
 };

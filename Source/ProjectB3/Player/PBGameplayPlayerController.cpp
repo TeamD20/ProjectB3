@@ -8,7 +8,6 @@
 #include "InputMappingContext.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "NiagaraFunctionLibrary.h"
-#include "PBTargetingComponent.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
 #include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
@@ -16,6 +15,7 @@
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/Camera/PBCameraControlComponent.h"
 #include "ProjectB3/Characters/PBPlayerCharacter.h"
+#include "ProjectB3/Combat/PBTargetingComponent.h"
 #include "ProjectB3/NavigationSystem/PBPathDisplayComponent.h"
 
 APBGameplayPlayerController::APBGameplayPlayerController()
@@ -234,6 +234,7 @@ void APBGameplayPlayerController::EnterTargetingMode(const FPBTargetingRequest& 
 
 void APBGameplayPlayerController::ExitCurrentMode()
 {
+	// TODO: 전투 진행 중 -> None, 비전투 -> FreeMovement
 	SetControllerMode(EPBPlayerControllerMode::None);
 }
 

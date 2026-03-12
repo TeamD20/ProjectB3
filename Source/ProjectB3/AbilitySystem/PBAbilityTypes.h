@@ -1,9 +1,10 @@
-﻿// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
+#include "AttributeSet.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "PBAbilityTypes.generated.h"
 
@@ -146,9 +147,107 @@ struct PROJECTB3_API FPBAbilityTargetData
 };
 
 
+/** 주사위 굴림 판정 유형. 데미지/회복 양쪽에서 공용. 회복은 항상 None. */
+UENUM(BlueprintType)
+enum class EPBDiceRollType : uint8
+{
+	// 명중 굴림 (공격자가 d20 굴림): Roll + AttackBonus >= 대상 AC 이면 명중 (Natural 20 = 치명타)
+	HitRoll,
+
+	// 내성 굴림 (대상이 d20 굴림): Roll + SaveBonus >= 주문 난이도 이면 절반 적용
+	SavingThrow,
+
+	// 판정 없이 무조건 전체 적용 (회복, 무조건 데미지 등)
+	None
+};
+
+/** 내성 굴림 결과. 내성 굴림에는 Natural 1/20 자동 실패/성공 규칙 없음. */
+USTRUCT(BlueprintType)
+struct PROJECTB3_API FPBSavingThrowResult
+{
+	GENERATED_BODY()
+
+	// d20 주사위 결과 (1-20)
+	UPROPERTY(BlueprintReadOnly, Category = "Combat|Roll")
+	int32 Roll = 0;
+
+	// 내성 성공 여부 (Roll + SaveBonus >= SpellSaveDC)
+	UPROPERTY(BlueprintReadOnly, Category = "Combat|Roll")
+	bool bSucceeded = false;
+};
+
+/** 어빌리티 고유 주사위 설정. 데미지·회복 양쪽에서 공용. CDO에서 BP 디자이너가 설정. */
+USTRUCT(BlueprintType)
+struct PROJECTB3_API FPBDiceSpec
+{
+	GENERATED_BODY()
+
+	// 판정 유형 (회복 어빌리티는 None으로 설정)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice")
+	EPBDiceRollType RollType = EPBDiceRollType::HitRoll;
+
+	// 주사위 수 (예: 2d6 에서 2)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice", meta = (ClampMin = "1"))
+	int32 DiceCount = 1;
+
+	// 주사위 면 수 (예: 2d6 에서 6)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice", meta = (ClampMin = "1"))
+	int32 DiceFaces = 6;
+
+	// 공격자 데미지 수정치 핵심 능력치 재정의.
+	// 미지정(IsValid() == false) 시 ASC의 AttackModifier 폴백 어트리뷰트 사용.
+	// HitRoll / None / SavingThrow(주문 데미지 수정치 계산 경로)에서 사용.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice")
+	FGameplayAttribute AttackModifierAttributeOverride;
+
+	// 공격자 명중 보너스/주문 난이도(DC) 핵심 능력치 재정의.
+	// 미지정(IsValid() == false) 시 ASC의 HitBonus/SpellSaveDCModifier 폴백 어트리뷰트 사용.
+	// HitRoll / SavingThrow(SpellSaveDC 계산) 전용. (예: Strength, Dexterity, Intelligence)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice", meta = (EditCondition = "RollType != EPBDiceRollType::None"))
+	FGameplayAttribute BonusAttributeOverride;
+
+	// 피주문자가 내성 굴림에 사용할 능력치 어트리뷰트. 이 어트리뷰트에 의해 피주문자가 내성 보너스를 획득.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice", meta = (EditCondition = "RollType == EPBDiceRollType::SavingThrow"))
+	FGameplayAttribute TargetSaveAttribute;
+};
+
+/** d20 명중 굴림 결과 */
+USTRUCT(BlueprintType)
+struct PROJECTB3_API FPBHitRollResult
+{
+	GENERATED_BODY()
+
+	// d20 주사위 결과 (1-20)
+	UPROPERTY(BlueprintReadOnly, Category = "Combat|Roll")
+	int32 Roll = 0;
+
+	// 명중 여부 (Natural 1 자동 실패, Natural 20 자동 성공, 그 외 Roll + HitBonus >= TargetAC)
+	UPROPERTY(BlueprintReadOnly, Category = "Combat|Roll")
+	bool bHit = false;
+
+	// 치명타 여부 (Natural 20)
+	UPROPERTY(BlueprintReadOnly, Category = "Combat|Roll")
+	bool bCritical = false;
+};
+
+/** 무기 데미지 주사위 굴림 결과. ExecCalc에 SetByCaller로 전달되는 두 값을 묶어 반환. */
+USTRUCT(BlueprintType)
+struct PROJECTB3_API FPBDamageRollResult
+{
+	GENERATED_BODY()
+
+	// 무기 주사위 합산 결과 (치명타 시 주사위 수 2배)
+	UPROPERTY(BlueprintReadOnly, Category = "Combat|Roll")
+	float DiceRoll = 0.f;
+
+	// 공격 수정치 (Str 또는 Dex modifier)
+	UPROPERTY(BlueprintReadOnly, Category = "Combat|Roll")
+	float AttackModifier = 0.f;
+};
+
 class UPBGameplayAbility_Targeted;
 
-/** PlayerController가 UPBTargetingComponent에 타겟팅 세션을 요청할 때 전달하는 구조체. */
+/** UPBTargetingComponent에 타겟팅 세션을 요청할 때 전달하는 구조체. */
 USTRUCT(BlueprintType)
 struct PROJECTB3_API FPBTargetingRequest
 {

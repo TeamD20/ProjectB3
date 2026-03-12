@@ -2,18 +2,21 @@
 
 #pragma once
 
+#include <ProjectB3/Combat/IPBCombatTarget.h>
+
 #include "GameFramework/Character.h"
 #include "AbilitySystemInterface.h"
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
 #include "PBCharacterBase.generated.h"
 
+class UPBCharacterAttributeSet;
 class UPBAbilitySystemComponent;
 class UPBTurnResourceAttributeSet;
 class UPBAbilitySetData;
 
 // 플레이어와 AI가 공유하는 캐릭터 기반 클래스.
 UCLASS()
-class PROJECTB3_API APBCharacterBase : public ACharacter, public IAbilitySystemInterface, public IPBCombatParticipant
+class PROJECTB3_API APBCharacterBase : public ACharacter, public IAbilitySystemInterface, public IPBCombatParticipant, public IPBCombatTarget
 {
 	GENERATED_BODY()
 
@@ -73,6 +76,9 @@ public:
 	// 초상화
 	virtual TSoftObjectPtr<UTexture2D> GetCombatPortrait() const override;
 
+	/*~ ICombatTarget Interface ~*/
+	virtual FVector GetCombatTargetLocation() const override;
+	
 	/*~ APBCharacterBase Interface ~*/
 	// 전투 식별 정보 설정
 	void SetCombatIdentity(const FPBCombatIdentity& InIdentity);
@@ -82,7 +88,10 @@ public:
 
 	// AbilitySystemComponent 반환 (타입 지정)
 	UPBAbilitySystemComponent* GetPBAbilitySystemComponent() const { return AbilitySystemComponent; }
-
+	
+	// 캐릭터 AttributeSet 반환
+	UPBCharacterAttributeSet* GetCharacterAttributeSet() const { return CharacterAttributeSet; }
+	
 	// 턴 자원 AttributeSet 반환
 	UPBTurnResourceAttributeSet* GetTurnResourceAttributeSet() const { return TurnResourceAttributeSet; }
 
@@ -90,11 +99,21 @@ protected:
 	/*~ AActor Interface ~*/
 	virtual void BeginPlay() override;
 
+	/*~ APBCharacterBase Interface ~*/
+	// 어빌리티 초기 부여 (InitAbilityActorInfo 이후 호출)
+	virtual void GrantInitialAbilities();
+	// 캐릭터 태그 부여
+	virtual void InitTags();
+	
 protected:
 	// AbilitySystemComponent
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AbilitySystem")
 	TObjectPtr<UPBAbilitySystemComponent> AbilitySystemComponent;
 
+	// 캐릭터 AttributeSet
+	UPROPERTY()
+	TObjectPtr<UPBCharacterAttributeSet> CharacterAttributeSet;
+	
 	// 턴 자원 AttributeSet
 	UPROPERTY()
 	TObjectPtr<UPBTurnResourceAttributeSet> TurnResourceAttributeSet;
@@ -106,16 +125,4 @@ protected:
 	// 전투 중 여부
 	UPROPERTY(BlueprintReadOnly, Category = "Combat")
 	bool bIsInCombat = false;
-
-	// 공통 기본 어빌리티 (Attack, Dash 등)
-	UPROPERTY(EditDefaultsOnly, Category = "Abilities")
-	TObjectPtr<UPBAbilitySetData> CommonAbilitySet;
-
-	// 직업별 어빌리티
-	UPROPERTY(EditDefaultsOnly, Category = "Abilities")
-	TObjectPtr<UPBAbilitySetData> ClassAbilitySet;
-
-private:
-	// 어빌리티 초기 부여 (InitAbilityActorInfo 이후 호출)
-	void GrantInitialAbilities();
 };

@@ -42,6 +42,10 @@ struct FPBCombatIdentity
 {
 	GENERATED_BODY()
 
+	// 직업 태그
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Character", meta = (Categories = "Character.Class"))
+	FGameplayTag ClassTag;
+	
 	// 진영 태그 (Player/Enemy/Neutral)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (Categories = "Combat.Faction"))
 	FGameplayTag FactionTag;

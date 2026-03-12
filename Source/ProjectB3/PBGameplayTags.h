@@ -8,12 +8,19 @@
 namespace PBGameplayTags
 {
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(System_Test);
-
+	// 캐릭터
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Fighter); // 임시
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Ranger);  // 임시
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Magician);  // 임시
+	
+	// 전투
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_State_InCombat);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Hit_Critical); // 치명타 명중 컨텍스트 태그
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Faction_Player);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Faction_Enemy);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Faction_Neutral);
 	
+	// 어빌리티
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Source_Common);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Source_Class);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Source_Equipment_Weapon);
@@ -40,4 +47,19 @@ namespace PBGameplayTags
 
 	// 이동 이벤트 태그
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Movement_MoveCommand);
+
+	// SetByCaller 어트리뷰트 초기화 태그
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Attribute_Strength);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Attribute_Dexterity);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Attribute_Constitution);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Attribute_Intelligence);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Attribute_MaxHP);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Attribute_ArmorClass);
+
+	// SetByCaller 데미지 태그 (어빌리티에서 주사위·수정치를 계산 후 GE에 전달)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Damage_DiceRoll);       // 무기 데미지 주사위 결과 (치명타 포함)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Damage_AttackModifier);  // 공격 수정치 (Str 또는 Dex)
+
+	// SetByCaller 회복 태그
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Heal_Amount); // 회복량
 }
