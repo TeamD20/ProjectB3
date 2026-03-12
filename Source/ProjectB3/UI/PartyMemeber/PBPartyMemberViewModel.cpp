@@ -2,8 +2,6 @@
 
 
 #include "PBPartyMemberViewmodel.h"
-#include "GameFramework/PlayerController.h"
-#include "ProjectB3/Player/PBGameplayPlayerState.h"
 
 
 FText UPBPartyMemberViewModel::GetCharacterName() const
@@ -46,9 +44,9 @@ float UPBPartyMemberViewModel::GetHealthPercent() const
 	return HealthPercent;
 }
 
-bool UPBPartyMemberViewModel::IsMyTurn() const
+bool UPBPartyMemberViewModel::bIsCharacterSelect() const
 {
-	return bIsMyTurn;
+	return bIsCharSelect;
 }
 
 void UPBPartyMemberViewModel::SetCharacterName(FText InCharacterName)
@@ -103,9 +101,10 @@ void UPBPartyMemberViewModel::SetHP(int32 InCurrentHP, int32 InMaxHP)
 		}
 		
 		float Percent = 0.f;
-		if (!FMath::IsNearlyEqual(MaxHP,0.f))
+		if (MaxHP > 0)
 		{
-			Percent = CurrentHP / MaxHP; 
+			float ClampedCurrentHP = FMath::Max(0, CurrentHP);
+			Percent = 1.0f - (ClampedCurrentHP / static_cast<float>(MaxHP));
 		}
 		
 		SetHealthPercent(Percent);
@@ -138,11 +137,11 @@ void UPBPartyMemberViewModel::SetPortrait(TSoftObjectPtr<UTexture2D> InPortrait)
 	}
 }
 
-void UPBPartyMemberViewModel::SetIsMyTurn(bool InMyTurn)
+void UPBPartyMemberViewModel::SetIsSelectedCharacter(bool InMyTurn)
 {
-	if (bIsMyTurn != InMyTurn)
+	if (bIsCharSelect != InMyTurn)
 	{
-		bIsMyTurn = InMyTurn;
+		bIsCharSelect = InMyTurn;
 		
 		if (OnIsMyTurnChanged.IsBound())
 		{
@@ -153,14 +152,6 @@ void UPBPartyMemberViewModel::SetIsMyTurn(bool InMyTurn)
 
 void UPBPartyMemberViewModel::OnSelected()
 {
-	if (APlayerController* OwningPlayerController = GetOwningPlayerController())
-	{
-		if (APBGameplayPlayerState* GameplayPlayerState = OwningPlayerController->GetPlayerState<APBGameplayPlayerState>())
-		{
-			GameplayPlayerState->SelectPartyMember(GetTargetActor());
-		}
-	}
-
 	OnPartyMemberSelected.Broadcast(GetTargetActor());
 }
 

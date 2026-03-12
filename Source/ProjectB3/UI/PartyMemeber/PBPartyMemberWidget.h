@@ -34,7 +34,7 @@ protected:
 	void UpdataHPText();
 	
 	void HandleImageChanged(TSoftObjectPtr<UTexture2D> InPortrait);
-	void HandleMyTurnChanged(bool bInMyTurn);
+	void HandleCharacterSelected(bool bInMyTurn);
 
 public:
 	// UPROPERTY(meta = (BindWidget))
@@ -49,12 +49,19 @@ public:
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* CharacterHPTextBlock;
 	
-	UPROPERTY(meta = (BindWidget))
-	UImage* CharacterImage;
+	// 체력바(데미지 바) 연결용
+	UPROPERTY(meta = (BindWidgetOptional))
+	class UProgressBar* DamageProgressBar;
 	
 	UPROPERTY(meta = (BindWidget))
-	UOverlay* TurnOverlay;
+	class UPBPortraitBaseWidget* PortraitWidget;
+	
+	UPROPERTY(meta = (BindWidget))
+	UOverlay* SelectedOverlay;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ViewModel")
 	UPBPartyMemberViewModel* MemberViewModel;
+
+protected:
+	void HandleHPPercentChanged(float InHealthPercent);
 };

@@ -9,6 +9,17 @@
 
 class UTexture2D;
 
+/** 스킬바 탭 식별용 열거형 */
+UENUM(BlueprintType)
+enum class EPBSkillBarTab : uint8
+{
+	Common UMETA(DisplayName = "Common"),
+	Class UMETA(DisplayName = "Class"),
+	Item UMETA(DisplayName = "Item"),
+	Passive UMETA(DisplayName = "Passive"),
+	Custom UMETA(DisplayName = "Custom")
+};
+
 /** 스킬바 슬롯 1개의 표시/상태 스냅샷 데이터 */
 USTRUCT(BlueprintType)
 struct PROJECTB3_API FPBSkillSlotData
