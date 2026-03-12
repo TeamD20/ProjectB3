@@ -103,6 +103,20 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction(
     return EStateTreeRunStatus::Succeeded;
   }
 
+  // 타겟 사망 검증: 실행 시점에 타겟이 이미 사망했으면 행동을 스킵
+  if (IsValid(CurrentAction.TargetActor)) {
+    UAbilitySystemComponent *TargetASC =
+        UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(
+            CurrentAction.TargetActor);
+    if (TargetASC && TargetASC->HasMatchingGameplayTag(
+                         PBGameplayTags::Character_State_Dead)) {
+      UE_LOG(LogPBStateTreeExec, Warning,
+             TEXT("타겟 [%s]이(가) 이미 사망 상태입니다. 행동을 스킵합니다."),
+             *CurrentAction.TargetActor->GetName());
+      return EStateTreeRunStatus::Succeeded;
+    }
+  }
+
   bIsActionInProgress = true;
   FString TargetName = IsValid(CurrentAction.TargetActor)
                            ? CurrentAction.TargetActor->GetName()

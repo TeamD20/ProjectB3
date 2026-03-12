@@ -10,6 +10,7 @@
 #include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemLibrary.h"
+#include "ProjectB3/PBGameplayTags.h"
 
 // 임시 로깅을 위한 로그 카테고리 정의
 DEFINE_LOG_CATEGORY_STATIC(LogPBUtility, Log, All);
@@ -191,12 +192,24 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor* CurrentTurnActor)
 
 	for (AActor* PlayerActor : FoundPlayers)
 	{
-		if (IsValid(PlayerActor))
+		if (!IsValid(PlayerActor))
 		{
-			CachedTargets.Add(PlayerActor);
-
-			// 임시로 가변적인 점수를 부여하기 위해 고정값 대신 난수나 거리를 사용가능
+			continue;
 		}
+
+		// 사망 캐릭터 제외: Character_State_Dead 태그 보유 시 타겟 목록에서 배제
+		UAbilitySystemComponent* TargetASC =
+			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(PlayerActor);
+		if (TargetASC && TargetASC->HasMatchingGameplayTag(
+				PBGameplayTags::Character_State_Dead))
+		{
+			UE_LOG(LogPBUtility, Log,
+				TEXT("사망 캐릭터 [%s]를 타겟 목록에서 제외합니다."),
+				*PlayerActor->GetName());
+			continue;
+		}
+
+		CachedTargets.Add(PlayerActor);
 	}
 
 	UE_LOG(LogPBUtility, Log,
