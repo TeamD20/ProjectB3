@@ -41,18 +41,25 @@ private:
 	// 탭 인덱스에 해당하는 컨테이너를 반환한다.
 	UPanelWidget* GetContainerByTab(int32 TabIndex) const;
 
-private:
-	// 주행동 슬롯 컨테이너
-	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UPanelWidget> ActionSlotContainer;
+	// 1. 일반 탭 슬롯 컨테이너
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UPanelWidget> CommonSlotContainer;
 
-	// 보조행동 슬롯 컨테이너
-	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UPanelWidget> BonusActionSlotContainer;
+	// 2. 직업 탭 슬롯 컨테이너
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UPanelWidget> ClassSlotContainer;
 
-	// 주문 슬롯 컨테이너
-	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UPanelWidget> SpellSlotContainer;
+	// 3. 아이템 탭 슬롯 컨테이너
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UPanelWidget> ItemSlotContainer;
+
+	// 4. 상시발동 탭 슬롯 컨테이너
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UPanelWidget> PassiveSlotContainer;
+
+	// 5. 커스텀 탭 슬롯 컨테이너
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UPanelWidget> CustomSlotContainer;
 
 	// 탭 전환 스위처
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -62,17 +69,25 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UPBSkillSlotWidget> SkillSlotWidgetClass;
 
-	// 주행동 탭 슬롯 수
+	// 일반 탭 최대 슬롯 수
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true", ClampMin = 1))
-	int32 ActionSlotCount = 8;
+	int32 CommonSlotCount = 10;
 
-	// 보조행동 탭 슬롯 수
+	// 직업 탭 최대 슬롯 수
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true", ClampMin = 1))
-	int32 BonusActionSlotCount = 8;
+	int32 ClassSlotCount = 10;
 
-	// 주문 탭 슬롯 수
+	// 아이템 탭 최대 슬롯 수
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true", ClampMin = 1))
-	int32 SpellSlotCount = 8;
+	int32 ItemSlotCount = 10;
+
+	// 상시발동 탭 최대 슬롯 수
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true", ClampMin = 1))
+	int32 PassiveSlotCount = 10;
+
+	// 커스텀 탭 최대 슬롯 수
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true", ClampMin = 1))
+	int32 CustomSlotCount = 10;
 
 	// 스킬바 ViewModel 참조
 	UPROPERTY(Transient)
