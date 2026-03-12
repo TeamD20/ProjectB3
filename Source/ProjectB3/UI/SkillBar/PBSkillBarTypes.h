@@ -16,8 +16,7 @@ enum class EPBSkillBarTab : uint8
 	Common UMETA(DisplayName = "Common"),
 	Class UMETA(DisplayName = "Class"),
 	Item UMETA(DisplayName = "Item"),
-	Passive UMETA(DisplayName = "Passive"),
-	Custom UMETA(DisplayName = "Custom")
+	Passive UMETA(DisplayName = "Passive")
 };
 
 /** 스킬바 슬롯 1개의 표시/상태 스냅샷 데이터 */
@@ -49,4 +48,8 @@ struct PROJECTB3_API FPBSkillSlotData
 	// 현재 발동 가능 여부
 	UPROPERTY(BlueprintReadOnly, Category = "SkillBar")
 	bool bCanActivate = true;
+
+	// 현재 선택(Pressed) 여부 (포커스 테두리 표시용)
+	UPROPERTY(BlueprintReadOnly, Category = "SkillBar")
+	bool bIsActive = false;
 };

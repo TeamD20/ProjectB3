@@ -159,6 +159,17 @@ void APBUITestGameMode::CreateMainHUD()
 			CreatedMainHUDWidget->AddToViewport();
 			UE_LOG(LogTemp, Warning, TEXT("Main HUD Widget Added to Viewport"));
 		}
+
+		// [Step 1] 메인 액션바 HUD 생성 및 추가
+		if (MainActionBarHUDClass)
+		{
+			CreatedMainActionBarWidget = CreateWidget<UUserWidget>(PC, MainActionBarHUDClass);
+			if (CreatedMainActionBarWidget)
+			{
+				CreatedMainActionBarWidget->AddToViewport();
+				UE_LOG(LogTemp, Warning, TEXT("Main Action Bar HUD Added to Viewport"));
+			}
+		}
 	}
 }
 
@@ -269,6 +280,7 @@ void APBUITestGameMode::InitializeSkillBarViewModel()
 				SlotData.DisplayName = FText::FromString(FString::Printf(TEXT("%s Skill %d"), *Prefix, i + 1));
 				SlotData.bCanActivate = (i % 2 == 0); // 홀수/짝수로 활성화 상태 시뮬레이션
 				SlotData.CooldownRemaining = (i % 3 == 0) ? 2 : 0; // 일부는 쿨다운 부여
+				SlotData.bIsActive = (i == 0); // 첫 번째 스킬은 선택된 상태 시뮬레이션
 				
 				// 스킬 아이콘 풀에서 순환하며 이미지 할당
 				if (DummySkillIconPool.Num() > 0)
@@ -281,12 +293,10 @@ void APBUITestGameMode::InitializeSkillBarViewModel()
 			return DummySlots;
 		};
 
-		// 5개의 탭 컨테이너에 각각 더미 데이터 밀어넣기
-		SkillBarVM->CommonSlots = CreateDummySlots(10, TEXT("Common"));
-		SkillBarVM->ClassSlots = CreateDummySlots(5, TEXT("Class"));
+		// 3개의 카테고리에 각각 더미 데이터 밀어넣기
+		SkillBarVM->PrimaryActions = CreateDummySlots(10, TEXT("Primary"));
+		SkillBarVM->SecondaryActions = CreateDummySlots(5, TEXT("Secondary"));
 		SkillBarVM->ItemSlots = CreateDummySlots(8, TEXT("Item"));
-		SkillBarVM->PassiveSlots = CreateDummySlots(3, TEXT("Passive"));
-		SkillBarVM->CustomSlots = CreateDummySlots(12, TEXT("Custom"));
 		
 		// 스킬 UI 갱신 이벤트 트리거
 		SkillBarVM->OnSlotsChanged.Broadcast();

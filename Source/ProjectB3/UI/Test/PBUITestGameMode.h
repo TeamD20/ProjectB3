@@ -65,6 +65,10 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
 	TSubclassOf<UUserWidget> MainHUDClass;
 
+	// [Step 1] 신규 메인 액션바 HUD 클래스
+	UPROPERTY(EditAnywhere, Category = "Test|Settings")
+	TSubclassOf<UUserWidget> MainActionBarHUDClass;
+
 	// 스폰할 더미 몬스터 액터의 클래스
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
 	TSubclassOf<AActor> DummyMonsterClass;
@@ -105,6 +109,10 @@ private:
 	// 화면에 띄워진 통합 메인 HUD 위젯
 	UPROPERTY()
 	TObjectPtr<UUserWidget> CreatedMainHUDWidget;
+
+	// 생성된 메인 액션바 HUD 위젯
+	UPROPERTY()
+	TObjectPtr<UUserWidget> CreatedMainActionBarWidget;
 
 	// 생성된 몬스터들을 보관
 	UPROPERTY(VisibleAnywhere, Category = "Test|Runtime")

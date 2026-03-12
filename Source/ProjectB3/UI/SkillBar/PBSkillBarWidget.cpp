@@ -1,20 +1,35 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBSkillBarWidget.h"
+#include "PBSkillIconWidget.h"
 #include "PBSkillBarViewModel.h"
-#include "PBSkillSlotWidget.h"
-#include "PBSkillBarTypes.h"
 #include "ProjectB3/UI/PBUIBlueprintLibrary.h"
-#include "Components/WidgetSwitcher.h"
+#include "Components/PanelWidget.h"
 #include "ProjectB3/UI/PBUITypes.h"
 
 
-void UPBSkillBarWidget::SetCurrentTab(int32 InTabIndex)
+void UPBSkillBarWidget::RefreshSkillBar()
 {
-	if (IsValid(TabSwitcher))
+	if (!IsValid(SkillBarViewModel)) return;
+
+	auto RebuildContainer = [this](UPanelWidget* Container, const TArray<FPBSkillSlotData>& Slots)
 	{
-		TabSwitcher->SetActiveWidgetIndex(InTabIndex);
-	}
+		if (!IsValid(Container)) return;
+		
+		Container->ClearChildren();
+		for (const FPBSkillSlotData& SlotData : Slots)
+		{
+			if (UPBSkillIconWidget* IconWidget = CreateWidget<UPBSkillIconWidget>(this, SkillIconWidgetClass))
+			{
+				IconWidget->UpdateSlot(SlotData);
+				Container->AddChild(IconWidget);
+			}
+		}
+	};
+
+	RebuildContainer(PrimaryActionContainer, SkillBarViewModel->PrimaryActions);
+	RebuildContainer(SecondaryActionContainer, SkillBarViewModel->SecondaryActions);
+	RebuildContainer(ItemSlotContainer, SkillBarViewModel->ItemSlots);
 }
 
 void UPBSkillBarWidget::NativeConstruct()
@@ -30,7 +45,7 @@ void UPBSkillBarWidget::NativeConstruct()
 	SlotsChangedHandle = SkillBarViewModel->OnSlotsChanged.AddUObject(this, &UPBSkillBarWidget::HandleSlotsChanged);
 	SlotUpdatedHandle = SkillBarViewModel->OnSlotUpdated.AddUObject(this, &UPBSkillBarWidget::HandleSlotUpdated);
 
-	HandleSlotsChanged();
+	RefreshSkillBar();
 }
 
 void UPBSkillBarWidget::NativeDestruct()
@@ -57,83 +72,30 @@ void UPBSkillBarWidget::NativeDestruct()
 
 void UPBSkillBarWidget::HandleSlotsChanged()
 {
-	if (!IsValid(SkillBarViewModel))
-	{
-		return;
-	}
-
-	RebuildSlots(CommonSlotContainer, SkillBarViewModel->CommonSlots, 0, CommonSlotCount);
-	RebuildSlots(ClassSlotContainer, SkillBarViewModel->ClassSlots, 1, ClassSlotCount);
-	RebuildSlots(ItemSlotContainer, SkillBarViewModel->ItemSlots, 2, ItemSlotCount);
-	RebuildSlots(PassiveSlotContainer, SkillBarViewModel->PassiveSlots, 3, PassiveSlotCount);
-	RebuildSlots(CustomSlotContainer, SkillBarViewModel->CustomSlots, 4, CustomSlotCount);
+	RefreshSkillBar();
 }
 
-void UPBSkillBarWidget::HandleSlotUpdated(int32 TabIndex, int32 SlotIndex)
+void UPBSkillBarWidget::HandleSlotUpdated(int32 CategoryIndex, int32 SlotIndex)
 {
-	if (!IsValid(SkillBarViewModel))
+	if (!IsValid(SkillBarViewModel)) return;
+
+	UPanelWidget* TargetContainer = nullptr;
+	switch (CategoryIndex)
 	{
-		return;
+	case 0: TargetContainer = PrimaryActionContainer; break;
+	case 1: TargetContainer = SecondaryActionContainer; break;
+	case 2: TargetContainer = ItemSlotContainer; break;
 	}
 
-	UPanelWidget* TargetContainer = GetContainerByTab(TabIndex);
-	if (!IsValid(TargetContainer) || !TargetContainer->GetAllChildren().IsValidIndex(SlotIndex))
+	if (IsValid(TargetContainer) && TargetContainer->GetChildrenCount() > SlotIndex)
 	{
-		return;
-	}
-
-	UPBSkillSlotWidget* SlotWidget = Cast<UPBSkillSlotWidget>(TargetContainer->GetChildAt(SlotIndex));
-	if (!IsValid(SlotWidget))
-	{
-		return;
-	}
-
-	FPBSkillSlotData UpdatedSlotData;
-	if (SkillBarViewModel->GetSlotData(TabIndex, SlotIndex, UpdatedSlotData))
-	{
-		SlotWidget->SetSlotData(UpdatedSlotData);
-	}
-}
-
-void UPBSkillBarWidget::RebuildSlots(UPanelWidget* Container, const TArray<FPBSkillSlotData>& Slots, int32 TabIndex, int32 MaxSlotCount)
-{
-	if (!IsValid(Container) || !IsValid(SkillSlotWidgetClass))
-	{
-		return;
-	}
-
-	Container->ClearChildren();
-
-	// MaxSlotCount만큼 항상 슬롯 위젯을 생성한다. 데이터가 없는 인덱스는 빈 슬롯으로 표시된다.
-	for (int32 SlotIndex = 0; SlotIndex < MaxSlotCount; ++SlotIndex)
-	{
-		UPBSkillSlotWidget* SlotWidget = CreateWidget<UPBSkillSlotWidget>(GetWorld(), SkillSlotWidgetClass);
-		if (!IsValid(SlotWidget))
+		if (UPBSkillIconWidget* IconWidget = Cast<UPBSkillIconWidget>(TargetContainer->GetChildAt(SlotIndex)))
 		{
-			continue;
+			FPBSkillSlotData UpdatedData;
+			if (SkillBarViewModel->GetSlotData(CategoryIndex, SlotIndex, UpdatedData))
+			{
+				IconWidget->UpdateSlot(UpdatedData);
+			}
 		}
-
-		SlotWidget->InitializeBinding(SkillBarViewModel);
-		SlotWidget->SetSlotIndex(TabIndex, SlotIndex);
-
-		if (Slots.IsValidIndex(SlotIndex))
-		{
-			SlotWidget->SetSlotData(Slots[SlotIndex]);
-		}
-
-		Container->AddChild(SlotWidget);
-	}
-}
-
-UPanelWidget* UPBSkillBarWidget::GetContainerByTab(int32 TabIndex) const
-{
-	switch (TabIndex)
-	{
-	case 0: return CommonSlotContainer;
-	case 1: return ClassSlotContainer;
-	case 2: return ItemSlotContainer;
-	case 3: return PassiveSlotContainer;
-	case 4: return CustomSlotContainer;
-	default: return nullptr;
 	}
 }
