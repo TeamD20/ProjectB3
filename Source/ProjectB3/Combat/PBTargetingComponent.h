@@ -7,6 +7,9 @@
 #include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
 #include "PBTargetingComponent.generated.h"
 
+class UNiagaraComponent;
+class UNiagaraSystem;
+
 /** 타겟 확정 시 방송 — 확정된 타겟 데이터를 어빌리티 Task에 전달 */
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnPBTargetConfirmed, const FPBAbilityTargetData&);
 
@@ -55,7 +58,17 @@ public:
 	// 현재 세션이 MultiTarget 모드인지 여부
 	bool IsMultiTargetMode() const { return CurrentRequest.Mode == EPBTargetingMode::MultiTarget; }
 
+	// AoE 텔레그래프 VFX 표시. 지정 위치에 나이아가라 이펙트를 활성화.
+	void ShowTelegraph(const FVector& Location);
+
+	// AoE 텔레그래프 VFX 숨김
+	void HideTelegraph();
+
 public:
+	// AoE 텔레그래프에 사용할 나이아가라 시스템 에셋 (블루프린트 디폴트에서 설정)
+	UPROPERTY(EditDefaultsOnly, Category = "Targeting|Telegraph")
+	TObjectPtr<UNiagaraSystem> TelegraphNiagaraSystem;
+
 	// 타겟 확정 델리게이트
 	FOnPBTargetConfirmed OnTargetConfirmed;
 
@@ -72,6 +85,9 @@ private:
 	// SelectedTargets를 FPBAbilityTargetData로 변환하는 내부 헬퍼
 	FPBAbilityTargetData MakeMultiTargetData() const;
 
+	// 텔레그래프 나이아가라 컴포넌트 생성 (최초 1회)
+	void EnsureTelegraphComponent();
+
 	// 타겟팅 세션 활성 여부
 	bool bIsTargetingActive = false;
 
@@ -86,4 +102,14 @@ private:
 
 	// MultiTarget 모드에서 클릭으로 누적된 선택 목록
 	TArray<TWeakObjectPtr<AActor>> SelectedTargets;
+
+	// 텔레그래프 VFX 전용 액터 (월드에 독립 소환, PC 렌더링 제약 우회)
+	UPROPERTY()
+	TObjectPtr<AActor> TelegraphActor;
+
+	// TelegraphActor에 부착된 텔레그래프 나이아가라 컴포넌트
+	UPROPERTY()
+	TObjectPtr<UNiagaraComponent> TelegraphNiagaraComp;
+	
+	bool bShowingTelegraph = false;
 };
