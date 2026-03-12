@@ -2,6 +2,7 @@
 
 #include "PBCharacterAttributeSet.h"
 #include "GameplayEffectExtension.h"
+#include "ProjectB3/PBGameplayTags.h"
 
 UPBCharacterAttributeSet::UPBCharacterAttributeSet()
 {
@@ -70,5 +71,22 @@ void UPBCharacterAttributeSet::PostGameplayEffectExecute(const FGameplayEffectMo
 	else if (Data.EvaluatedData.Attribute == GetHPAttribute())
 	{
 		SetHP(FMath::Clamp(GetHP(), 0.0f, GetMaxHP()));
+	}
+}
+
+void UPBCharacterAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
+{
+	Super::PostAttributeChange(Attribute, OldValue, NewValue);
+	
+	if (Attribute == GetHPAttribute())
+	{
+		if (NewValue < OldValue && FMath::IsNearlyEqual(NewValue,0.0f))
+		{
+			UAbilitySystemComponent* ASC = GetOwningAbilitySystemComponent();
+			if (ASC && !ASC->HasMatchingGameplayTag(PBGameplayTags::Character_State_Dead))
+			{
+				ASC->AddLooseGameplayTag(PBGameplayTags::Character_State_Dead);
+			}
+		}
 	}
 }

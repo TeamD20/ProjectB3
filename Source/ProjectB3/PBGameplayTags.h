@@ -12,6 +12,8 @@ namespace PBGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Fighter); // 임시
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Ranger);  // 임시
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Magician);  // 임시
+	// 상태 태그
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Dead); 
 	
 	// 전투
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_State_InCombat);
@@ -44,6 +46,10 @@ namespace PBGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Ability_Activate);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Ability_Confirm);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Ability_Cancel);
+	
+	// 캐릭터 이벤트 태그
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Character_Attack);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Character_Die);
 
 	// 이동 이벤트 태그
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Movement_MoveCommand);
