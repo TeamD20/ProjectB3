@@ -159,6 +159,8 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction(
 
     const bool bActivated = CachedASC->TryActivateAbility(ActiveSpecHandle);
     if (!bActivated) {
+      CachedASC->OnAbilityEnded.Remove(DelegateHandle);
+      DelegateHandle.Reset();
       bIsActionInProgress = false;
       return EStateTreeRunStatus::Failed;
     }
