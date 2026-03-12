@@ -192,11 +192,12 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		{
 			DecidedAction.ActionType = EPBActionType::Attack;
 			DecidedAction.TargetActor = BestTargetActor;
+			DecidedAction.AbilityTag = TopTargets[0].AbilityTag;
 			DecidedAction.Cost.ActionCost = 1.0f;
 			UE_LOG(LogPBStateTree, Display,
 			       TEXT("결정된 행동: 타겟이 근접(거리: %f), "
-				       "[%s] 등 Attack을 결정합니다."),
-			       RealDistance, *ValidAbilities[0]->GetName());
+				       "Ability [%s] Attack을 결정합니다."),
+			       RealDistance, *DecidedAction.AbilityTag.ToString());
 		}
 		else
 		{
