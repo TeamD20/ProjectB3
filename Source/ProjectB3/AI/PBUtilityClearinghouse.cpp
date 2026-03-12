@@ -1,11 +1,14 @@
 #include "PBUtilityClearinghouse.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
+#include "AbilitySystemGlobals.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "NavigationSystem.h"
 #include "PBAIMockCharacter.h"
 #include "PBGE_RestoreTurnResources.h"
+#include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
+#include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
@@ -18,7 +21,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogPBUtility, Log, All);
 /*~ 정규화 데이터 제공 인터페이스 ~*/
 
 float UPBUtilityClearinghouse::GetNormalizedDistanceToTarget(
-	AActor* TargetActor) const
+	AActor *TargetActor) const
 {
 	// 유효성 검증
 	if (!IsValid(TargetActor))
@@ -33,13 +36,13 @@ float UPBUtilityClearinghouse::GetNormalizedDistanceToTarget(
 	if (!IsValid(ActiveTurnActor))
 	{
 		UE_LOG(LogPBUtility, Warning,
-		       TEXT("GetNormalizedDistanceToTarget: ActiveTurnActor가 설정되지 "
-			       "않았습니다."));
+			   TEXT("GetNormalizedDistanceToTarget: ActiveTurnActor가 설정되지 "
+					"않았습니다."));
 		return 0.0f;
 	}
 
 	// 캐싱 데이터 확인 (중복 연산 방지)
-	if (const float* CachedValue = CachedDistanceMap.Find(TargetActor))
+	if (const float *CachedValue = CachedDistanceMap.Find(TargetActor))
 	{
 		return *CachedValue;
 	}
@@ -59,7 +62,7 @@ float UPBUtilityClearinghouse::GetNormalizedDistanceToTarget(
 }
 
 float UPBUtilityClearinghouse::GetTargetVulnerabilityScore(
-	AActor* TargetActor) const
+	AActor *TargetActor) const
 {
 	if (!IsValid(TargetActor))
 	{
@@ -67,7 +70,7 @@ float UPBUtilityClearinghouse::GetTargetVulnerabilityScore(
 	}
 
 	// 캐싱 데이터 우선 반환
-	if (const float* CachedValue = CachedVulnerabilityMap.Find(TargetActor))
+	if (const float *CachedValue = CachedVulnerabilityMap.Find(TargetActor))
 	{
 		return *CachedValue;
 	}
@@ -76,7 +79,7 @@ float UPBUtilityClearinghouse::GetTargetVulnerabilityScore(
 	// HP가 낮을수록 취약(= 마무리 우선) → 1.0 - (HP / MaxHP)
 	float CalculatedVulnerabilityScore = 0.5f; // ASC 미발견 시 중립 기본값
 
-	if (const UAbilitySystemComponent* TargetASC =
+	if (const UAbilitySystemComponent *TargetASC =
 			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(TargetActor))
 	{
 		bool bFound = false;
@@ -101,15 +104,15 @@ float UPBUtilityClearinghouse::GetTargetVulnerabilityScore(
 	}
 
 	UE_LOG(LogPBUtility, Log,
-	       TEXT("AI [%s]가 타겟 [%s]의 '취약성 점수'를 요청함 -> 반환값: %f"),
-	       *(ActiveTurnActor ? ActiveTurnActor->GetName() : TEXT("Unknown")),
-	       *TargetActor->GetName(), CalculatedVulnerabilityScore);
+		   TEXT("AI [%s]가 타겟 [%s]의 '취약성 점수'를 요청함 -> 반환값: %f"),
+		   *(ActiveTurnActor ? ActiveTurnActor->GetName() : TEXT("Unknown")),
+		   *TargetActor->GetName(), CalculatedVulnerabilityScore);
 
 	return CalculatedVulnerabilityScore;
 }
 
 float UPBUtilityClearinghouse::EvaluateHighGroundAdvantage(
-	AActor* TargetActor) const
+	AActor *TargetActor) const
 {
 	if (!IsValid(TargetActor) || !IsValid(ActiveTurnActor))
 	{
@@ -121,57 +124,56 @@ float UPBUtilityClearinghouse::EvaluateHighGroundAdvantage(
 	float DummyHighGroundScore = 0.4f;
 
 	UE_LOG(LogPBUtility, Log,
-	       TEXT("AI [%s]가 타겟 [%s]에 대한 '고지대/엄폐 이점'을 요청함 -> "
-		       "반환값: %f"),
-	       *ActiveTurnActor->GetName(), *TargetActor->GetName(),
-	       DummyHighGroundScore);
+		   TEXT("AI [%s]가 타겟 [%s]에 대한 '고지대/엄폐 이점'을 요청함 -> "
+				"반환값: %f"),
+		   *ActiveTurnActor->GetName(), *TargetActor->GetName(),
+		   DummyHighGroundScore);
 
 	return DummyHighGroundScore;
 }
 
 /*~ 캐싱 (라이프사이클) 관리 인터페이스 ~*/
 
-void UPBUtilityClearinghouse::RestoreTurnResources(AActor* CurrentTurnActor)
+void UPBUtilityClearinghouse::RestoreTurnResources(AActor *CurrentTurnActor)
 {
 	if (!IsValid(CurrentTurnActor))
 	{
 		return;
 	}
 
-	APBAIMockCharacter* MockChar = Cast<APBAIMockCharacter>(CurrentTurnActor);
+	APBAIMockCharacter *MockChar = Cast<APBAIMockCharacter>(CurrentTurnActor);
 	if (!MockChar)
 		return;
 
-	UAbilitySystemComponent* ASC = MockChar->GetAbilitySystemComponent();
-	const UPBTurnResourceAttributeSet* AttrSet = MockChar->
-		GetTurnResourceAttributeSet();
+	UAbilitySystemComponent *ASC = MockChar->GetAbilitySystemComponent();
+	const UPBTurnResourceAttributeSet *AttrSet = MockChar->GetTurnResourceAttributeSet();
 
 	if (ASC && AttrSet)
 	{
 		// GE_RestoreTurnResources 에셋을 생성하여 턴 시작 자원을 최대치로 초기화
-		UGameplayEffect* RestoreGE = NewObject<UPBGE_RestoreTurnResources>(
+		UGameplayEffect *RestoreGE = NewObject<UPBGE_RestoreTurnResources>(
 			GetTransientPackage(), UPBGE_RestoreTurnResources::StaticClass());
 
 		if (RestoreGE)
 		{
 			ASC->ApplyGameplayEffectToSelf(RestoreGE, 1.0f,
-			                               ASC->MakeEffectContext());
+										   ASC->MakeEffectContext());
 		}
 
 		UE_LOG(LogPBUtility, Display,
-		       TEXT(">> [Turn Restore] %s 의 턴 자원이 모두 회복되었습니다! "
-			       "(Action: %f, Movement: %f)"),
-		       *CurrentTurnActor->GetName(), AttrSet->GetAction(),
-		       AttrSet->GetMovement());
+			   TEXT(">> [Turn Restore] %s 의 턴 자원이 모두 회복되었습니다! "
+					"(Action: %f, Movement: %f)"),
+			   *CurrentTurnActor->GetName(), AttrSet->GetAction(),
+			   AttrSet->GetMovement());
 	}
 }
 
-void UPBUtilityClearinghouse::CacheTurnData(AActor* CurrentTurnActor)
+void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor)
 {
 	if (!IsValid(CurrentTurnActor))
 	{
 		UE_LOG(LogPBUtility, Error,
-		       TEXT("CacheTurnData: CurrentTurnActor가 유효하지 않습니다."));
+			   TEXT("CacheTurnData: CurrentTurnActor가 유효하지 않습니다."));
 		return;
 	}
 
@@ -180,17 +182,17 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor* CurrentTurnActor)
 	ClearCache();
 
 	UE_LOG(LogPBUtility, Display,
-	       TEXT("=== AI [%s]의 턴 시작. 클리어링하우스 캐싱 작업 개시 ==="),
-	       *ActiveTurnActor->GetName());
+		   TEXT("=== AI [%s]의 턴 시작. 클리어링하우스 캐싱 작업 개시 ==="),
+		   *ActiveTurnActor->GetName());
 
 	// 반경 N미터 내의 적대적 액터들을 긁어모아(Overlap 등), 거리 및 취약성
 	// 점수를 미리 계산하여 TMap에 적재하는 로직 구현.
 	// 현 단계에서는 "Player" 태그를 가진 모든 액터를 타겟
-	TArray<AActor*> FoundPlayers;
+	TArray<AActor *> FoundPlayers;
 	UGameplayStatics::GetAllActorsWithTag(CurrentTurnActor->GetWorld(),
-	                                      FName("Player"), FoundPlayers);
+										  FName("Player"), FoundPlayers);
 
-	for (AActor* PlayerActor : FoundPlayers)
+	for (AActor *PlayerActor : FoundPlayers)
 	{
 		if (!IsValid(PlayerActor))
 		{
@@ -198,14 +200,14 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor* CurrentTurnActor)
 		}
 
 		// 사망 캐릭터 제외: Character_State_Dead 태그 보유 시 타겟 목록에서 배제
-		UAbilitySystemComponent* TargetASC =
+		UAbilitySystemComponent *TargetASC =
 			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(PlayerActor);
 		if (TargetASC && TargetASC->HasMatchingGameplayTag(
-				PBGameplayTags::Character_State_Dead))
+							 PBGameplayTags::Character_State_Dead))
 		{
 			UE_LOG(LogPBUtility, Log,
-				TEXT("사망 캐릭터 [%s]를 타겟 목록에서 제외합니다."),
-				*PlayerActor->GetName());
+				   TEXT("사망 캐릭터 [%s]를 타겟 목록에서 제외합니다."),
+				   *PlayerActor->GetName());
 			continue;
 		}
 
@@ -213,8 +215,8 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor* CurrentTurnActor)
 	}
 
 	UE_LOG(LogPBUtility, Log,
-	       TEXT("주변 타겟 탐색 완료. 총 %d명의 잠재적 타겟 목록 캐싱 완료."),
-	       FoundPlayers.Num());
+		   TEXT("주변 타겟 탐색 완료. 총 %d명의 잠재적 타겟 목록 캐싱 완료."),
+		   FoundPlayers.Num());
 }
 
 void UPBUtilityClearinghouse::ClearCache()
@@ -227,13 +229,13 @@ void UPBUtilityClearinghouse::ClearCache()
 	CachedActionScoreMap.Empty();
 
 	UE_LOG(LogPBUtility, Log,
-	       TEXT("클리어링하우스 메모리 캐시가 성공적으로 비워졌습니다."));
+		   TEXT("클리어링하우스 메모리 캐시가 성공적으로 비워졌습니다."));
 }
 
 /*~ 스코어링 (ActionScore 산출) ~*/
 
 FPBTargetScore
-UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
+UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 {
 	if (!IsValid(TargetActor))
 	{
@@ -241,7 +243,7 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 	}
 
 	// 캐시 먼저 확인 (턴 내 중복 연산 방지)
-	if (const FPBTargetScore* Cached = CachedActionScoreMap.Find(TargetActor))
+	if (const FPBTargetScore *Cached = CachedActionScoreMap.Find(TargetActor))
 	{
 		return *Cached;
 	}
@@ -252,9 +254,9 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 	// --- ExpectedDamage 산정 ---
 	// SourceASC의 모든 활성 어빌리티를 순회하여 최고 기대 피해량 + 해당 AbilityTag 추출
 	// CDO에서 DiceSpec을 읽고, PBAbilitySystemLibrary 정적 함수로 안전하게 계산
-	UAbilitySystemComponent* SourceASC =
+	UAbilitySystemComponent *SourceASC =
 		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(ActiveTurnActor);
-	UAbilitySystemComponent* TargetASC =
+	UAbilitySystemComponent *TargetASC =
 		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(TargetActor);
 
 	float BestExpectedDamage = 0.0f;
@@ -273,24 +275,24 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 		const int32 TargetAC = static_cast<int32>(TargetASC->GetGameplayAttributeValue(
 			UPBCharacterAttributeSet::GetArmorClassAttribute(), bACFound));
 
-		const TArray<FGameplayAbilitySpec>& Specs = SourceASC->GetActivatableAbilities();
-		for (const FGameplayAbilitySpec& Spec : Specs)
+		const TArray<FGameplayAbilitySpec> &Specs = SourceASC->GetActivatableAbilities();
+		for (const FGameplayAbilitySpec &Spec : Specs)
 		{
 			// 발동 불가 어빌리티 스킵 (쿨다운, 자원 부족 등)
 			// UGameplayAbility::CanActivateAbility는 public이므로 Spec.Ability를 통해 호출
 			if (!Spec.Ability || !Spec.Ability->CanActivateAbility(
-					Spec.Handle, SourceASC->AbilityActorInfo.Get()))
+									 Spec.Handle, SourceASC->AbilityActorInfo.Get()))
 			{
 				continue;
 			}
 
-			const UPBGameplayAbility* AbilityCDO = Cast<UPBGameplayAbility>(Spec.Ability);
+			const UPBGameplayAbility *AbilityCDO = Cast<UPBGameplayAbility>(Spec.Ability);
 			if (!AbilityCDO)
 			{
 				continue;
 			}
 
-			const FPBDiceSpec& Dice = AbilityCDO->GetDiceSpec();
+			const FPBDiceSpec &Dice = AbilityCDO->GetDiceSpec();
 
 			// 데미지 주사위가 없는 어빌리티는 스킵 (이동, 버프 등)
 			if (Dice.DiceCount <= 0 || Dice.DiceFaces <= 0)
@@ -303,43 +305,43 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 			switch (Dice.RollType)
 			{
 			case EPBDiceRollType::HitRoll:
-				{
-					const int32 HitBonus = UPBAbilitySystemLibrary::GetHitBonus(
-						SourceASC, Dice.BonusAttributeOverride);
-					const int32 AtkMod = UPBAbilitySystemLibrary::GetAttackModifier(
-						SourceASC, Dice.AttackModifierAttributeOverride);
+			{
+				const int32 HitBonus = UPBAbilitySystemLibrary::GetHitBonus(
+					SourceASC, Dice.BonusAttributeOverride);
+				const int32 AtkMod = UPBAbilitySystemLibrary::GetAttackModifier(
+					SourceASC, Dice.AttackModifierAttributeOverride);
 
-					CandidateDamage = UPBAbilitySystemLibrary::CalcExpectedAttackDamage(
-						Dice.DiceCount, Dice.DiceFaces, static_cast<float>(AtkMod),
-						HitBonus, TargetAC, SourceTags, TargetTags);
-					break;
-				}
+				CandidateDamage = UPBAbilitySystemLibrary::CalcExpectedAttackDamage(
+					Dice.DiceCount, Dice.DiceFaces, static_cast<float>(AtkMod),
+					HitBonus, TargetAC, SourceTags, TargetTags);
+				break;
+			}
 
 			case EPBDiceRollType::SavingThrow:
-				{
-					const int32 SpellDC = UPBAbilitySystemLibrary::CalcSpellSaveDC(
-						SourceASC, Dice.BonusAttributeOverride);
-					const int32 SaveBonus = UPBAbilitySystemLibrary::GetSaveBonus(
-						TargetASC, Dice.TargetSaveAttribute);
-					const int32 AtkMod = UPBAbilitySystemLibrary::GetAttackModifier(
-						SourceASC, Dice.AttackModifierAttributeOverride);
+			{
+				const int32 SpellDC = UPBAbilitySystemLibrary::CalcSpellSaveDC(
+					SourceASC, Dice.BonusAttributeOverride);
+				const int32 SaveBonus = UPBAbilitySystemLibrary::GetSaveBonus(
+					TargetASC, Dice.TargetSaveAttribute);
+				const int32 AtkMod = UPBAbilitySystemLibrary::GetAttackModifier(
+					SourceASC, Dice.AttackModifierAttributeOverride);
 
-					CandidateDamage = UPBAbilitySystemLibrary::CalcExpectedSavingThrowDamage(
-						Dice.DiceCount, Dice.DiceFaces, static_cast<float>(AtkMod),
-						SaveBonus, SpellDC, SourceTags, TargetTags);
-					break;
-				}
+				CandidateDamage = UPBAbilitySystemLibrary::CalcExpectedSavingThrowDamage(
+					Dice.DiceCount, Dice.DiceFaces, static_cast<float>(AtkMod),
+					SaveBonus, SpellDC, SourceTags, TargetTags);
+				break;
+			}
 
 			case EPBDiceRollType::None:
-				{
-					const int32 AtkMod = UPBAbilitySystemLibrary::GetAttackModifier(
-						SourceASC, Dice.AttackModifierAttributeOverride);
+			{
+				const int32 AtkMod = UPBAbilitySystemLibrary::GetAttackModifier(
+					SourceASC, Dice.AttackModifierAttributeOverride);
 
-					CandidateDamage = UPBAbilitySystemLibrary::CalcExpectedDamage(
-						Dice.DiceCount, Dice.DiceFaces, static_cast<float>(AtkMod),
-						SourceTags, TargetTags);
-					break;
-				}
+				CandidateDamage = UPBAbilitySystemLibrary::CalcExpectedDamage(
+					Dice.DiceCount, Dice.DiceFaces, static_cast<float>(AtkMod),
+					SourceTags, TargetTags);
+				break;
+			}
 			}
 
 			if (CandidateDamage > BestExpectedDamage)
@@ -352,7 +354,7 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 				}
 				else
 				{
-					const FGameplayTagContainer& AbilityTags = AbilityCDO->GetAssetTags();
+					const FGameplayTagContainer &AbilityTags = AbilityCDO->GetAssetTags();
 					if (AbilityTags.Num() > 0)
 					{
 						CandidateTag = AbilityTags.First();
@@ -388,6 +390,7 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 	// --- MovementScore 산정 ---
 	// 공식: 1.0 - (DistToTarget / MaxMovementRange), 클램프 [0.0, 1.0]
 	// 거리가 가까울수록 1.0, 멀수록 0.0
+	// 거리가 가까울수록 1.0, 멀수록 0.0
 	// TODO: 이동력 AttributeSet 연동 후 Movement 실값 사용
 	constexpr float MaxMovementRange = 1000.0f; // 임시 Default(10m)
 	if (IsValid(ActiveTurnActor))
@@ -402,23 +405,23 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor* TargetActor)
 	const float FinalScore = Score.GetTotalScore();
 
 	UE_LOG(LogPBUtility, Log,
-	       TEXT("[Scoring] AI [%s] → 타겟 [%s]: "
-		       "ExpDmg=%.2f (Ability=%s), TargetMod=%.2f, "
-		       "Situational=%.1f, Archetype=%.2f, Move=%.2f → "
-		       "TotalScore=%.4f"),
-	       *(ActiveTurnActor ? ActiveTurnActor->GetName() : TEXT("Unknown")),
-	       *TargetActor->GetName(), Score.ExpectedDamage,
-	       *Score.AbilityTag.ToString(),
-	       Score.TargetModifier, Score.SituationalBonus,
-	       Score.ArchetypeWeight, Score.MovementScore,
-	       FinalScore);
+		   TEXT("[Scoring] AI [%s] → 타겟 [%s]: "
+				"ExpDmg=%.2f (Ability=%s), TargetMod=%.2f, "
+				"Situational=%.1f, Archetype=%.2f, Move=%.2f → "
+				"TotalScore=%.4f"),
+		   *(ActiveTurnActor ? ActiveTurnActor->GetName() : TEXT("Unknown")),
+		   *TargetActor->GetName(), Score.ExpectedDamage,
+		   *Score.AbilityTag.ToString(),
+		   Score.TargetModifier, Score.SituationalBonus,
+		   Score.ArchetypeWeight, Score.MovementScore,
+		   FinalScore);
 
 	// 결과 캐싱
 	CachedActionScoreMap.Add(TargetActor, Score);
 	return Score;
 }
 
-AActor* UPBUtilityClearinghouse::GetBestActionScoreTarget()
+AActor *UPBUtilityClearinghouse::GetBestActionScoreTarget()
 {
 	// GetTopKTargets(1) 위임 — 중복 루프 제거, TotalScore 기준 통일
 	const TArray<FPBTargetScore> Top = GetTopKTargets(1);
@@ -433,7 +436,7 @@ TArray<FPBTargetScore> UPBUtilityClearinghouse::GetTopKTargets(int32 K)
 {
 	TArray<FPBTargetScore> AllScores;
 
-	for (const TWeakObjectPtr<AActor>& WeakTarget : CachedTargets)
+	for (const TWeakObjectPtr<AActor> &WeakTarget : CachedTargets)
 	{
 		if (!WeakTarget.IsValid())
 		{
@@ -442,28 +445,26 @@ TArray<FPBTargetScore> UPBUtilityClearinghouse::GetTopKTargets(int32 K)
 		AllScores.Add(EvaluateActionScore(WeakTarget.Get()));
 	}
 
-	AllScores.Sort([](const FPBTargetScore& A, const FPBTargetScore& B)
-	{
-		return A.GetTotalScore() > B.GetTotalScore();
-	});
+	AllScores.Sort([](const FPBTargetScore &A, const FPBTargetScore &B)
+				   { return A.GetTotalScore() > B.GetTotalScore(); });
 
 	// 상위 K개 슬라이싱
 	const int32 ResultCount = FMath::Min(K, AllScores.Num());
 
 	UE_LOG(LogPBUtility, Display,
-	       TEXT("[TopK] CachedTargets %d명 중 상위 %d명 선정:"), AllScores.Num(),
-	       ResultCount);
+		   TEXT("[TopK] CachedTargets %d명 중 상위 %d명 선정:"), AllScores.Num(),
+		   ResultCount);
 
 	for (int32 i = 0; i < ResultCount; ++i)
 	{
 		UE_LOG(LogPBUtility, Display,
-		       TEXT("  [%d] %s → TotalScore=%.4f (Action=%.4f, Move=%.4f)"),
-		       i + 1,
-		       IsValid(AllScores[i].TargetActor)
-		       ? *AllScores[i].TargetActor->GetName()
-		       : TEXT("Invalid"),
-		       AllScores[i].GetTotalScore(), AllScores[i].GetActionScore(),
-		       AllScores[i].MovementScore);
+			   TEXT("  [%d] %s → TotalScore=%.4f (Action=%.4f, Move=%.4f)"),
+			   i + 1,
+			   IsValid(AllScores[i].TargetActor)
+				   ? *AllScores[i].TargetActor->GetName()
+				   : TEXT("Invalid"),
+			   AllScores[i].GetTotalScore(), AllScores[i].GetActionScore(),
+			   AllScores[i].MovementScore);
 	}
 
 	TArray<FPBTargetScore> Result;
@@ -477,21 +478,21 @@ TArray<FPBTargetScore> UPBUtilityClearinghouse::GetTopKTargets(int32 K)
 /*~ Fallback 위치 계산 ~*/
 
 FVector UPBUtilityClearinghouse::CalculateFallbackPosition(
-	AActor* SelfRef, float RemainingMP) const
+	AActor *SelfRef, float RemainingMP) const
 {
 	if (!IsValid(SelfRef) || CachedTargets.Num() == 0)
 	{
 		UE_LOG(LogPBUtility, Warning,
-		       TEXT("[Fallback] Self 또는 CachedTargets가 유효하지 않습니다."));
+			   TEXT("[Fallback] Self 또는 CachedTargets가 유효하지 않습니다."));
 		return FVector::ZeroVector;
 	}
 
 	// 1. 적들의 평균 위치(Centroid) 계산
 	FVector EnemyCentroid = FVector::ZeroVector;
 	int32 ValidCount = 0;
-	for (const TWeakObjectPtr<AActor>& WeakTarget : CachedTargets)
+	for (const TWeakObjectPtr<AActor> &WeakTarget : CachedTargets)
 	{
-		if (AActor* Target = WeakTarget.Get())
+		if (AActor *Target = WeakTarget.Get())
 		{
 			EnemyCentroid += Target->GetActorLocation();
 			++ValidCount;
@@ -522,13 +523,13 @@ FVector UPBUtilityClearinghouse::CalculateFallbackPosition(
 	const FVector CandidatePos = AIPos + RetreatDir * RemainingMP;
 
 	// 4. NavMesh 프로젝션으로 도달 가능 위치 보정
-	UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(
+	UNavigationSystemV1 *NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(
 		SelfRef->GetWorld());
 
 	if (!NavSys)
 	{
 		UE_LOG(LogPBUtility, Warning,
-		       TEXT("[Fallback] NavigationSystem을 찾을 수 없습니다."));
+			   TEXT("[Fallback] NavigationSystem을 찾을 수 없습니다."));
 		return FVector::ZeroVector;
 	}
 
@@ -546,16 +547,16 @@ FVector UPBUtilityClearinghouse::CalculateFallbackPosition(
 		if (!bHalfProjected)
 		{
 			UE_LOG(LogPBUtility, Warning,
-			       TEXT("[Fallback] NavMesh 투영 실패. 후퇴 불가."));
+				   TEXT("[Fallback] NavMesh 투영 실패. 후퇴 불가."));
 			return FVector::ZeroVector;
 		}
 	}
 
 	UE_LOG(LogPBUtility, Display,
-	       TEXT("[Fallback] 후퇴 위치 계산 완료: (%s) → (%s), 적 Centroid: (%s)"),
-	       *AIPos.ToCompactString(),
-	       *ProjectedLocation.Location.ToCompactString(),
-	       *EnemyCentroid.ToCompactString());
+		   TEXT("[Fallback] 후퇴 위치 계산 완료: (%s) → (%s), 적 Centroid: (%s)"),
+		   *AIPos.ToCompactString(),
+		   *ProjectedLocation.Location.ToCompactString(),
+		   *EnemyCentroid.ToCompactString());
 
 	return ProjectedLocation.Location;
 }
