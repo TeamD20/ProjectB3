@@ -6,6 +6,16 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "PBUtilityClearinghouse.generated.h"
 
+// 전방 선언
+class UEnvQuery;
+struct FEnvQueryResult;
+
+// EQS 쿼리 결과 콜백 델리게이트
+// bSuccess: 유효한 결과가 있는지
+// ResultLocation: 쿼리가 선정한 최적 위치
+DECLARE_DELEGATE_TwoParams(FPBEQSQueryFinished, bool /*bSuccess*/,
+                           const FVector& /*ResultLocation*/);
+
 // 클리어링하우스 (Context Provider)
 // AI 컨트롤러가 게임 월드나 타 스탯 컴포넌트를 직접 뒤지지 않고,
 // 오직 정규화(0.0 ~ 1.0)된 부드러운 판단용 지표만 뽑아갈 수 있도록 돕는
@@ -49,6 +59,15 @@ public:
 	// (CalcExpectedAttackDamage / CalcExpectedSavingThrowDamage / CalcExpectedDamage)
 	UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
 	FPBTargetScore EvaluateActionScore(AActor* TargetActor);
+
+	// 아군 1명에 대한 HealScore를 계산하여 FPBTargetScore로 반환
+	// AI Scoring Example.md §3.2 공식:
+	//   HealBase = EffectiveHeal × UrgencyMultiplier
+	//   ActionScore = HealBase × HealWeight
+	// EffectiveHeal = min(ExpectedHeal, MaxHP - CurrentHP)
+	// UrgencyMultiplier: HPRatio 구간별 (≤0.25→2.0, ≤0.50→1.5, ≤0.75→1.0, >0.75→0.5)
+	// ThreatMultiplier / RoleMultiplier 미적용 (아군 대상이므로)
+	FPBTargetScore EvaluateHealScore(AActor* AllyTarget);
 
 	/*~ 스코어링 (ActionScore 산출) ~*/
 
@@ -94,10 +113,52 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
 	FVector CalculateFallbackPosition(AActor* SelfRef, float RemainingMP) const;
 
+	/*~ EQS 통합 인터페이스 (Phase 3) ~*/
+
+	// EQS Context 클래스에서 참조할 현재 타겟 액터 (Attack Position 쿼리용)
+	AActor* GetEQSTargetActor() const { return EQSTargetActor; }
+
+	// 적 무리 중심 위치 반환 (EQS Context + Fallback 공용)
+	// CachedTargets의 평균 위치를 계산한다.
+	FVector GetEnemyCentroid() const;
+
+	// 공격 위치 EQS 쿼리 비동기 실행
+	// EQS_FindAttackPosition 에셋을 통해 타겟에 대한 최적 공격 위치를 탐색.
+	// Context_Target에 TargetActor를 세팅한 뒤 쿼리를 실행하고,
+	// 완료 시 OnFinished 콜백으로 결과를 전달한다.
+	void RunAttackPositionQuery(
+		UEnvQuery* QueryAsset,
+		AActor* Querier,
+		AActor* TargetActor,
+		FPBEQSQueryFinished OnFinished);
+
+	// 후퇴 위치 EQS 쿼리 비동기 실행
+	// EQS_FindFallbackPosition 에셋을 통해 적 Centroid 반대 방향의
+	// 엄폐 근처 최적 후퇴 위치를 탐색한다.
+	void RunFallbackPositionQuery(
+		UEnvQuery* QueryAsset,
+		AActor* Querier,
+		FPBEQSQueryFinished OnFinished);
+
+	// EQS 쿼리 타임아웃 (초). GenerateSequenceTask에서 참조.
+	static constexpr float EQSQueryTimeoutSeconds = 0.5f;
+
 	// (테스트 편의용) 턴이 끝난 후 다시 다음 행동을 위해 자원(Action, Movement
 	// 등)을 최대치로 회복시킨다.
 	UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
 	void RestoreTurnResources(AActor* CurrentTurnActor);
+
+	// 이번 턴에 인지한 아군 액터 목록 반환
+	const TArray<TWeakObjectPtr<AActor>>& GetCachedAllies() const
+	{
+		return CachedAllies;
+	}
+
+	// 아군 대상 HealScore 캐시 맵 반환 (GenerateSequenceTask에서 Heal 후보 존재 여부 확인용)
+	const TMap<AActor*, FPBTargetScore>& GetCachedHealScores() const
+	{
+		return CachedHealScoreMap;
+	}
 
 	// 이번 턴에 연산 대상이 될 유효 타겟 목록 반환
 	const TArray<TWeakObjectPtr<AActor>>& GetCachedTargets() const
@@ -109,6 +170,21 @@ protected:
 	// 이번 턴에 연산 및 판단 주체가 되는 주인공 액터.
 	UPROPERTY(Transient)
 	TObjectPtr<AActor> ActiveTurnActor;
+
+	/*~ EQS 내부 상태 ~*/
+
+	// EQS Context_Target에서 참조할 타겟 액터
+	// RunAttackPositionQuery 호출 시 세팅, 쿼리 완료 시 초기화
+	UPROPERTY(Transient)
+	TObjectPtr<AActor> EQSTargetActor = nullptr;
+
+	// 진행 중인 EQS 쿼리의 완료 콜백 저장소 (Attack / Fallback 각각)
+	FPBEQSQueryFinished PendingAttackQueryDelegate;
+	FPBEQSQueryFinished PendingFallbackQueryDelegate;
+
+	// EQS 쿼리 완료 핸들러 (내부)
+	void HandleAttackQueryResult(TSharedPtr<FEnvQueryResult> Result);
+	void HandleFallbackQueryResult(TSharedPtr<FEnvQueryResult> Result);
 
 	/*~ 캐싱 맵 자료 구조 ~*/
 
@@ -128,13 +204,28 @@ protected:
 	// AI Scoring Example.md §5: lerp(0.5, 2.0, NormalizedThreat)
 	TMap<AActor*, float> CachedThreatMultiplierMap;
 
-	// 타겟 당 ActionScore 선가 결과 캐시 (GetBestActionScoreTarget 연산 중복
-	// 방지)
+	// 타겟(적) 당 ActionScore 평가 결과 캐시 (Attack 스코어링)
 	TMap<AActor*, FPBTargetScore> CachedActionScoreMap;
 
-	// 이번 턴 공격자의 ArchetypeWeight (CacheTurnData에서 1회 캐싱)
-	// ArchetypeData 미설정 시 기본값 1.0 (균등 가중)
-	float CachedArchetypeWeight = 1.0f;
+	// 아군 당 HealScore 평가 결과 캐시 (Heal 스코어링)
+	TMap<AActor*, FPBTargetScore> CachedHealScoreMap;
+
+	// 이번 턴에 인지한 아군 액터 목록 (Self 포함, 사망자 제외)
+	// Heal/Buff 타겟 후보로 사용
+	UPROPERTY(Transient)
+	TArray<TWeakObjectPtr<AActor>> CachedAllies;
+
+	// 카테고리별 ArchetypeWeight 캐시 (CacheTurnData에서 1회 캐싱)
+	// ArchetypeData 미설정 시 모두 기본값 1.0 (균등 가중)
+	struct FPBCachedArchetypeWeights
+	{
+		float AttackWeight  = 1.0f;
+		float HealWeight    = 1.0f;
+		float BuffWeight    = 1.0f;
+		float DebuffWeight  = 1.0f;
+		float ControlWeight = 1.0f;
+	};
+	FPBCachedArchetypeWeights CachedArchetypeWeights;
 
 	/*~ 헬퍼 함수 ~*/
 

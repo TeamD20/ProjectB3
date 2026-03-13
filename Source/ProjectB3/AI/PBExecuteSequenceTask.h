@@ -32,6 +32,12 @@ public:
   FPBActionSequence SequenceToExecute;
 
   /* 내부 상태 (State) 변수들 - 에디터 노출 보이지 않게 처리해둠 */
+
+  // Generate의 EQS 좌표 최적화 완료 대기 여부
+  // bIsReady가 false인 동안 행동 실행을 보류하고 Tick에서 폴링한다.
+  UPROPERTY()
+  bool bWaitingForSequenceReady = false;
+
   UPROPERTY()
   bool bIsActionInProgress = false;
 

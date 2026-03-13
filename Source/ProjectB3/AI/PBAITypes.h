@@ -7,8 +7,19 @@
 
 
 // 단일 행동의 종류를 정의하는 열거형
+// AI 시퀀스의 각 행동이 "무엇을 하는가"를 분류
 UENUM(BlueprintType)
-enum class EPBActionType : uint8 { None, Move, Attack, UseItem };
+enum class EPBActionType : uint8
+{
+	None,
+	Move,       // 위치 이동
+	Attack,     // 적 대상 데미지
+	Heal,       // 아군 대상 회복
+	Buff,       // 아군 대상 강화
+	Debuff,     // 적 대상 약화
+	Control,    // 적 대상 행동 제한 (CC)
+	UseItem     // 아이템 사용 (향후 확장)
+};
 
 // 전투 역할 (AI 스코어링의 RoleMultiplier 산출용)
 // Character.Class.* 태그로부터 매핑
@@ -160,6 +171,12 @@ struct PROJECTB3_API FPBActionSequence
 	// 이 행동 조합의 최종 유틸리티 점수
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
 	float TotalUtilityScore = 0.0f;
+
+	// EQS 좌표 최적화 완료 여부 (Generate에서 세팅, Execute에서 확인)
+	// false인 동안 Execute는 시퀀스 실행을 대기한다.
+	// EQS 미사용 시 기본값 true로 즉시 실행 가능.
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Sequence")
+	bool bIsReady = true;
 
 	// 현재 실행 중인 행동 인덱스 (ExecuteTask에서 비동기 순차 소비용)
 	// 콜백(OnAbilityEnded 등)이 도착할 때마다 1씩 전진
