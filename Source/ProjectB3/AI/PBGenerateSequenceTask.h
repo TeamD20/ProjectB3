@@ -92,4 +92,16 @@ private:
 	// 시퀀스 내 Move 행동에 대해 EQS 위치 최적화 쿼리를 발사한다.
 	// EnterState의 여러 분기(타겟 없음, DFS 후, DFS 실패)에서 공통 호출.
 	void LaunchEQSQueries();
+
+	/*~ Fallback 헬퍼 ~*/
+
+	// Fallback 이동 후 잔여 AP로 단일 행동(Attack/Heal) 탐색.
+	// FallbackPos에서의 사거리 기준으로 후보를 검색하고,
+	// 최고 점수 행동을 GeneratedSequence에 추가한다.
+	void TryAppendActionAfterFallback(
+		const FVector& FallbackPos, float RemainingAP, float RemainingBA);
+
+	// 현재 위치가 이미 전술적으로 유리하면 Fallback 이동 불필요 판정.
+	// 사거리 내 적이 있고 + 잔여 이동력이 적으면 true 반환.
+	bool ShouldSkipFallback(float RemainingMP) const;
 };
