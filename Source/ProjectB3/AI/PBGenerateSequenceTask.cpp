@@ -45,7 +45,12 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		return EStateTreeRunStatus::Failed;
 	}
 
-	// 3. Clearinghouse 캐시 활용 (CacheTurnData는 InitializeTurnTask에서 처리됨)
+	// 3. 시퀀스 초기화 (이전 루프 잔여 데이터 제거)
+	GeneratedSequence.Actions.Empty();
+	GeneratedSequence.CurrentActionIndex = 0;
+	GeneratedSequence.TotalUtilityScore = 0.0f;
+
+	// 4. Clearinghouse 캐시 활용 (CacheTurnData는 InitializeTurnTask에서 처리됨)
 	// 여기서는 이미 캐싱된 데이터를 토대로 분석만 수행
 
 	// --- 어빌리티 및 자원 체크 (Phase 1: Filter) ---
@@ -273,8 +278,8 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		       RealDistance, MovementCost);
 	}
 
-	// 구조체 자체의 변수 오버라이드로 대체 적재
-	GeneratedSequence.SingleAction = DecidedAction;
+	// 결정된 행동을 시퀀스에 추가 (현재는 1개, DFS 도입 후 다수)
+	GeneratedSequence.Actions.Add(DecidedAction);
 
 	UE_LOG(LogPBStateTree, Display,
 	       TEXT("=== GenerateSequenceTask 분석 완료 ==="));
