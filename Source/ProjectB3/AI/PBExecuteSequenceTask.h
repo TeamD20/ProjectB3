@@ -52,9 +52,16 @@ protected:
                          const FStateTreeTransitionResult &Transition) override;
 
 private:
-  EStateTreeRunStatus
-  ProcessSingleAction(FStateTreeExecutionContext &Context,
-                      const FStateTreeTransitionResult &Transition);
+  // 현재 CurrentAction을 실행한다.
+  // Running: 비동기 작업 시작 (콜백 대기)
+  // Succeeded: 동기적 완료 (타겟 사망 스킵 등)
+  // Failed: 실행 불가 (자원 부족, 어빌리티 없음 등)
+  EStateTreeRunStatus ProcessSingleAction();
+
+  // 콜백에서 호출: 이전 델리게이트 정리 후 다음 행동을 소비하여 실행.
+  // 더 이상 행동이 없으면 bIsActionInProgress = false로 시퀀스 완료 처리.
+  void AdvanceToNextAction();
+
   EStateTreeRunStatus UpdateCurrentAction(float DeltaTime);
 
 protected:
