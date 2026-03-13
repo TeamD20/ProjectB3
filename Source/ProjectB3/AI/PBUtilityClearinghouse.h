@@ -6,6 +6,16 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "PBUtilityClearinghouse.generated.h"
 
+// 전방 선언
+class UEnvQuery;
+struct FEnvQueryResult;
+
+// EQS 쿼리 결과 콜백 델리게이트
+// bSuccess: 유효한 결과가 있는지
+// ResultLocation: 쿼리가 선정한 최적 위치
+DECLARE_DELEGATE_TwoParams(FPBEQSQueryFinished, bool /*bSuccess*/,
+                           const FVector& /*ResultLocation*/);
+
 // 클리어링하우스 (Context Provider)
 // AI 컨트롤러가 게임 월드나 타 스탯 컴포넌트를 직접 뒤지지 않고,
 // 오직 정규화(0.0 ~ 1.0)된 부드러운 판단용 지표만 뽑아갈 수 있도록 돕는
@@ -103,6 +113,36 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
 	FVector CalculateFallbackPosition(AActor* SelfRef, float RemainingMP) const;
 
+	/*~ EQS 통합 인터페이스 (Phase 3) ~*/
+
+	// EQS Context 클래스에서 참조할 현재 타겟 액터 (Attack Position 쿼리용)
+	AActor* GetEQSTargetActor() const { return EQSTargetActor; }
+
+	// 적 무리 중심 위치 반환 (EQS Context + Fallback 공용)
+	// CachedTargets의 평균 위치를 계산한다.
+	FVector GetEnemyCentroid() const;
+
+	// 공격 위치 EQS 쿼리 비동기 실행
+	// EQS_FindAttackPosition 에셋을 통해 타겟에 대한 최적 공격 위치를 탐색.
+	// Context_Target에 TargetActor를 세팅한 뒤 쿼리를 실행하고,
+	// 완료 시 OnFinished 콜백으로 결과를 전달한다.
+	void RunAttackPositionQuery(
+		UEnvQuery* QueryAsset,
+		AActor* Querier,
+		AActor* TargetActor,
+		FPBEQSQueryFinished OnFinished);
+
+	// 후퇴 위치 EQS 쿼리 비동기 실행
+	// EQS_FindFallbackPosition 에셋을 통해 적 Centroid 반대 방향의
+	// 엄폐 근처 최적 후퇴 위치를 탐색한다.
+	void RunFallbackPositionQuery(
+		UEnvQuery* QueryAsset,
+		AActor* Querier,
+		FPBEQSQueryFinished OnFinished);
+
+	// EQS 쿼리 타임아웃 (초). GenerateSequenceTask에서 참조.
+	static constexpr float EQSQueryTimeoutSeconds = 0.5f;
+
 	// (테스트 편의용) 턴이 끝난 후 다시 다음 행동을 위해 자원(Action, Movement
 	// 등)을 최대치로 회복시킨다.
 	UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
@@ -130,6 +170,21 @@ protected:
 	// 이번 턴에 연산 및 판단 주체가 되는 주인공 액터.
 	UPROPERTY(Transient)
 	TObjectPtr<AActor> ActiveTurnActor;
+
+	/*~ EQS 내부 상태 ~*/
+
+	// EQS Context_Target에서 참조할 타겟 액터
+	// RunAttackPositionQuery 호출 시 세팅, 쿼리 완료 시 초기화
+	UPROPERTY(Transient)
+	TObjectPtr<AActor> EQSTargetActor = nullptr;
+
+	// 진행 중인 EQS 쿼리의 완료 콜백 저장소 (Attack / Fallback 각각)
+	FPBEQSQueryFinished PendingAttackQueryDelegate;
+	FPBEQSQueryFinished PendingFallbackQueryDelegate;
+
+	// EQS 쿼리 완료 핸들러 (내부)
+	void HandleAttackQueryResult(TSharedPtr<FEnvQueryResult> Result);
+	void HandleFallbackQueryResult(TSharedPtr<FEnvQueryResult> Result);
 
 	/*~ 캐싱 맵 자료 구조 ~*/
 
