@@ -62,6 +62,19 @@ public:
 	// K가 CachedTargets.Num()보다 크면 전체 반환
 	TArray<FPBTargetScore> GetTopKTargets(int32 K = 3);
 
+	/*~ DFS 다중 행동 탐색 인터페이스 ~*/
+
+	// DFS 재귀 탐색: 현재 자원(Context)으로 가능한 최적 행동 조합을 탐색하여
+	// BestPath에 기록한다. Context는 값 복사로 전달되어 백트래킹이 자동화된다.
+	// GenerateSequenceTask에서 호출.
+	void SearchBestSequence(
+		FPBUtilityContext Context,
+		TArray<FPBSequenceAction>& CurrentPath,
+		float CurrentScore,
+		float& BestScore,
+		TArray<FPBSequenceAction>& BestPath,
+		int32 Depth);
+
 	/*~ 캐싱 (라이프사이클) 관리 인터페이스 ~*/
 
 	/*~ 캐싱 (라이프사이클) 관리 인터페이스 ~*/
@@ -132,6 +145,14 @@ protected:
 	// AI Scoring Example.md §5 테이블 (현재 Attack 행만 구현)
 	static float GetRoleMultiplier(EPBCombatRole TargetRole);
 
+	// DFS 탐색 시 현재 Context(잔여 자원/위치)에서 실행 가능한
+	// 후보 행동(Attack, Move) 목록을 생성한다.
+	// - Attack: 사거리 내 타겟 + AP ≥ 1 → FPBSequenceAction(Attack)
+	// - Move: 사거리 밖 타겟 + 이동력 충분 → FPBSequenceAction(Move)
+	// CachedActionScoreMap에서 어빌리티 정보(AbilityTag, Range)를 참조.
+	TArray<FPBSequenceAction> GetCandidateActions(
+		const FPBUtilityContext& Context) const;
+
 	/*~ 튜닝 상수 ~*/
 
 	// 처치 보너스 배율 (처치 가능 시 1.0 + KillBonusRate 적용)
@@ -153,4 +174,9 @@ protected:
 
 	// LowHP 축 가중치 (빈사 상태의 위협 증폭)
 	static constexpr float LowHPThreatWeight = 2.0f;
+
+	// DFS 최대 탐색 깊이 (행동 개수 상한)
+	// D&D 5e 기준: Action(1) + BonusAction(1) + Move(1) = 최대 3
+	// 안전 마진으로 +1하여 4로 설정
+	static constexpr int32 MaxDFSDepth = 4;
 };

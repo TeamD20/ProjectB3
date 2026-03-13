@@ -8,6 +8,7 @@
 #include "PBAIMockCharacter.h"
 #include "PBGE_RestoreTurnResources.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
+#include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemLibrary.h"
@@ -635,6 +636,206 @@ TArray<FPBTargetScore> UPBUtilityClearinghouse::GetTopKTargets(int32 K)
 		Result.Add(AllScores[i]);
 	}
 	return Result;
+}
+
+/*~ DFS 후보 행동 생성 ~*/
+
+TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
+	const FPBUtilityContext& Context) const
+{
+	TArray<FPBSequenceAction> Candidates;
+
+	if (!IsValid(ActiveTurnActor))
+	{
+		return Candidates;
+	}
+
+	UAbilitySystemComponent* SourceASC =
+		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(ActiveTurnActor);
+	if (!IsValid(SourceASC))
+	{
+		return Candidates;
+	}
+
+	// CachedActionScoreMap의 각 타겟에 대해 Attack/Move 후보 생성
+	for (const auto& Pair : CachedActionScoreMap)
+	{
+		AActor* Target = Pair.Key;
+		const FPBTargetScore& ScoreData = Pair.Value;
+
+		if (!IsValid(Target))
+		{
+			continue;
+		}
+
+		// 사망 타겟 스킵
+		if (const UAbilitySystemComponent* TargetASC =
+				UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Target))
+		{
+			if (TargetASC->HasMatchingGameplayTag(
+					PBGameplayTags::Character_State_Dead))
+			{
+				continue;
+			}
+		}
+
+		// 어빌리티 사거리 조회 (AbilityTag 기반)
+		float AbilityRange = 0.0f;
+		if (ScoreData.AbilityTag.IsValid())
+		{
+			FGameplayTagContainer SearchTags;
+			SearchTags.AddTag(ScoreData.AbilityTag);
+			TArray<FGameplayAbilitySpec*> MatchingSpecs;
+			SourceASC->GetActivatableGameplayAbilitySpecsByAllMatchingTags(
+				SearchTags, MatchingSpecs);
+
+			if (MatchingSpecs.Num() > 0)
+			{
+				if (const UPBGameplayAbility_Targeted* TargetedAbility =
+						Cast<UPBGameplayAbility_Targeted>(
+							MatchingSpecs[0]->Ability))
+				{
+					AbilityRange = TargetedAbility->GetRange();
+				}
+			}
+		}
+
+		const float DistToTarget = FVector::Dist(
+			Context.LastActionLocation, Target->GetActorLocation());
+		const bool bUnlimitedRange = (AbilityRange <= 0.0f);
+		constexpr float RangeBuffer = 50.0f;
+		const float EffectiveRange = bUnlimitedRange
+			? TNumericLimits<float>::Max()
+			: AbilityRange + RangeBuffer;
+		const bool bInRange = (DistToTarget <= EffectiveRange);
+
+		// --- Attack 후보: 사거리 내 + AP 충분 ---
+		if (bInRange && Context.RemainingAP >= 1.0f)
+		{
+			FPBSequenceAction AttackAction;
+			AttackAction.ActionType = EPBActionType::Attack;
+			AttackAction.TargetActor = Target;
+			AttackAction.AbilityTag = ScoreData.AbilityTag;
+			AttackAction.Cost.ActionCost = 1.0f;
+			Candidates.Add(AttackAction);
+		}
+
+		// --- Move 후보: 사거리 밖 + 이동력 충분 ---
+		if (!bInRange && !bUnlimitedRange)
+		{
+			const float NeededMovement = DistToTarget - EffectiveRange;
+			if (NeededMovement > 0.0f && Context.CanReachTarget(Target->GetActorLocation()))
+			{
+				FPBSequenceAction MoveAction;
+				MoveAction.ActionType = EPBActionType::Move;
+				MoveAction.TargetActor = Target;
+				MoveAction.Cost.MovementCost = NeededMovement;
+				Candidates.Add(MoveAction);
+			}
+		}
+	}
+
+	UE_LOG(LogPBUtility, Log,
+		TEXT("[DFS] GetCandidateActions: %d개 후보 행동 생성 "
+			 "(AP=%.0f, BA=%.0f, MP잔여=%.0f, 누적MP=%.0f)"),
+		Candidates.Num(),
+		Context.RemainingAP, Context.RemainingBA,
+		Context.RemainingMP, Context.AccumulatedMP);
+
+	return Candidates;
+}
+
+/*~ DFS 다중 행동 탐색 ~*/
+
+void UPBUtilityClearinghouse::SearchBestSequence(
+	FPBUtilityContext Context,
+	TArray<FPBSequenceAction>& CurrentPath,
+	float CurrentScore,
+	float& BestScore,
+	TArray<FPBSequenceAction>& BestPath,
+	int32 Depth)
+{
+	// 현재 경로 평가: 비어있지 않고 기존 최고점을 초과하면 갱신
+	// ("아무것도 안 하기"는 BestPath에 포함하지 않음 — Fallback에서 별도 처리)
+	if (!CurrentPath.IsEmpty() && CurrentScore > BestScore)
+	{
+		BestScore = CurrentScore;
+		BestPath = CurrentPath;
+	}
+
+	// 기저 조건: 깊이 한계 도달
+	if (Depth >= MaxDFSDepth)
+	{
+		return;
+	}
+
+	// --- Branch & Bound 가지치기 (Optimization §4.2) ---
+	// 남은 행동에서 얻을 수 있는 이론적 최대 점수 추정
+	// Attack만 점수를 기여하므로: MaxSingleScore × 남은 공격 가능 횟수
+	float MaxSingleScore = 0.0f;
+	for (const auto& Pair : CachedActionScoreMap)
+	{
+		MaxSingleScore = FMath::Max(MaxSingleScore, Pair.Value.GetActionScore());
+	}
+
+	const int32 MaxRemainingAttacks = FMath::Min(
+		FMath::FloorToInt32(Context.RemainingAP),
+		MaxDFSDepth - Depth);
+	const float UpperBound = CurrentScore
+		+ MaxSingleScore * MaxRemainingAttacks;
+
+	if (UpperBound <= BestScore)
+	{
+		UE_LOG(LogPBUtility, Log,
+			TEXT("[DFS] 가지치기: Depth=%d, Current=%.2f, "
+				 "UpperBound=%.2f <= Best=%.2f"),
+			Depth, CurrentScore, UpperBound, BestScore);
+		return;
+	}
+
+	// 후보 행동 생성
+	TArray<FPBSequenceAction> Candidates = GetCandidateActions(Context);
+	if (Candidates.IsEmpty())
+	{
+		return; // 위에서 이미 BestScore 갱신 검토 완료
+	}
+
+	for (const FPBSequenceAction& Candidate : Candidates)
+	{
+		// 자원 소비 시도 (값 복사 후 차감 — 백트래킹 자동화)
+		FPBUtilityContext BranchContext = Context;
+		if (!BranchContext.TryConsumeResources(Candidate.Cost))
+		{
+			continue;
+		}
+
+		// Move 시 LastActionLocation 갱신 (후속 행동의 거리 계산 기준점)
+		if (Candidate.ActionType == EPBActionType::Move
+			&& IsValid(Candidate.TargetActor))
+		{
+			BranchContext.LastActionLocation =
+				Candidate.TargetActor->GetActorLocation();
+		}
+
+		// 행동 점수 산출 (Attack만 점수 기여, Move는 0)
+		float ActionScore = 0.0f;
+		if (Candidate.ActionType == EPBActionType::Attack)
+		{
+			if (const FPBTargetScore* Cached =
+					CachedActionScoreMap.Find(Candidate.TargetActor))
+			{
+				ActionScore = Cached->GetActionScore();
+			}
+		}
+
+		// 경로에 추가 → 재귀 탐색 → 백트래킹
+		CurrentPath.Add(Candidate);
+		SearchBestSequence(
+			BranchContext, CurrentPath,
+			CurrentScore + ActionScore,
+			BestScore, BestPath, Depth + 1);
+		CurrentPath.Pop();
+	}
 }
 
 /*~ Fallback 위치 계산 ~*/
