@@ -159,6 +159,17 @@ void APBUITestGameMode::CreateMainHUD()
 			CreatedMainHUDWidget->AddToViewport();
 			UE_LOG(LogTemp, Warning, TEXT("Main HUD Widget Added to Viewport"));
 		}
+
+		// [Step 1] 메인 액션바 HUD 생성 및 추가
+		if (MainActionBarHUDClass)
+		{
+			CreatedMainActionBarWidget = CreateWidget<UUserWidget>(PC, MainActionBarHUDClass);
+			if (CreatedMainActionBarWidget)
+			{
+				CreatedMainActionBarWidget->AddToViewport();
+				UE_LOG(LogTemp, Warning, TEXT("Main Action Bar HUD Added to Viewport"));
+			}
+		}
 	}
 }
 
@@ -259,21 +270,61 @@ void APBUITestGameMode::InitializeSkillBarViewModel()
 	
 	if (SkillBarVM)
 	{
-		// 임시로 각 탭에 넣을 더미 데이터 생성
-		auto CreateDummySlots = [this](int32 Count, const FString& Prefix) -> TArray<FPBSkillSlotData>
+		// 임의로 각 탭에 넣을 더미 데이터 생성 (빈 슬롯 포함)
+		auto CreateDummySlots = [this](int32 DataCount, int32 TotalCapacity, const FString& Prefix) -> TArray<FPBSkillSlotData>
 		{
 			TArray<FPBSkillSlotData> DummySlots;
-			for (int32 i = 0; i < Count; ++i)
+			for (int32 i = 0; i < TotalCapacity; ++i)
 			{
 				FPBSkillSlotData SlotData;
-				SlotData.DisplayName = FText::FromString(FString::Printf(TEXT("%s Skill %d"), *Prefix, i + 1));
-				SlotData.bCanActivate = (i % 2 == 0); // 홀수/짝수로 활성화 상태 시뮬레이션
-				SlotData.CooldownRemaining = (i % 3 == 0) ? 2 : 0; // 일부는 쿨다운 부여
 				
-				// 스킬 아이콘 풀에서 순환하며 이미지 할당
-				if (DummySkillIconPool.Num() > 0)
+				// 실 데이터가 존재하는 인덱스라면 정보 기입
+				if (i < DataCount)
 				{
-					SlotData.Icon = DummySkillIconPool[i % DummySkillIconPool.Num()];
+					SlotData.DisplayName = FText::FromString(FString::Printf(TEXT("%s Skill %d"), *Prefix, i + 1));
+					
+					// 시각적 테스트를 위한 상태 다양화
+					if (i == 0)
+					{
+						// 첫 번째: 활성화 상태 (포커스 테두리)
+						SlotData.bCanActivate = true;
+						SlotData.CooldownRemaining = 0;
+						SlotData.bIsActive = true;
+					}
+					else if (i == 1)
+					{
+						// 두 번째: 비활성화 상태 (DisabledOverlay)
+						SlotData.bCanActivate = false;
+						SlotData.CooldownRemaining = 0;
+						SlotData.bIsActive = false;
+					}
+					else if (i == 2)
+					{
+						// 세 번째: 쿨타임 상태 (CooldownOverlay & Text)
+						SlotData.bCanActivate = true;
+						SlotData.CooldownRemaining = 12.0f;
+						SlotData.bIsActive = false;
+					}
+					else
+					{
+						// 나머지: 기본 상태
+						SlotData.bCanActivate = true;
+						SlotData.CooldownRemaining = 0;
+						SlotData.bIsActive = false;
+					}
+					
+					if (DummySkillIconPool.Num() > 0)
+					{
+						SlotData.Icon = DummySkillIconPool[i % DummySkillIconPool.Num()];
+					}
+				}
+				else
+				{
+					// 빈 슬롯 (공간 확보용)
+					SlotData.DisplayName = FText::GetEmpty();
+					SlotData.bCanActivate = false;
+					SlotData.bIsActive = false;
+					SlotData.CooldownRemaining = 0;
 				}
 				
 				DummySlots.Add(SlotData);
@@ -281,14 +332,42 @@ void APBUITestGameMode::InitializeSkillBarViewModel()
 			return DummySlots;
 		};
 
-		// 5개의 탭 컨테이너에 각각 더미 데이터 밀어넣기
-		SkillBarVM->CommonSlots = CreateDummySlots(10, TEXT("Common"));
-		SkillBarVM->ClassSlots = CreateDummySlots(5, TEXT("Class"));
-		SkillBarVM->ItemSlots = CreateDummySlots(8, TEXT("Item"));
-		SkillBarVM->PassiveSlots = CreateDummySlots(3, TEXT("Passive"));
-		SkillBarVM->CustomSlots = CreateDummySlots(12, TEXT("Custom"));
+		// GameMode 프로퍼티에 설정된 수만큼 슬롯 생성 (실제 데이터는 일부만 채움)
+		SkillBarVM->PrimaryActions = CreateDummySlots(10, PrimarySlotCount, TEXT("Primary"));
+		SkillBarVM->SecondaryActions = CreateDummySlots(8, SecondarySlotCount, TEXT("Secondary"));
+		SkillBarVM->SpellActions = CreateDummySlots(5, SpellSlotCount, TEXT("Spell"));
 		
-		// 스킬 UI 갱신 이벤트 트리거
+		// [ Step 5 테스트 ] 대응 스킬 2개 생성 (Reaction)
+		SkillBarVM->ResponseActions = CreateDummySlots(2, 2, TEXT("Reaction"));
+
+		auto CreateDummyEquipment = [this](int32 Count, bool bIsUtility) -> TArray<FPBEquipmentSlotData>
+		{
+			TArray<FPBEquipmentSlotData> DummySlots;
+			for (int32 i = 0; i < Count; ++i)
+			{
+				FPBEquipmentSlotData SlotData;
+				SlotData.bIsAvailable = true;
+				
+				if (bIsUtility)
+				{
+					SlotData.Quantity = FMath::RandRange(2, 10);
+				}
+				
+				if (DummySkillIconPool.Num() > 0)
+				{
+					// 임시로 스킬 아이콘 풀을 장비/아이템에도 사용합니다
+					SlotData.Icon = DummySkillIconPool[(i + (bIsUtility ? 3 : 0)) % DummySkillIconPool.Num()];
+				}
+				DummySlots.Add(SlotData);
+			}
+			return DummySlots;
+		};
+
+		// 주무기 슬롯(2개) 및 유틸리티 슬롯(4개) 임시 더미 데이터 주입
+		SkillBarVM->WeaponSlots = CreateDummyEquipment(2, false);
+		SkillBarVM->UtilitySlots = CreateDummyEquipment(4, true);
+		
+		// 스킬 및 아이템 UI 갱신 이벤트 트리거
 		SkillBarVM->OnSlotsChanged.Broadcast();
 		
 		UE_LOG(LogTemp, Warning, TEXT("SkillBar ViewModel Initialized with Dummy Data."));

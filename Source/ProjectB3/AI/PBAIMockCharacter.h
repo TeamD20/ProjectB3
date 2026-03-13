@@ -11,6 +11,7 @@
 
 class UPBTurnResourceAttributeSet;
 class UGameplayAbility;
+class UPBAIArchetypeData;
 
 // AI 샌드박스 구동 전용 더미 캐릭터 클래스
 UCLASS()
@@ -32,6 +33,11 @@ protected:
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float StartingHP = 100.0f;
+
+	// AI 아키타입 데이터 (공격형/방어형/지원형 등 행동 가중치)
+	// 미설정 시 모든 ArchetypeWeight = 1.0 (균등 가중)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+	TObjectPtr<UPBAIArchetypeData> ArchetypeData;
 
 protected:
 	

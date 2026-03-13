@@ -12,6 +12,19 @@ class APBGameplayPlayerController;
 class APBCharacterBase;
 class UTexture2D;
 
+// AI 스코어링에서 어빌리티의 효과 카테고리를 구분하는 열거형.
+// EPBAbilityType(자원 소모 유형: Action/BonusAction)과는 별개.
+// EvaluateActionScore / EvaluateHealScore 등에서 분기 기준으로 사용.
+UENUM(BlueprintType)
+enum class EPBAbilityCategory : uint8
+{
+	Attack,     // 적 대상 데미지 (기본값)
+	Heal,       // 아군 대상 회복
+	Buff,       // 아군 대상 강화
+	Debuff,     // 적 대상 약화
+	Control     // 적 대상 행동 제한 (CC)
+};
+
 /** 프로젝트 전용 GameplayAbility 기반 클래스. 모든 어빌리티는 이 클래스를 상속해서 구현. */
 // TODO: 어빌리티 활성시 자동 장비 장착
 UCLASS()
@@ -53,6 +66,19 @@ public:
 	// 주사위 스펙 조회 (DiceCount, DiceFaces, RollType)
 	UFUNCTION(BlueprintPure, Category = "Ability|Definition")
 	const FPBDiceSpec& GetDiceSpec() const { return DiceSpec; }
+
+	// AI 스코어링용 어빌리티 카테고리 조회
+	UFUNCTION(BlueprintPure, Category = "Ability|AI")
+	EPBAbilityCategory GetAbilityCategory() const { return AbilityCategory; }
+
+	// AI 스코어링용: Buff/Debuff/CC의 HP 환산 기대값 (디자이너 설정)
+	// 동적 계산이 어려운 효과에 대한 고정 추정값
+	UFUNCTION(BlueprintPure, Category = "Ability|AI")
+	float GetEstimatedHPValue() const { return EstimatedHPValue; }
+
+	// AI 스코어링용: 효과 지속 턴 수 (Buff/Debuff/CC)
+	UFUNCTION(BlueprintPure, Category = "Ability|AI")
+	int32 GetEffectDuration() const { return EffectDuration; }
 
 	// 어빌리티 타입 반환. 활성화 중이면 Spec의 DynamicTags 포함, 아니면 AbilityTags만 조회.
 	UFUNCTION(BlueprintPure, Category = "Ability|Definition", meta = (DisplayName = "GetAbilityType"))
@@ -141,6 +167,24 @@ protected:
 	FPBAbilityTargetData ExtractTargetDataFromEvent(const FGameplayEventData& EventData) const;
 
 protected:
+	// AI 스코어링용 어빌리티 효과 카테고리 (Attack/Heal/Buff/Debuff/Control)
+	// EPBAbilityType(자원 소모 유형)과는 별개의 분류 축
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|AI")
+	EPBAbilityCategory AbilityCategory = EPBAbilityCategory::Attack;
+
+	// Buff/Debuff/CC의 HP 환산 기대값 (디자이너가 추정하여 설정)
+	// 예: AC+2 버프 = 8.0, 적 AC-2 디버프 = 6.0, 1턴 스턴 = 10.0
+	// Attack/Heal은 DiceSpec에서 자동 산출하므로 사용하지 않음
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|AI",
+		meta = (ClampMin = "0.0", EditCondition = "AbilityCategory != EPBAbilityCategory::Attack && AbilityCategory != EPBAbilityCategory::Heal"))
+	float EstimatedHPValue = 0.0f;
+
+	// 효과 지속 턴 수 (Buff/Debuff/CC)
+	// DurationFactor = min(EffectDuration, 3) / 3 으로 스코어링에 반영
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|AI",
+		meta = (ClampMin = "1", ClampMax = "10", EditCondition = "AbilityCategory != EPBAbilityCategory::Attack && AbilityCategory != EPBAbilityCategory::Heal"))
+	int32 EffectDuration = 1;
+
 	// 주사위 설정 (주사위 수, 면 수, 판정 유형, 핵심 능력치).
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Definition")
 	FPBDiceSpec DiceSpec;

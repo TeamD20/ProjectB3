@@ -7,8 +7,31 @@
 
 
 // 단일 행동의 종류를 정의하는 열거형
+// AI 시퀀스의 각 행동이 "무엇을 하는가"를 분류
 UENUM(BlueprintType)
-enum class EPBActionType : uint8 { None, Move, Attack, UseItem };
+enum class EPBActionType : uint8
+{
+	None,
+	Move,       // 위치 이동
+	Attack,     // 적 대상 데미지
+	Heal,       // 아군 대상 회복
+	Buff,       // 아군 대상 강화
+	Debuff,     // 적 대상 약화
+	Control,    // 적 대상 행동 제한 (CC)
+	UseItem     // 아이템 사용 (향후 확장)
+};
+
+// 전투 역할 (AI 스코어링의 RoleMultiplier 산출용)
+// Character.Class.* 태그로부터 매핑
+UENUM(BlueprintType)
+enum class EPBCombatRole : uint8
+{
+	Melee,    // 근접 — Fighter 등
+	Ranged,   // 원거리 — Ranger 등
+	Caster,   // 마법 — Magician 등
+	Healer,   // 회복 (향후 확장)
+	Tank      // 탱커 (향후 확장)
+};
 
 // 행동에 필요한 코스트 데이터
 USTRUCT(BlueprintType)
@@ -77,27 +100,107 @@ struct FPBSequenceAction
 	FGameplayTag AbilityTag;
 };
 
-// 조합 점수를 관리하고, 단일 행동(Single Action) 결과를 담는 객체
+// DFS 탐색 시 각 분기에서 잔여 자원 상태를 추적하는 컨텍스트.
+// 값 타입(USTRUCT)이므로 DFS 재귀 호출 시 값 복사로 전달되며,
+// 백트래킹 시 이전 스택 프레임의 값으로 자동 복원된다.
+USTRUCT(BlueprintType)
+struct FPBUtilityContext
+{
+	GENERATED_BODY()
+
+	// 잔여 행동 포인트 (D&D 5e: 턴당 1)
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Context")
+	float RemainingAP = 1.0f;
+
+	// 잔여 보조 행동 (D&D 5e: 턴당 1)
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Context")
+	float RemainingBA = 1.0f;
+
+	// 잔여 이동력 (cm 단위, TurnResourceAttributeSet의 Movement에서 초기화)
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Context")
+	float RemainingMP = 0.0f;
+
+	// 누적 이동 거리 (AccumulatedMP 가지치기용)
+	// DFS 탐색 시 타겟 간 유클리드 거리를 누적하여
+	// RemainingMP 초과 시 해당 분기를 즉시 가지치기
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Context")
+	float AccumulatedMP = 0.0f;
+
+	// 마지막 행동 수행 위치 (AccumulatedMP 계산의 기준점)
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Context")
+	FVector LastActionLocation = FVector::ZeroVector;
+
+	// Cost만큼 자원을 차감한다. 자원이 부족하면 false를 반환하고 차감하지 않는다.
+	// DFS에서 해당 행동 분기 진입 가능 여부를 판정하는 데 사용.
+	bool TryConsumeResources(const FPBCostData& Cost)
+	{
+		if (RemainingAP < Cost.ActionCost
+			|| RemainingBA < Cost.BonusActionCost
+			|| RemainingMP < AccumulatedMP + Cost.MovementCost)
+		{
+			return false;
+		}
+		RemainingAP -= Cost.ActionCost;
+		RemainingBA -= Cost.BonusActionCost;
+		AccumulatedMP += Cost.MovementCost;
+		return true;
+	}
+
+	// 현재 위치에서 TargetLocation까지의 이동이 잔여 MP 내에서 가능한지 판정.
+	// 유클리드 직선 거리 기반 휴리스틱 — NavMesh 실경로보다 항상 짧으므로
+	// false가 나오면 확실히 불가능(안전한 가지치기).
+	bool CanReachTarget(const FVector& TargetLocation) const
+	{
+		const float DistToTarget = FVector::Dist(LastActionLocation, TargetLocation);
+		return (AccumulatedMP + DistToTarget) <= RemainingMP;
+	}
+};
+
+// 순서가 보장된 다중 행동 시퀀스.
+// Generate에서 채우고, Execute에서 비동기적으로 순차 소비한다.
+// 현재(DFS 미구현)는 Actions에 1개만 들어가므로 기존 동작과 동일.
 USTRUCT(BlueprintType)
 struct PROJECTB3_API FPBActionSequence
 {
 	GENERATED_BODY()
 
-	// 결정된 행동이 아무것도 없는지(턴 종료 상황인지) 확인
-	bool IsEmpty() const
-	{
-		return SingleAction.ActionType == EPBActionType::None;
-	}
+	// 이 시퀀스에 포함된 행동 목록 (순서대로 실행)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
+	TArray<FPBSequenceAction> Actions;
 
-	// 이 턴 행동 조합(Combo)이 갖는 최종 유틸리티 결산 점수
+	// 이 행동 조합의 최종 유틸리티 점수
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
 	float TotalUtilityScore = 0.0f;
 
-	/*~ 단일 행동 데이터 제공 ~*/
+	// EQS 좌표 최적화 완료 여부 (Generate에서 세팅, Execute에서 확인)
+	// false인 동안 Execute는 시퀀스 실행을 대기한다.
+	// EQS 미사용 시 기본값 true로 즉시 실행 가능.
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Sequence")
+	bool bIsReady = true;
 
-	// 결정된 단 1개의 행동 데이터
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
-	FPBSequenceAction SingleAction;
+	// 현재 실행 중인 행동 인덱스 (ExecuteTask에서 비동기 순차 소비용)
+	// 콜백(OnAbilityEnded 등)이 도착할 때마다 1씩 전진
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Sequence")
+	int32 CurrentActionIndex = 0;
+
+	// 실행할 행동이 남아있는지 확인
+	bool HasNextAction() const
+	{
+		return CurrentActionIndex < Actions.Num();
+	}
+
+	// 현재 행동을 반환하고 인덱스를 전진시킨다.
+	// 호출 전 반드시 HasNextAction() 확인 필요.
+	const FPBSequenceAction& ConsumeNextAction()
+	{
+		return Actions[CurrentActionIndex++];
+	}
+
+	// 시퀀스가 비어있는지(턴 종료 상황) 확인
+	bool IsEmpty() const
+	{
+		return Actions.Num() == 0;
+	}
 };
 
 // 타겟 1명에 대한 ActionScore 평가 결과

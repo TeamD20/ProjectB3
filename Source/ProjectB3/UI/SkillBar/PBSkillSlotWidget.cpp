@@ -7,6 +7,7 @@
 #include "Components/Image.h"
 #include "Components/TextBlock.h"
 #include "Components/Overlay.h"
+#include "Components/Border.h"
 
 void UPBSkillSlotWidget::SetSlotData(const FPBSkillSlotData& InSlotData)
 {
@@ -14,7 +15,16 @@ void UPBSkillSlotWidget::SetSlotData(const FPBSkillSlotData& InSlotData)
 
 	if (IsValid(IconImage))
 	{
-		IconImage->SetBrushFromSoftTexture(SlotData.Icon);
+		if (SlotData.Icon.IsValid())
+		{
+			IconImage->SetVisibility(ESlateVisibility::Visible);
+			IconImage->SetBrushFromSoftTexture(SlotData.Icon);
+		}
+		else
+		{
+			// 아이콘이 없으면 숨겨서 빈 슬롯 배경만 보이게 함
+			IconImage->SetVisibility(ESlateVisibility::Collapsed);
+		}
 	}
 
 	if (IsValid(CooldownText))
@@ -34,6 +44,18 @@ void UPBSkillSlotWidget::SetSlotData(const FPBSkillSlotData& InSlotData)
 	if (IsValid(SlotButton))
 	{
 		SlotButton->SetIsEnabled(SlotData.bCanActivate && SlotData.CooldownRemaining <= 0);
+	}
+
+	// 포커스 테두리 가시성 설정
+	if (IsValid(FocusBorder))
+	{
+		FocusBorder->SetVisibility(SlotData.bIsActive ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+	}
+
+	// 발동 불가 시각화
+	if (IsValid(DisabledOverlay))
+	{
+		DisabledOverlay->SetVisibility(SlotData.bCanActivate ? ESlateVisibility::Collapsed : ESlateVisibility::Visible);
 	}
 }
 
