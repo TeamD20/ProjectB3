@@ -172,6 +172,12 @@ struct PROJECTB3_API FPBActionSequence
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
 	float TotalUtilityScore = 0.0f;
 
+	// EQS 좌표 최적화 완료 여부 (Generate에서 세팅, Execute에서 확인)
+	// false인 동안 Execute는 시퀀스 실행을 대기한다.
+	// EQS 미사용 시 기본값 true로 즉시 실행 가능.
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Sequence")
+	bool bIsReady = true;
+
 	// 현재 실행 중인 행동 인덱스 (ExecuteTask에서 비동기 순차 소비용)
 	// 콜백(OnAbilityEnded 등)이 도착할 때마다 1씩 전진
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Sequence")

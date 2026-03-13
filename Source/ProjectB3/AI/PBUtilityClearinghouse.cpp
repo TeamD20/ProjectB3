@@ -2,6 +2,8 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
 #include "Engine/World.h"
+#include "EnvironmentQuery/EnvQuery.h"
+#include "EnvironmentQuery/EnvQueryManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "NavigationSystem.h"
 #include "PBAIArchetypeData.h"
@@ -345,6 +347,7 @@ void UPBUtilityClearinghouse::ClearCache()
 	CachedActionScoreMap.Empty();
 	CachedHealScoreMap.Empty();
 	CachedArchetypeWeights = FPBCachedArchetypeWeights();
+	EQSTargetActor = nullptr;
 
 	UE_LOG(LogPBUtility, Log,
 		   TEXT("클리어링하우스 메모리 캐시가 성공적으로 비워졌습니다."));
@@ -1140,6 +1143,30 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 
 /*~ Fallback 위치 계산 ~*/
 
+/*~ 적 Centroid 계산 (EQS Context + Fallback 공용) ~*/
+
+FVector UPBUtilityClearinghouse::GetEnemyCentroid() const
+{
+	FVector Centroid = FVector::ZeroVector;
+	int32 ValidCount = 0;
+
+	for (const TWeakObjectPtr<AActor>& WeakTarget : CachedTargets)
+	{
+		if (const AActor* Target = WeakTarget.Get())
+		{
+			Centroid += Target->GetActorLocation();
+			++ValidCount;
+		}
+	}
+
+	if (ValidCount == 0)
+	{
+		return FVector::ZeroVector;
+	}
+
+	return Centroid / static_cast<float>(ValidCount);
+}
+
 FVector UPBUtilityClearinghouse::CalculateFallbackPosition(
 	AActor *SelfRef, float RemainingMP) const
 {
@@ -1150,24 +1177,12 @@ FVector UPBUtilityClearinghouse::CalculateFallbackPosition(
 		return FVector::ZeroVector;
 	}
 
-	// 1. 적들의 평균 위치(Centroid) 계산
-	FVector EnemyCentroid = FVector::ZeroVector;
-	int32 ValidCount = 0;
-	for (const TWeakObjectPtr<AActor> &WeakTarget : CachedTargets)
-	{
-		if (AActor *Target = WeakTarget.Get())
-		{
-			EnemyCentroid += Target->GetActorLocation();
-			++ValidCount;
-		}
-	}
-
-	if (ValidCount == 0)
+	// 1. 적들의 평균 위치(Centroid) 계산 — 공용 헬퍼 사용
+	const FVector EnemyCentroid = GetEnemyCentroid();
+	if (EnemyCentroid.IsZero())
 	{
 		return FVector::ZeroVector;
 	}
-
-	EnemyCentroid /= ValidCount;
 
 	// 2. 적 중심에서 반대 방향 벡터 (XY 평면)
 	const FVector AIPos = SelfRef->GetActorLocation();
@@ -1222,4 +1237,131 @@ FVector UPBUtilityClearinghouse::CalculateFallbackPosition(
 		   *EnemyCentroid.ToCompactString());
 
 	return ProjectedLocation.Location;
+}
+
+/*~ EQS 비동기 래퍼 ~*/
+
+void UPBUtilityClearinghouse::RunAttackPositionQuery(
+	UEnvQuery* QueryAsset,
+	AActor* Querier,
+	AActor* TargetActor,
+	FPBEQSQueryFinished OnFinished)
+{
+	if (!IsValid(QueryAsset) || !IsValid(Querier))
+	{
+		UE_LOG(LogPBUtility, Warning,
+			TEXT("[EQS] RunAttackPositionQuery: "
+			     "QueryAsset 또는 Querier가 유효하지 않습니다."));
+		OnFinished.ExecuteIfBound(false, FVector::ZeroVector);
+		return;
+	}
+
+	// Context_Target이 참조할 타겟 세팅
+	EQSTargetActor = TargetActor;
+	PendingAttackQueryDelegate = OnFinished;
+
+	// EQS 쿼리 비동기 실행 (SingleResult: 최고 점수 1개만 반환)
+	FEnvQueryRequest QueryRequest(QueryAsset, Querier);
+	QueryRequest.Execute(
+		EEnvQueryRunMode::SingleResult,
+		FQueryFinishedSignature::CreateUObject(
+			this, &UPBUtilityClearinghouse::HandleAttackQueryResult));
+
+	UE_LOG(LogPBUtility, Display,
+		TEXT("[EQS] AttackPosition 쿼리 실행 시작. "
+		     "Querier=[%s], Target=[%s]"),
+		*Querier->GetName(),
+		IsValid(TargetActor) ? *TargetActor->GetName() : TEXT("None"));
+}
+
+void UPBUtilityClearinghouse::RunFallbackPositionQuery(
+	UEnvQuery* QueryAsset,
+	AActor* Querier,
+	FPBEQSQueryFinished OnFinished)
+{
+	if (!IsValid(QueryAsset) || !IsValid(Querier))
+	{
+		UE_LOG(LogPBUtility, Warning,
+			TEXT("[EQS] RunFallbackPositionQuery: "
+			     "QueryAsset 또는 Querier가 유효하지 않습니다."));
+		OnFinished.ExecuteIfBound(false, FVector::ZeroVector);
+		return;
+	}
+
+	PendingFallbackQueryDelegate = OnFinished;
+
+	// EQS 쿼리 비동기 실행
+	// Context_EnemyCentroid는 Clearinghouse의 GetEnemyCentroid()를 자동 참조
+	FEnvQueryRequest QueryRequest(QueryAsset, Querier);
+	QueryRequest.Execute(
+		EEnvQueryRunMode::SingleResult,
+		FQueryFinishedSignature::CreateUObject(
+			this, &UPBUtilityClearinghouse::HandleFallbackQueryResult));
+
+	UE_LOG(LogPBUtility, Display,
+		TEXT("[EQS] FallbackPosition 쿼리 실행 시작. Querier=[%s]"),
+		*Querier->GetName());
+}
+
+/*~ EQS 쿼리 완료 핸들러 ~*/
+
+void UPBUtilityClearinghouse::HandleAttackQueryResult(
+	TSharedPtr<FEnvQueryResult> Result)
+{
+	FVector BestLocation = FVector::ZeroVector;
+	bool bSuccess = false;
+
+	if (Result.IsValid() && Result->IsSuccessful() && Result->Items.Num() > 0)
+	{
+		BestLocation = Result->GetItemAsLocation(0);
+		bSuccess = true;
+
+		UE_LOG(LogPBUtility, Display,
+			TEXT("[EQS] AttackPosition 쿼리 성공. "
+			     "최적 위치: (%s), Score: %.2f"),
+			*BestLocation.ToCompactString(),
+			Result->GetItemScore(0));
+	}
+	else
+	{
+		UE_LOG(LogPBUtility, Warning,
+			TEXT("[EQS] AttackPosition 쿼리 실패 또는 결과 없음. "
+			     "DFS 원래 좌표를 유지합니다."));
+	}
+
+	// 타겟 참조 정리 (다음 쿼리와 충돌 방지)
+	EQSTargetActor = nullptr;
+
+	// 콜백 실행 후 바인딩 해제
+	PendingAttackQueryDelegate.ExecuteIfBound(bSuccess, BestLocation);
+	PendingAttackQueryDelegate.Unbind();
+}
+
+void UPBUtilityClearinghouse::HandleFallbackQueryResult(
+	TSharedPtr<FEnvQueryResult> Result)
+{
+	FVector BestLocation = FVector::ZeroVector;
+	bool bSuccess = false;
+
+	if (Result.IsValid() && Result->IsSuccessful() && Result->Items.Num() > 0)
+	{
+		BestLocation = Result->GetItemAsLocation(0);
+		bSuccess = true;
+
+		UE_LOG(LogPBUtility, Display,
+			TEXT("[EQS] FallbackPosition 쿼리 성공. "
+			     "최적 위치: (%s), Score: %.2f"),
+			*BestLocation.ToCompactString(),
+			Result->GetItemScore(0));
+	}
+	else
+	{
+		UE_LOG(LogPBUtility, Warning,
+			TEXT("[EQS] FallbackPosition 쿼리 실패 또는 결과 없음. "
+			     "기존 CalculateFallbackPosition 결과를 사용합니다."));
+	}
+
+	// 콜백 실행 후 바인딩 해제
+	PendingFallbackQueryDelegate.ExecuteIfBound(bSuccess, BestLocation);
+	PendingFallbackQueryDelegate.Unbind();
 }
