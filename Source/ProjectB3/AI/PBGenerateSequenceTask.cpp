@@ -1,17 +1,87 @@
 // PBGenerateSequenceTask.cpp
 
 #include "PBGenerateSequenceTask.h"
-#include "Abilities/GameplayAbility.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
 #include "Engine/World.h"
+#include "EnvironmentQuery/EnvQuery.h"
 #include "PBUtilityClearinghouse.h"
-#include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "StateTreeExecutionContext.h"
 
 // StateTree 디버깅을 위한 독립적인 로그 카테고리
 DEFINE_LOG_CATEGORY_STATIC(LogPBStateTree, Log, All);
+
+UPBGenerateSequenceTask::UPBGenerateSequenceTask(
+	const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// EQS 타임아웃 체크를 위해 Tick 활성화
+	bShouldCallTick = true;
+}
+
+/*~ EQS 상태 관리 ~*/
+
+void UPBGenerateSequenceTask::ResetEQSState()
+{
+	bWaitingForEQS = false;
+	PendingEQSQueryCount = 0;
+	EQSTimeoutRemaining = 0.0f;
+	AttackMoveActionIndex = INDEX_NONE;
+	FallbackMoveActionIndex = INDEX_NONE;
+}
+
+/*~ EQS 쿼리 발사 (공통 헬퍼) ~*/
+
+void UPBGenerateSequenceTask::LaunchEQSQueries()
+{
+	// 시퀀스 내 Move 행동이 있고 쿼리 에셋이 할당되어 있으면,
+	// EQS 비동기 쿼리로 DFS/Fallback 좌표를 지형/엄폐 기반 최적 위치로 보정한다.
+	for (int32 i = 0; i < GeneratedSequence.Actions.Num(); ++i)
+	{
+		const FPBSequenceAction& Action = GeneratedSequence.Actions[i];
+		if (Action.ActionType != EPBActionType::Move)
+		{
+			continue;
+		}
+
+		if (IsValid(Action.TargetActor) && IsValid(AttackPositionQuery))
+		{
+			// 타겟 접근 이동 → EQS로 최적 공격 위치 탐색
+			AttackMoveActionIndex = i;
+			++PendingEQSQueryCount;
+
+			CachedClearinghouse->RunAttackPositionQuery(
+				AttackPositionQuery, SelfActor, Action.TargetActor,
+				FPBEQSQueryFinished::CreateUObject(
+					this,
+					&UPBGenerateSequenceTask::OnAttackPositionQueryFinished));
+		}
+		else if (!IsValid(Action.TargetActor) && IsValid(FallbackPositionQuery))
+		{
+			// Fallback 후퇴 이동 → EQS로 최적 후퇴 위치 탐색
+			FallbackMoveActionIndex = i;
+			++PendingEQSQueryCount;
+
+			CachedClearinghouse->RunFallbackPositionQuery(
+				FallbackPositionQuery, SelfActor,
+				FPBEQSQueryFinished::CreateUObject(
+					this,
+					&UPBGenerateSequenceTask::OnFallbackPositionQueryFinished));
+		}
+	}
+
+	if (PendingEQSQueryCount > 0)
+	{
+		bWaitingForEQS = true;
+		EQSTimeoutRemaining = UPBUtilityClearinghouse::EQSQueryTimeoutSeconds;
+		GeneratedSequence.bIsReady = false; // Execute 대기
+
+		UE_LOG(LogPBStateTree, Display,
+			TEXT("[EQS] %d개 EQS 쿼리 시작. 시퀀스 준비 대기 중..."),
+			PendingEQSQueryCount);
+	}
+}
 
 /*~ 상태 진입 실행 로직 ~*/
 
@@ -35,9 +105,9 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		return EStateTreeRunStatus::Failed;
 	}
 
-	UPBUtilityClearinghouse* Clearinghouse =
+	CachedClearinghouse =
 		World->GetSubsystem<UPBUtilityClearinghouse>();
-	if (!IsValid(Clearinghouse))
+	if (!IsValid(CachedClearinghouse))
 	{
 		UE_LOG(LogPBStateTree, Error,
 		       TEXT("GenerateSequenceTask: Clearinghouse 서브시스템을 찾을 수 "
@@ -45,10 +115,14 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		return EStateTreeRunStatus::Failed;
 	}
 
-	// 3. Clearinghouse 캐시 활용 (CacheTurnData는 InitializeTurnTask에서 처리됨)
-	// 여기서는 이미 캐싱된 데이터를 토대로 분석만 수행
+	// 3. 시퀀스 초기화 (이전 루프 잔여 데이터 제거)
+	GeneratedSequence.Actions.Empty();
+	GeneratedSequence.CurrentActionIndex = 0;
+	GeneratedSequence.TotalUtilityScore = 0.0f;
+	GeneratedSequence.bIsReady = true; // 기본: 즉시 준비 완료
+	ResetEQSState();
 
-	// --- 어빌리티 및 자원 체크 (Phase 1: Filter) ---
+	// 4. 어빌리티 시스템 및 턴 자원 확인
 	UAbilitySystemComponent* ASC =
 		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(SelfActor);
 
@@ -57,8 +131,6 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		return EStateTreeRunStatus::Failed;
 	}
 
-	// 턴 자원 어트리뷰트셋 가져오기 (없으면 이전 Mock 속성 사용 로직 등 Fallback
-	// 필요 없으나 일단 가져옴)
 	const UPBTurnResourceAttributeSet* TurnResourceSet =
 		ASC->GetSet<UPBTurnResourceAttributeSet>();
 	float CurrentAction = 0.0f;
@@ -73,218 +145,321 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	}
 
 	UE_LOG(LogPBStateTree, Display,
-	       TEXT("=== 어빌리티 필터링 (Phase 1) 개시 [잔여 자원 Action: %f, "
-		       "BonusAction: %f, Movement: %f] ==="),
+	       TEXT("=== DFS 다중 행동 탐색 개시 [자원 AP: %.0f, BA: %.0f, "
+		       "MP: %.0f] ==="),
 	       CurrentAction, CurrentBonusAction, CurrentMovement);
-	TArray<UGameplayAbility*> ValidAbilities;
-	const TArray<FGameplayAbilitySpec>& ActivatableAbilities =
-		ASC->GetActivatableAbilities();
 
-	for (const FGameplayAbilitySpec& Spec : ActivatableAbilities)
+	// 5. CachedActionScoreMap 채우기 (Top-K 타겟 평가)
+	// GetTopKTargets 내부에서 EvaluateActionScore를 호출하여
+	// CachedActionScoreMap이 채워진다 — DFS의 GetCandidateActions가 참조.
+	const TArray<FPBTargetScore> TopTargets =
+		CachedClearinghouse->GetTopKTargets(3);
+
+	// 5-1. CachedHealScoreMap 채우기 (아군 Heal 평가)
+	// DFS의 GetCandidateActions가 Heal 후보 생성 시 참조.
+	for (const TWeakObjectPtr<AActor>& WeakAlly :
+	     CachedClearinghouse->GetCachedAllies())
 	{
-		if (Spec.Ability != nullptr)
+		if (WeakAlly.IsValid())
 		{
-			// CanActivateAbility 기본 검사 (쿨다운, 코스트 등)
-			if (Spec.Ability->CanActivateAbility(Spec.Handle,
-			                                     ASC->AbilityActorInfo.Get()))
-			{
-				ValidAbilities.Add(Spec.Ability);
-				UE_LOG(LogPBStateTree, Log, TEXT("어빌리티 필터 통과: [%s]"),
-				       *Spec.Ability->GetName());
-			}
-			else
-			{
-				UE_LOG(LogPBStateTree, Log,
-				       TEXT("어빌리티 필터 제외 (조건 미달): [%s]"),
-				       *Spec.Ability->GetName());
-			}
+			CachedClearinghouse->EvaluateHealScore(WeakAlly.Get());
 		}
 	}
 
-	// 4. 주변의 적대적 액터 중 ActionScore 기반 최적 타겟 선정
-	// (이전: CachedTargets[0] 고정 → Phase 2: GetBestActionScoreTarget 점수 기반
-	//  → Phase 3: GetTopKTargets Top-K 필터 + MovementScore 통합 TotalScore 기반)
-	const TArray<FPBTargetScore> TopTargets = Clearinghouse->GetTopKTargets(3);
-
-	AActor* BestTargetActor = nullptr;
-	if (TopTargets.Num() > 0 && IsValid(TopTargets[0].TargetActor))
+	// Heal 후보 존재 여부 확인 (적이 없어도 힐할 아군이 있으면 DFS 실행)
+	bool bHasHealCandidates = false;
+	for (const auto& HealPair : CachedClearinghouse->GetCachedHealScores())
 	{
-		// TopTargets는 TotalScore 내림차순 정렬 → [0]이 최적 타겟
-		BestTargetActor = TopTargets[0].TargetActor.Get();
+		if (HealPair.Value.GetActionScore() > 0.0f)
+		{
+			bHasHealCandidates = true;
+			break;
+		}
 	}
 
-	float DistanceScore = 0.0f;
-	float VulnerabilityScore = 0.0f;
-	float HighGroundScore = 0.0f;
-
-	if (IsValid(BestTargetActor))
-	{
-		DistanceScore =
-			Clearinghouse->GetNormalizedDistanceToTarget(BestTargetActor);
-		VulnerabilityScore =
-			Clearinghouse->GetTargetVulnerabilityScore(BestTargetActor);
-		HighGroundScore =
-			Clearinghouse->EvaluateHighGroundAdvantage(BestTargetActor);
-	}
-	else
+	if (TopTargets.IsEmpty() && !bHasHealCandidates)
 	{
 		UE_LOG(LogPBStateTree, Warning,
-		       TEXT("GenerateSequenceTask: 적합한 TargetActor를 찾지 못하여 턴을 "
-			       "종료(Failed)합니다."));
-		// 더 이상 생성할 행동이 없으므로(타겟 부재), 루프 탈출을 위해 Failed 반환
-		return EStateTreeRunStatus::Failed;
-	}
+		       TEXT("GenerateSequenceTask: 유효한 타겟도 힐 대상도 없습니다."));
 
-	// 유틸리티 총합 점수 계산 (AND 퍼지 연산 최소화 방식 혹은 단순 합 등 임시
-	// 산출식)
-	GeneratedSequence.TotalUtilityScore =
-		FMath::Min(DistanceScore, VulnerabilityScore);
-
-	// 6. 행동 결정 (AP/MP 조기 배제 → 거리 기반 분기)
-	UE_LOG(LogPBStateTree, Display, TEXT("=== 시퀀스 조합(Combo) 분석 개시 ==="));
-
-	FPBSequenceAction DecidedAction;
-	float RealDistance = SelfActor->GetDistanceTo(BestTargetActor);
-
-	// 최적 어빌리티의 실제 사거리 조회 (TopTargets[0].AbilityTag 기반)
-	// Range == 0이면 사거리 무제한 → 항상 Attack 가능
-	float AbilityRange = 0.0f; // 기본: 사거리 무제한
-	constexpr float RangeBuffer = 50.0f; // NavMesh 오차 보정
-
-	if (TopTargets[0].AbilityTag.IsValid())
-	{
-		FGameplayTagContainer SearchTags;
-		SearchTags.AddTag(TopTargets[0].AbilityTag);
-		TArray<FGameplayAbilitySpec*> MatchingSpecs;
-		ASC->GetActivatableGameplayAbilitySpecsByAllMatchingTags(SearchTags, MatchingSpecs);
-
-		if (MatchingSpecs.Num() > 0)
-		{
-			if (const UPBGameplayAbility_Targeted* TargetedAbility =
-					Cast<UPBGameplayAbility_Targeted>(MatchingSpecs[0]->Ability))
-			{
-				AbilityRange = TargetedAbility->GetRange();
-			}
-		}
-	}
-
-	// 사거리 무제한(0)이면 실거리와 무관하게 Attack 가능하도록 큰 값으로 설정
-	const bool bUnlimitedRange = (AbilityRange <= 0.0f);
-	const float EffectiveRange = bUnlimitedRange
-		? TNumericLimits<float>::Max()
-		: AbilityRange + RangeBuffer;
-
-	// ─── 조기 배제: AP+MP 자원 검증 (거리 분기 전) ───
-	// AP 소진 시 거리와 무관하게 Fallback 또는 턴 종료
-	if (CurrentAction < 1.0f)
-	{
+		// 타겟 없지만 이동력 남아있으면 방어적 후퇴
 		if (CurrentMovement > 10.0f)
 		{
-			// AP 없음 + 이동력 있음 → 방어적 후퇴
 			const FVector FallbackPos =
-				Clearinghouse->CalculateFallbackPosition(
+				CachedClearinghouse->CalculateFallbackPosition(
 					SelfActor, CurrentMovement);
 
 			if (!FallbackPos.IsZero())
 			{
-				DecidedAction.ActionType = EPBActionType::Move;
-				DecidedAction.TargetActor = nullptr;
-				DecidedAction.TargetLocation = FallbackPos;
-				DecidedAction.Cost.MovementCost = CurrentMovement;
+				FPBSequenceAction FallbackAction;
+				FallbackAction.ActionType = EPBActionType::Move;
+				FallbackAction.TargetActor = nullptr;
+				FallbackAction.TargetLocation = FallbackPos;
+				FallbackAction.Cost.MovementCost = CurrentMovement;
+				GeneratedSequence.Actions.Add(FallbackAction);
+
 				UE_LOG(LogPBStateTree, Display,
-				       TEXT("[Fallback] AP 소진, 방어적 후퇴 이동. "
+				       TEXT("[Fallback] 타겟 없음, 방어적 후퇴만 실행. "
+					       "목표: (%s)"),
+				       *FallbackPos.ToCompactString());
+
+				// EQS로 후퇴 위치 최적화 시도
+				// (쿼리 에셋 미할당 시 기존 CalculateFallbackPosition 좌표 유지)
+				LaunchEQSQueries();
+
+				return EStateTreeRunStatus::Running;
+			}
+		}
+
+		return EStateTreeRunStatus::Failed;
+	}
+
+	// 6. DFS 초기 컨텍스트 구성
+	FPBUtilityContext InitialContext;
+	InitialContext.RemainingAP = CurrentAction;
+	InitialContext.RemainingBA = CurrentBonusAction;
+	InitialContext.RemainingMP = CurrentMovement;
+	InitialContext.AccumulatedMP = 0.0f;
+	InitialContext.LastActionLocation = SelfActor->GetActorLocation();
+
+	// 7. DFS 탐색 실행
+	TArray<FPBSequenceAction> CurrentPath;
+	TArray<FPBSequenceAction> BestPath;
+	float BestScore = 0.0f; // 기준선: "아무것도 안 하기"의 점수
+
+	CachedClearinghouse->SearchBestSequence(
+		InitialContext, CurrentPath, 0.0f,
+		BestScore, BestPath, 0);
+
+	UE_LOG(LogPBStateTree, Display,
+	       TEXT("[DFS] 탐색 완료: BestScore=%.2f, 행동 수=%d"),
+	       BestScore, BestPath.Num());
+
+	// 8. 결과 반영
+	if (BestPath.Num() > 0)
+	{
+		GeneratedSequence.Actions = BestPath;
+		GeneratedSequence.TotalUtilityScore = BestScore;
+
+		// Fallback 후퇴 검토: 시퀀스 실행 후 잔여 이동력으로 방어적 후퇴
+		float ConsumedMP = 0.0f;
+		for (const FPBSequenceAction& Action : BestPath)
+		{
+			ConsumedMP += Action.Cost.MovementCost;
+		}
+		const float RemainingMPAfterSequence = CurrentMovement - ConsumedMP;
+
+		if (RemainingMPAfterSequence > 10.0f)
+		{
+			const FVector FallbackPos =
+				CachedClearinghouse->CalculateFallbackPosition(
+					SelfActor, RemainingMPAfterSequence);
+
+			if (!FallbackPos.IsZero())
+			{
+				FPBSequenceAction FallbackAction;
+				FallbackAction.ActionType = EPBActionType::Move;
+				FallbackAction.TargetActor = nullptr;
+				FallbackAction.TargetLocation = FallbackPos;
+				FallbackAction.Cost.MovementCost = RemainingMPAfterSequence;
+				GeneratedSequence.Actions.Add(FallbackAction);
+
+				UE_LOG(LogPBStateTree, Display,
+				       TEXT("[Fallback] 시퀀스 후 방어적 후퇴 추가. "
 					       "목표: (%s)"),
 				       *FallbackPos.ToCompactString());
 			}
-			else
-			{
-				UE_LOG(LogPBStateTree, Warning,
-				       TEXT("[Fallback] 후퇴 위치 계산 실패. "
-					       "턴을 종료합니다."));
-				return EStateTreeRunStatus::Failed;
-			}
-		}
-		else
-		{
-			// AP 없음 + 이동력 없음 → 턴 종료
-			UE_LOG(LogPBStateTree, Warning,
-			       TEXT("GenerateSequenceTask: AP 및 이동력 모두 부족. "
-				       "턴을 종료(Failed)합니다."));
-			return EStateTreeRunStatus::Failed;
-		}
-	}
-	// ─── AP 있음: 거리 기반 행동 결정 (실제 어빌리티 사거리 사용) ───
-	else if (RealDistance <= EffectiveRange)
-	{
-		// 공격 사거리 이내 → Attack
-		if (ValidAbilities.Num() > 0)
-		{
-			DecidedAction.ActionType = EPBActionType::Attack;
-			DecidedAction.TargetActor = BestTargetActor;
-			DecidedAction.AbilityTag = TopTargets[0].AbilityTag;
-			DecidedAction.Cost.ActionCost = 1.0f;
-			UE_LOG(LogPBStateTree, Display,
-			       TEXT("결정된 행동: 타겟이 사거리 내(거리: %.0f, 사거리: %.0f), "
-				       "Ability [%s] Attack을 결정합니다."),
-			       RealDistance, AbilityRange,
-			       *DecidedAction.AbilityTag.ToString());
-		}
-		else
-		{
-			UE_LOG(LogPBStateTree, Warning,
-			       TEXT("GenerateSequenceTask: 사거리 내이나 발동 가능한 "
-				       "어빌리티가 없어 턴을 종료(Failed)합니다."));
-			return EStateTreeRunStatus::Failed;
 		}
 	}
 	else
 	{
-		// 공격 사거리 밖 → 타겟 접근 이동
-		// 도달 불가 체크: 남은 이동력으로 사거리에 닿을 수 있는가?
-		// (직선 거리 기준 — NavMesh 경로는 더 길 수 있으므로 보수적 추정)
-		const float NeededMovement = RealDistance - EffectiveRange;
-		if (NeededMovement > 0.0f && CurrentMovement < NeededMovement)
+		// DFS가 유효한 행동을 찾지 못함 → Fallback 시도
+		if (CurrentMovement > 10.0f)
 		{
-			UE_LOG(LogPBStateTree, Warning,
-			       TEXT("[도달 불가] 사거리까지 %.0fcm 필요, 보유 이동력 %.0f. "
-				       "턴을 종료합니다."),
-			       NeededMovement, CurrentMovement);
-			return EStateTreeRunStatus::Failed;
+			const FVector FallbackPos =
+				CachedClearinghouse->CalculateFallbackPosition(
+					SelfActor, CurrentMovement);
+
+			if (!FallbackPos.IsZero())
+			{
+				FPBSequenceAction FallbackAction;
+				FallbackAction.ActionType = EPBActionType::Move;
+				FallbackAction.TargetActor = nullptr;
+				FallbackAction.TargetLocation = FallbackPos;
+				FallbackAction.Cost.MovementCost = CurrentMovement;
+				GeneratedSequence.Actions.Add(FallbackAction);
+
+				UE_LOG(LogPBStateTree, Display,
+				       TEXT("[Fallback] DFS 행동 없음, 방어적 후퇴만 실행. "
+					       "목표: (%s)"),
+				       *FallbackPos.ToCompactString());
+			}
 		}
 
-		if (TurnResourceSet && CurrentMovement <= 10.0f)
+		if (GeneratedSequence.Actions.IsEmpty())
 		{
 			UE_LOG(LogPBStateTree, Warning,
-			       TEXT("GenerateSequenceTask: 타겟에 접근해야 하나 남은 "
-				       "이동력(Movement: %f)이 부족하여 턴을 종료(Failed)"
-				       "합니다."),
-			       CurrentMovement);
+			       TEXT("GenerateSequenceTask: DFS 및 Fallback 모두 행동을 "
+				       "생성하지 못했습니다. 턴 종료."));
 			return EStateTreeRunStatus::Failed;
 		}
-
-		float MovementCost = RealDistance;
-		DecidedAction.ActionType = EPBActionType::Move;
-		DecidedAction.TargetActor = BestTargetActor;
-		DecidedAction.Cost.MovementCost = MovementCost;
-
-		UE_LOG(LogPBStateTree, Display,
-		       TEXT("결정된 행동: 타겟이 멀어(거리: %f) [Move]를 결정합니다. "
-			       "(예상 소모 이동력: %f)"),
-		       RealDistance, MovementCost);
 	}
 
-	// 구조체 자체의 변수 오버라이드로 대체 적재
-	GeneratedSequence.SingleAction = DecidedAction;
+	// 9. EQS 위치 최적화 (Phase 3)
+	LaunchEQSQueries();
+
+	// 10. 최종 결과 로깅
+	UE_LOG(LogPBStateTree, Display,
+	       TEXT("\n============================================="));
+	UE_LOG(LogPBStateTree, Display,
+	       TEXT("AI [%s] 생성된 시퀀스: %d개 행동, TotalScore: %.2f%s"),
+	       *SelfActor->GetName(), GeneratedSequence.Actions.Num(),
+	       GeneratedSequence.TotalUtilityScore,
+	       bWaitingForEQS ? TEXT(" [EQS 대기중]") : TEXT(""));
+
+	for (int32 i = 0; i < GeneratedSequence.Actions.Num(); ++i)
+	{
+		const FPBSequenceAction& SeqAction = GeneratedSequence.Actions[i];
+		const FString TargetName = IsValid(SeqAction.TargetActor)
+			? SeqAction.TargetActor->GetName()
+			: TEXT("위치이동");
+		const TCHAR* TypeStr =
+			SeqAction.ActionType == EPBActionType::Attack  ? TEXT("Attack") :
+			SeqAction.ActionType == EPBActionType::Move    ? TEXT("Move") :
+			SeqAction.ActionType == EPBActionType::Heal    ? TEXT("Heal") :
+			SeqAction.ActionType == EPBActionType::Buff    ? TEXT("Buff") :
+			SeqAction.ActionType == EPBActionType::Debuff  ? TEXT("Debuff") :
+			SeqAction.ActionType == EPBActionType::Control ? TEXT("Control") :
+			TEXT("Other");
+
+		UE_LOG(LogPBStateTree, Display,
+		       TEXT("  [%d] %s → %s (AP=%.0f, MP=%.0f)"),
+		       i + 1, TypeStr, *TargetName,
+		       SeqAction.Cost.ActionCost, SeqAction.Cost.MovementCost);
+	}
 
 	UE_LOG(LogPBStateTree, Display,
-	       TEXT("=== GenerateSequenceTask 분석 완료 ==="));
-	UE_LOG(LogPBStateTree, Display,
-	       TEXT("AI [%s]가 생성한 Action Sequence의 TotalUtilityScore: %f"),
-	       *SelfActor->GetName(), GeneratedSequence.TotalUtilityScore);
+	       TEXT("============================================="));
 
-	// 조립이 성공적으로 끝났으므로 StateTree가 하위 State(Execute)를
-	// 취소시키지 않고 유지할 수 있도록 Running 반환
-	// (만약 부모 Task가 Succeeded를 반환하면, 하위 State가 시작되자마자 강제
-	// 종료됩니다!)
+	// StateTree 하위 State(Execute)가 유지되도록 Running 반환
+	// (Succeeded를 반환하면 하위 State가 즉시 강제 종료됨)
 	return EStateTreeRunStatus::Running;
+}
+
+/*~ Tick: EQS 타임아웃 감시 ~*/
+
+EStateTreeRunStatus UPBGenerateSequenceTask::Tick(
+	FStateTreeExecutionContext& Context, const float DeltaTime)
+{
+	if (bWaitingForEQS)
+	{
+		EQSTimeoutRemaining -= DeltaTime;
+
+		if (EQSTimeoutRemaining <= 0.0f)
+		{
+			UE_LOG(LogPBStateTree, Warning,
+				TEXT("[EQS] 타임아웃 (%.1f초 초과). "
+				     "기존 DFS 좌표로 즉시 진행합니다."),
+				UPBUtilityClearinghouse::EQSQueryTimeoutSeconds);
+
+			// EQS 결과 무시하고 기존 좌표로 진행
+			bWaitingForEQS = false;
+			PendingEQSQueryCount = 0;
+			GeneratedSequence.bIsReady = true;
+		}
+	}
+
+	// Generate는 항상 Running 유지 (하위 Execute State가 동작하도록)
+	return EStateTreeRunStatus::Running;
+}
+
+/*~ 상태 퇴장: EQS 정리 ~*/
+
+void UPBGenerateSequenceTask::ExitState(
+	FStateTreeExecutionContext& Context,
+	const FStateTreeTransitionResult& Transition)
+{
+	// 진행 중인 EQS 대기 상태 정리
+	// (쿼리 자체는 Clearinghouse에서 완료되지만 콜백은 무시됨)
+	ResetEQSState();
+	CachedClearinghouse = nullptr;
+}
+
+/*~ EQS 콜백 핸들러 ~*/
+
+void UPBGenerateSequenceTask::OnAttackPositionQueryFinished(
+	bool bSuccess, const FVector& Location)
+{
+	if (!bWaitingForEQS)
+	{
+		// 타임아웃으로 이미 진행됨 — 늦은 콜백 무시
+		return;
+	}
+
+	if (bSuccess
+		&& AttackMoveActionIndex != INDEX_NONE
+		&& GeneratedSequence.Actions.IsValidIndex(AttackMoveActionIndex))
+	{
+		// EQS 최적 위치로 Move 좌표 교체
+		GeneratedSequence.Actions[AttackMoveActionIndex].TargetLocation =
+			Location;
+
+		UE_LOG(LogPBStateTree, Display,
+			TEXT("[EQS] Attack Move [%d] 좌표 교체 완료: (%s)"),
+			AttackMoveActionIndex + 1, *Location.ToCompactString());
+	}
+	else
+	{
+		UE_LOG(LogPBStateTree, Display,
+			TEXT("[EQS] Attack Position 쿼리 실패/무효. "
+			     "DFS 원래 좌표를 유지합니다."));
+	}
+
+	AttackMoveActionIndex = INDEX_NONE;
+	--PendingEQSQueryCount;
+	CheckAllEQSComplete();
+}
+
+void UPBGenerateSequenceTask::OnFallbackPositionQueryFinished(
+	bool bSuccess, const FVector& Location)
+{
+	if (!bWaitingForEQS)
+	{
+		return;
+	}
+
+	if (bSuccess
+		&& FallbackMoveActionIndex != INDEX_NONE
+		&& GeneratedSequence.Actions.IsValidIndex(FallbackMoveActionIndex))
+	{
+		// EQS 최적 위치로 Fallback 좌표 교체
+		GeneratedSequence.Actions[FallbackMoveActionIndex].TargetLocation =
+			Location;
+
+		UE_LOG(LogPBStateTree, Display,
+			TEXT("[EQS] Fallback Move [%d] 좌표 교체 완료: (%s)"),
+			FallbackMoveActionIndex + 1, *Location.ToCompactString());
+	}
+	else
+	{
+		UE_LOG(LogPBStateTree, Display,
+			TEXT("[EQS] Fallback Position 쿼리 실패/무효. "
+			     "기존 CalculateFallbackPosition 좌표를 유지합니다."));
+	}
+
+	FallbackMoveActionIndex = INDEX_NONE;
+	--PendingEQSQueryCount;
+	CheckAllEQSComplete();
+}
+
+void UPBGenerateSequenceTask::CheckAllEQSComplete()
+{
+	if (PendingEQSQueryCount <= 0)
+	{
+		bWaitingForEQS = false;
+		GeneratedSequence.bIsReady = true;
+
+		UE_LOG(LogPBStateTree, Display,
+			TEXT("[EQS] 모든 EQS 쿼리 완료. 시퀀스 준비 완료."));
+	}
 }

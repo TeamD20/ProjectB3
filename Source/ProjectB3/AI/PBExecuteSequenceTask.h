@@ -32,6 +32,12 @@ public:
   FPBActionSequence SequenceToExecute;
 
   /* 내부 상태 (State) 변수들 - 에디터 노출 보이지 않게 처리해둠 */
+
+  // Generate의 EQS 좌표 최적화 완료 대기 여부
+  // bIsReady가 false인 동안 행동 실행을 보류하고 Tick에서 폴링한다.
+  UPROPERTY()
+  bool bWaitingForSequenceReady = false;
+
   UPROPERTY()
   bool bIsActionInProgress = false;
 
@@ -52,9 +58,16 @@ protected:
                          const FStateTreeTransitionResult &Transition) override;
 
 private:
-  EStateTreeRunStatus
-  ProcessSingleAction(FStateTreeExecutionContext &Context,
-                      const FStateTreeTransitionResult &Transition);
+  // 현재 CurrentAction을 실행한다.
+  // Running: 비동기 작업 시작 (콜백 대기)
+  // Succeeded: 동기적 완료 (타겟 사망 스킵 등)
+  // Failed: 실행 불가 (자원 부족, 어빌리티 없음 등)
+  EStateTreeRunStatus ProcessSingleAction();
+
+  // 콜백에서 호출: 이전 델리게이트 정리 후 다음 행동을 소비하여 실행.
+  // 더 이상 행동이 없으면 bIsActionInProgress = false로 시퀀스 완료 처리.
+  void AdvanceToNextAction();
+
   EStateTreeRunStatus UpdateCurrentAction(float DeltaTime);
 
 protected:
