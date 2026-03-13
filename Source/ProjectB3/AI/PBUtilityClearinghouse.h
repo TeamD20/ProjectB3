@@ -62,6 +62,19 @@ public:
 	// K가 CachedTargets.Num()보다 크면 전체 반환
 	TArray<FPBTargetScore> GetTopKTargets(int32 K = 3);
 
+	/*~ DFS 다중 행동 탐색 인터페이스 ~*/
+
+	// DFS 재귀 탐색: 현재 자원(Context)으로 가능한 최적 행동 조합을 탐색하여
+	// BestPath에 기록한다. Context는 값 복사로 전달되어 백트래킹이 자동화된다.
+	// GenerateSequenceTask에서 호출.
+	void SearchBestSequence(
+		FPBUtilityContext Context,
+		TArray<FPBSequenceAction>& CurrentPath,
+		float CurrentScore,
+		float& BestScore,
+		TArray<FPBSequenceAction>& BestPath,
+		int32 Depth);
+
 	/*~ 캐싱 (라이프사이클) 관리 인터페이스 ~*/
 
 	/*~ 캐싱 (라이프사이클) 관리 인터페이스 ~*/
@@ -111,8 +124,59 @@ protected:
 	UPROPERTY(Transient)
 	TMap<AActor*, float> CachedVulnerabilityMap;
 
+	// 타겟 당 ThreatMultiplier 캐시 (CacheTurnData에서 사전 계산)
+	// AI Scoring Example.md §5: lerp(0.5, 2.0, NormalizedThreat)
+	TMap<AActor*, float> CachedThreatMultiplierMap;
 
 	// 타겟 당 ActionScore 선가 결과 캐시 (GetBestActionScoreTarget 연산 중복
 	// 방지)
 	TMap<AActor*, FPBTargetScore> CachedActionScoreMap;
+
+	// 이번 턴 공격자의 ArchetypeWeight (CacheTurnData에서 1회 캐싱)
+	// ArchetypeData 미설정 시 기본값 1.0 (균등 가중)
+	float CachedArchetypeWeight = 1.0f;
+
+	/*~ 헬퍼 함수 ~*/
+
+	// Character.Class.* 태그로부터 전투 역할 판정
+	static EPBCombatRole DetermineCombatRole(AActor* TargetActor);
+
+	// 행동 유형 × 타겟 역할 → RoleMultiplier 조회
+	// AI Scoring Example.md §5 테이블 (현재 Attack 행만 구현)
+	static float GetRoleMultiplier(EPBCombatRole TargetRole);
+
+	// DFS 탐색 시 현재 Context(잔여 자원/위치)에서 실행 가능한
+	// 후보 행동(Attack, Move) 목록을 생성한다.
+	// - Attack: 사거리 내 타겟 + AP ≥ 1 → FPBSequenceAction(Attack)
+	// - Move: 사거리 밖 타겟 + 이동력 충분 → FPBSequenceAction(Move)
+	// CachedActionScoreMap에서 어빌리티 정보(AbilityTag, Range)를 참조.
+	TArray<FPBSequenceAction> GetCandidateActions(
+		const FPBUtilityContext& Context) const;
+
+	/*~ 튜닝 상수 ~*/
+
+	// 처치 보너스 배율 (처치 가능 시 1.0 + KillBonusRate 적용)
+	float KillBonusRate = 0.5f;
+
+	// 처치 시 제거되는 적 턴당 위협 추정값 (HP 기준 절대값)
+	// TODO: ThreatScore 시스템 구현 후 실제 TargetThreatPerTurn으로 교체
+	float FinishOffBaseThreat = 5.0f;
+
+	// FinishOffBonus 잔여 라운드 최대치
+	float MaxFinishOffRounds = 3.0f;
+
+	// ThreatScore 역할별 기본 위협도
+	static constexpr float RoleThreat_Healer = 5.0f;
+	static constexpr float RoleThreat_Caster = 4.0f;
+	static constexpr float RoleThreat_Ranged = 3.0f;
+	static constexpr float RoleThreat_Melee  = 2.0f;
+	static constexpr float RoleThreat_Tank   = 1.0f;
+
+	// LowHP 축 가중치 (빈사 상태의 위협 증폭)
+	static constexpr float LowHPThreatWeight = 2.0f;
+
+	// DFS 최대 탐색 깊이 (행동 개수 상한)
+	// D&D 5e 기준: Action(1) + BonusAction(1) + Move(1) = 최대 3
+	// 안전 마진으로 +1하여 4로 설정
+	static constexpr int32 MaxDFSDepth = 4;
 };
