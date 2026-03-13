@@ -119,6 +119,10 @@ protected:
 	// 방지)
 	TMap<AActor*, FPBTargetScore> CachedActionScoreMap;
 
+	// 이번 턴 공격자의 ArchetypeWeight (CacheTurnData에서 1회 캐싱)
+	// ArchetypeData 미설정 시 기본값 1.0 (균등 가중)
+	float CachedArchetypeWeight = 1.0f;
+
 	/*~ 헬퍼 함수 ~*/
 
 	// Character.Class.* 태그로부터 전투 역할 판정

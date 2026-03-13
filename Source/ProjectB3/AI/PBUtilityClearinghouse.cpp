@@ -1,14 +1,12 @@
 #include "PBUtilityClearinghouse.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
-#include "AbilitySystemGlobals.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "NavigationSystem.h"
+#include "PBAIArchetypeData.h"
 #include "PBAIMockCharacter.h"
 #include "PBGE_RestoreTurnResources.h"
-#include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
-#include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
@@ -268,6 +266,28 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor)
 			static_cast<int32>(DetermineCombatRole(Pair.Key)),
 			Pair.Value, NormalizedThreat, ThreatMultiplier);
 	}
+
+	// --- ArchetypeWeight 사전 캐싱 (1회 Cast) ---
+	// APBCharacterBase로 캐스팅하여 ArchetypeData의 AttackWeight 조회.
+	// 현재 Attack 행동만 구현되어 있으므로 AttackWeight만 캐싱.
+	// 향후 Heal/Buff/Debuff 행동 추가 시 해당 가중치도 캐싱 확장.
+	CachedArchetypeWeight = 1.0f; // 기본값 (DataAsset 미설정 시 균등 가중)
+	if (const APBAIMockCharacter* AIChar = Cast<APBAIMockCharacter>(CurrentTurnActor))
+	{
+		if (const UPBAIArchetypeData* Archetype = AIChar->ArchetypeData)
+		{
+			CachedArchetypeWeight = Archetype->AttackWeight;
+			UE_LOG(LogPBUtility, Log,
+				TEXT("[Archetype] %s의 아키타입 캐싱 완료: AttackWeight=%.2f"),
+				*CurrentTurnActor->GetName(), CachedArchetypeWeight);
+		}
+		else
+		{
+			UE_LOG(LogPBUtility, Log,
+				TEXT("[Archetype] %s에 ArchetypeData 미설정 → 기본 가중치 1.0 사용"),
+				*CurrentTurnActor->GetName());
+		}
+	}
 }
 
 void UPBUtilityClearinghouse::ClearCache()
@@ -279,6 +299,7 @@ void UPBUtilityClearinghouse::ClearCache()
 	CachedVulnerabilityMap.Empty();
 	CachedThreatMultiplierMap.Empty();
 	CachedActionScoreMap.Empty();
+	CachedArchetypeWeight = 1.0f;
 
 	UE_LOG(LogPBUtility, Log,
 		   TEXT("클리어링하우스 메모리 캐시가 성공적으로 비워졌습니다."));
@@ -525,8 +546,8 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 	// TODO: ConcentrationBreakBonus, CliffShoveBonus 등 환경 상호작용
 
 	// --- ArchetypeWeight 산정 ---
-	// TODO: Archetype 데이터 에셋 또는 UCurveFloat 연동 후 실값 교체
-	Score.ArchetypeWeight = 1.0f;
+	// CacheTurnData에서 사전 캐싱한 값 사용 (Cast 없음)
+	Score.ArchetypeWeight = CachedArchetypeWeight;
 
 	// --- MovementScore 산정 ---
 	// 공식: 1.0 - (DistToTarget / MaxMovementRange), 클램프 [0.0, 1.0]
