@@ -27,6 +27,7 @@ void UPBSkillBarViewModel::Deinitialize()
 	PrimaryActions.Empty();
 	SecondaryActions.Empty();
 	SpellActions.Empty();
+	ResponseActions.Empty();
 
 	Super::Deinitialize();
 }
@@ -69,6 +70,7 @@ void UPBSkillBarViewModel::RefreshFromCharacter(AActor* InCharacter)
 	PrimaryActions.Empty();
 	SecondaryActions.Empty();
 	SpellActions.Empty();
+	ResponseActions.Empty();
 
 	IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(InCharacter);
 	UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface != nullptr
@@ -91,6 +93,11 @@ void UPBSkillBarViewModel::RefreshFromCharacter(AActor* InCharacter)
 		FGameplayTagContainer SpellRequireTags;
 		SpellRequireTags.AddTag(PBGameplayTags::Ability_Spell); 
 		BuildSlotsFromFilter(AbilitySystemComponent, SpellRequireTags, FGameplayTagContainer(), SpellActions);
+
+		// 4. 대응 (Reaction)
+		FGameplayTagContainer ReactionRequireTags;
+		ReactionRequireTags.AddTag(PBGameplayTags::Ability_Type_Reaction);
+		BuildSlotsFromFilter(AbilitySystemComponent, ReactionRequireTags, FGameplayTagContainer(), ResponseActions);
 	}
 
 	OnSlotsChanged.Broadcast();
@@ -118,6 +125,7 @@ void UPBSkillBarViewModel::RefreshAllCooldowns()
 	RefreshSlotArray(PrimaryActions, 0);
 	RefreshSlotArray(SecondaryActions, 1);
 	RefreshSlotArray(SpellActions, 2);
+	RefreshSlotArray(ResponseActions, 3);
 }
 
 bool UPBSkillBarViewModel::GetSlotData(int32 CategoryIndex, int32 SlotIndex, FPBSkillSlotData& OutSlotData) const
@@ -139,6 +147,7 @@ const TArray<FPBSkillSlotData>* UPBSkillBarViewModel::GetSlotsByCategory(int32 C
 	case 0: return &PrimaryActions;
 	case 1: return &SecondaryActions;
 	case 2: return &SpellActions;
+	case 3: return &ResponseActions;
 	default: return nullptr;
 	}
 }

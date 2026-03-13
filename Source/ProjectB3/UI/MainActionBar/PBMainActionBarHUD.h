@@ -3,15 +3,16 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PBResponseSkillWidget.h"
 #include "ProjectB3/UI/PBWidgetBase.h"
 #include "PBMainActionBarHUD.generated.h"
 
 class UPBSkillBarWidget;
 class UPBEquipmentSlotWidget;
-class UPBResponseSkillWidget;
 class UPBProfileWidget;
 class UPBSkillBarViewModel;
-class UPanelWidget;
+class APBGameplayPlayerState;
+class UButton;
 
 /**
  * 메인 액션바 HUD 최상위 위젯
@@ -33,39 +34,62 @@ protected:
 	// 뷰모델 슬롯 갱신 이벤트 핸들러
 	void HandleSlotsChanged();
 
+	// 파티원 변경 시 프로필 뷰모델 갱신
+	void HandleSelectedPartyMemberChanged(AActor* NewActor);
+
+	// 인벤토리 버튼 클릭 처리
+	UFUNCTION()
+	void OnInventoryButtonClicked();
+
 	// -- [빨강 영역] 스킬바 --
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UPBSkillBarWidget> SkillBar;
 
 	// -- [노랑 영역] 장비/아이템 슬롯 --
-	// 좌측 주무기 슬롯들을 담을 컨테이너 (WrapBox/HorizontalBox 등)
-	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UPanelWidget> MainWeaponSlots;
+	// 좌측 주무기 슬롯 (최대 2개)
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UPBEquipmentSlotWidget> MainWeaponSlot1;
 
-	// 우측 유틸리티 슬롯들을 담을 컨테이너 (WrapBox/HorizontalBox 등)
-	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UPanelWidget> UtilitySlots;
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UPBEquipmentSlotWidget> MainWeaponSlot2;
 
-	// 개별 장비/아이템 슬롯 위젯 클래스
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|EquipmentSlot", meta = (AllowPrivateAccess = "true"))
-	TSubclassOf<UPBEquipmentSlotWidget> EquipmentSlotWidgetClass;
+	// 우측 유틸리티 슬롯 (최대 4개)
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UPBEquipmentSlotWidget> UtilitySlot1;
 
-	// -- [초록 영역] 대응 스킬 --
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UPBEquipmentSlotWidget> UtilitySlot2;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UPBEquipmentSlotWidget> UtilitySlot3;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UPBEquipmentSlotWidget> UtilitySlot4;
+
+	// -- 대응 스킬 --
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UPBResponseSkillWidget> ResponseSkillArea;
-
-	// -- [보라 영역] 정적/프로필 영역 --
-	// 프로필 (인벤토리 버튼 포함)
+	
+	// 프로필
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UPBProfileWidget> ProfileArea;
 
-	// 기타 정적 요소는 HUD 블루프린트에서 직접 관리하거나 추가 변수 선언 가능
+	// 우측 인벤토리 버튼
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> InventoryButton;
 
 private:
 	// 스킬바/장비 ViewModel 참조
 	UPROPERTY(Transient)
 	TObjectPtr<UPBSkillBarViewModel> SkillBarViewModel;
 
+	// 플레이어 상태 참조
+	UPROPERTY(Transient)
+	TObjectPtr<APBGameplayPlayerState> CachedPlayerState;
+
 	// SlotsChanged 델리게이트 핸들
 	FDelegateHandle SlotsChangedHandle;
+
+	// 파티원 변경 델리게이트 핸들
+	FDelegateHandle SelectedPartyMemberChangedHandle;
 };

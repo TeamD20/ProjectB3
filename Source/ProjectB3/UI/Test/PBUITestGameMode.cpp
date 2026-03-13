@@ -282,9 +282,36 @@ void APBUITestGameMode::InitializeSkillBarViewModel()
 				if (i < DataCount)
 				{
 					SlotData.DisplayName = FText::FromString(FString::Printf(TEXT("%s Skill %d"), *Prefix, i + 1));
-					SlotData.bCanActivate = true;
-					SlotData.CooldownRemaining = 0;
-					SlotData.bIsActive = false;
+					
+					// 시각적 테스트를 위한 상태 다양화
+					if (i == 0)
+					{
+						// 첫 번째: 활성화 상태 (포커스 테두리)
+						SlotData.bCanActivate = true;
+						SlotData.CooldownRemaining = 0;
+						SlotData.bIsActive = true;
+					}
+					else if (i == 1)
+					{
+						// 두 번째: 비활성화 상태 (DisabledOverlay)
+						SlotData.bCanActivate = false;
+						SlotData.CooldownRemaining = 0;
+						SlotData.bIsActive = false;
+					}
+					else if (i == 2)
+					{
+						// 세 번째: 쿨타임 상태 (CooldownOverlay & Text)
+						SlotData.bCanActivate = true;
+						SlotData.CooldownRemaining = 12.0f;
+						SlotData.bIsActive = false;
+					}
+					else
+					{
+						// 나머지: 기본 상태
+						SlotData.bCanActivate = true;
+						SlotData.CooldownRemaining = 0;
+						SlotData.bIsActive = false;
+					}
 					
 					if (DummySkillIconPool.Num() > 0)
 					{
@@ -297,6 +324,7 @@ void APBUITestGameMode::InitializeSkillBarViewModel()
 					SlotData.DisplayName = FText::GetEmpty();
 					SlotData.bCanActivate = false;
 					SlotData.bIsActive = false;
+					SlotData.CooldownRemaining = 0;
 				}
 				
 				DummySlots.Add(SlotData);
@@ -305,9 +333,12 @@ void APBUITestGameMode::InitializeSkillBarViewModel()
 		};
 
 		// GameMode 프로퍼티에 설정된 수만큼 슬롯 생성 (실제 데이터는 일부만 채움)
-		SkillBarVM->PrimaryActions = CreateDummySlots(6, PrimarySlotCount, TEXT("Primary"));
-		SkillBarVM->SecondaryActions = CreateDummySlots(3, SecondarySlotCount, TEXT("Secondary"));
+		SkillBarVM->PrimaryActions = CreateDummySlots(10, PrimarySlotCount, TEXT("Primary"));
+		SkillBarVM->SecondaryActions = CreateDummySlots(8, SecondarySlotCount, TEXT("Secondary"));
 		SkillBarVM->SpellActions = CreateDummySlots(5, SpellSlotCount, TEXT("Spell"));
+		
+		// [ Step 5 테스트 ] 대응 스킬 2개 생성 (Reaction)
+		SkillBarVM->ResponseActions = CreateDummySlots(2, 2, TEXT("Reaction"));
 
 		auto CreateDummyEquipment = [this](int32 Count, bool bIsUtility) -> TArray<FPBEquipmentSlotData>
 		{

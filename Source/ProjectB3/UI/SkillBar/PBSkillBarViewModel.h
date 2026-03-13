@@ -38,7 +38,7 @@ public:
 	// 탭/인덱스로 슬롯 데이터를 조회한다. (0: Primary, 1: Secondary, 2: Spell)
 	bool GetSlotData(int32 CategoryIndex, int32 SlotIndex, FPBSkillSlotData& OutSlotData) const;
 
-	// 카테고리 인덱스로 슬롯 배열을 조회한다.
+	// 카테고리 인덱스로 슬롯 배열을 조회한다. (0: Primary, 1: Secondary, 2: Spell, 3: Response)
 	const TArray<FPBSkillSlotData>* GetSlotsByCategory(int32 CategoryIndex) const;
 
 	// 현재 바인딩된 PlayerState를 반환한다.
@@ -73,6 +73,10 @@ public:
 	// 마법/주문 슬롯 (Spell)
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|SkillBar")
 	TArray<FPBSkillSlotData> SpellActions;
+
+	// [초록 영역] 대응 스킬 슬롯 (Response/Reaction)
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|SkillBar")
+	TArray<FPBSkillSlotData> ResponseActions;
 
 	// [노랑 영역] 좌측 주무기 슬롯 데이터
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|Equipment")

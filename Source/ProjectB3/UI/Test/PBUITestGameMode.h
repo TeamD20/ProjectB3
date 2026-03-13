@@ -73,11 +73,11 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
 	TSubclassOf<AActor> DummyMonsterClass;
 
-	// 최대 스폰 개수
+	// 최대 스폰
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
 	int32 MaxSpawnCount = 4;
 	
-	// 최대 몬스터 스폰 개수
+	// 최대 몬스터 스폰 마리수
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
 	int32 MaxMonsterSpawnCount = 12;
 
