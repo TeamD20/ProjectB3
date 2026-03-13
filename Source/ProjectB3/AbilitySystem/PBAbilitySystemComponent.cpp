@@ -1,6 +1,8 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBAbilitySystemComponent.h"
+
+#include "Attributes/PBTurnResourceAttributeSet.h"
 #include "Data/PBAbilitySetData.h"
 
 DEFINE_LOG_CATEGORY(LogPBAbilitySystem);
@@ -131,6 +133,12 @@ TArray<FGameplayAbilitySpecHandle> UPBAbilitySystemComponent::GetAbilitySpecHand
 void UPBAbilitySystemComponent::SetTurnAbilityActive(bool bActive)
 {
 	bIsTurnAbilityActive = bActive;
+}
+
+void UPBAbilitySystemComponent::ResetMovementResource()
+{
+	const float MaxMovement = GetNumericAttributeBase(UPBTurnResourceAttributeSet::GetMaxMovementAttribute());
+	SetNumericAttributeBase(UPBTurnResourceAttributeSet::GetMovementAttribute(), MaxMovement);
 }
 
 bool UPBAbilitySystemComponent::CanActivateAbilityByHandle(const FGameplayAbilitySpecHandle& Handle) const

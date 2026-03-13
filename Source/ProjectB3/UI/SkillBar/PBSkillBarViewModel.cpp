@@ -197,7 +197,7 @@ void UPBSkillBarViewModel::BuildSlotsFromFilter(
 			? FText::FromString(PBAbilityCDO->GetName())
 			: PBAbilityCDO->GetAbilityDisplayName();
 		SlotData.Icon = PBAbilityCDO->GetAbilityIcon();
-		SlotData.AbilityType = PBAbilityCDO->GetAbilityType();
+		SlotData.AbilityType = PBAbilityCDO->GetAbilityType(AbilityHandle, PBASC->AbilityActorInfo.Get());
 		SlotData.CooldownRemaining = 0;
 		SlotData.bCanActivate = IsValid(PBASC) && PBASC->CanActivateAbilityByHandle(AbilityHandle);
 		OutSlots.Add(SlotData);

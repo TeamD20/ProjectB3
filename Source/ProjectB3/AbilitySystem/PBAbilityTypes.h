@@ -264,6 +264,10 @@ struct PROJECTB3_API FPBTargetingRequest
 	UPROPERTY(BlueprintReadWrite, Category = "Ability|Targeting")
 	FVector OriginLocation = FVector::ZeroVector;
 
+	// 사거리
+	UPROPERTY(BlueprintReadWrite, Category = "Ability|Targeting")
+	float Range = 0.f;
+
 	// AoE 반경 (AoE 모드 미리보기용)
 	UPROPERTY(BlueprintReadWrite, Category = "Ability|Targeting")
 	float AoERadius = 0.f;

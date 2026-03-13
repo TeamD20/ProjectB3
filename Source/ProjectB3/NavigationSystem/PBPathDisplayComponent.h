@@ -53,6 +53,15 @@ public:
 	// 최대 이동 거리를 설정
 	void SetMaxMoveDistance(float NewMaxMoveDistance) { MaxMoveDistance = NewMaxMoveDistance; }
 
+	// 이동 시작 시 확정 경로를 전달받아 경로 추적 시작
+	void BeginPathTracking(const TArray<FVector>& PathPoints);
+
+	// 현재 위치 기준 남은 경로를 계산하여 표시 갱신 (Moving 모드 Tick에서 호출)
+	void UpdateTrackedPath(const FVector& CurrentLocation);
+
+	// 경로 추적 종료 및 표시 초기화
+	void EndPathTracking();
+
 protected:
 	/*~ UActorComponent Interface ~*/
 	virtual void BeginPlay() override;
@@ -86,6 +95,9 @@ private:
 
 	// Debug Line으로 경로를 시각화
 	void DrawDebugPath(const FPBPathDrawData& InDrawData) const;
+
+	// TrackedPathPoints에서 CurrentLocation 투영 이후의 잔여 경로 포인트 배열을 반환
+	TArray<FVector> ExtractRemainingPath(const FVector& CurrentLocation) const;
 
 public:
 	/*~ PathDisplay Settings ~*/
@@ -151,4 +163,7 @@ private:
 
 	// 캐릭터의 최대 이동 가능 거리 (cm). SetMaxMoveDistance로만 변경
 	float MaxMoveDistance = 0.0f;
+
+	// 이동 중 추적할 확정 경로 포인트 (BeginPathTracking으로 설정)
+	TArray<FVector> TrackedPathPoints;
 };

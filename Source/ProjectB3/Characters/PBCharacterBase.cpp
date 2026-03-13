@@ -7,6 +7,7 @@
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "ProjectB3/AbilitySystem/Data/PBAbilitySetData.h"
 #include "ProjectB3/AbilitySystem/Data/PBAbilitySystemRegistry.h"
+#include "ProjectB3/ItemSystem/PBEquipmentActor.h"
 
 APBCharacterBase::APBCharacterBase()
 {
@@ -18,6 +19,18 @@ APBCharacterBase::APBCharacterBase()
 	// AttributeSet 생성
 	CharacterAttributeSet = CreateDefaultSubobject<UPBCharacterAttributeSet>(TEXT("CharacterAttributeSet"));
 	TurnResourceAttributeSet = CreateDefaultSubobject<UPBTurnResourceAttributeSet>(TEXT("TurnResourceAttributeSet"));
+	
+	static ConstructorHelpers::FClassFinder<UAnimInstance> ABPFinder(TEXT("/Game/2_Characters/Manny/ABP_CharacterBase.ABP_CharacterBase_C"));
+	if (ABPFinder.Succeeded())
+	{
+		GetMesh()->SetAnimInstanceClass(ABPFinder.Class);
+	}
+	
+	static ConstructorHelpers::FClassFinder<UAnimInstance> DefaultAnimLayerFinder(TEXT("/Game/2_Characters/Manny/ABP_WeaponLayerBase.ABP_WeaponLayerBase_C"));
+	if (DefaultAnimLayerFinder.Succeeded())
+	{
+		DefaultAnimLayerClass = DefaultAnimLayerFinder.Class;
+	}
 }
 
 UAbilitySystemComponent* APBCharacterBase::GetAbilitySystemComponent() const
@@ -25,10 +38,100 @@ UAbilitySystemComponent* APBCharacterBase::GetAbilitySystemComponent() const
 	return AbilitySystemComponent;
 }
 
+APBEquipmentActor* APBCharacterBase::AttachEquipment(const FGameplayTag& InSlotTag,
+	TSubclassOf<APBEquipmentActor> EquipmentClass)
+{
+	if (!InSlotTag.IsValid())
+	{
+		return nullptr;
+	}
+	if (!IsValid(EquipmentClass))
+	{
+		return nullptr;
+	}
+	if (!EquipmentSlotTagNameMap.Contains(InSlotTag) || EquipmentSlotTagNameMap[InSlotTag] == NAME_None)
+	{
+		return nullptr;
+	}
+	
+	// 이미 해당 클래스 액터를 해당 슬롯에 장착중인 경우
+	if (AttachedEquipments.Contains(InSlotTag))
+	{
+		APBEquipmentActor* ExistingEquipment = AttachedEquipments[InSlotTag];
+		if (IsValid(ExistingEquipment) && ExistingEquipment->GetClass() == EquipmentClass.Get())
+		{
+			return ExistingEquipment;
+		}
+
+		if (IsValid(ExistingEquipment))
+		{
+			ExistingEquipment->UnlinkAnimLayer(GetMesh());
+			ExistingEquipment->Destroy();
+		}
+
+		AttachedEquipments.Remove(InSlotTag);
+	}
+	
+	FName SlotName = EquipmentSlotTagNameMap[InSlotTag];
+	if (!IsValid(GetMesh()) || !IsValid(GetWorld()))
+	{
+		return nullptr;
+	}
+
+	FActorSpawnParameters SpawnParameters;
+	SpawnParameters.Owner = this;
+	SpawnParameters.Instigator = GetInstigator();
+
+	APBEquipmentActor* SpawnedEquipment = GetWorld()->SpawnActor<APBEquipmentActor>(EquipmentClass, FTransform::Identity, SpawnParameters);
+	if (!IsValid(SpawnedEquipment))
+	{
+		return nullptr;
+	}
+
+	if (!SpawnedEquipment->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SlotName))
+	{
+		SpawnedEquipment->Destroy();
+		return nullptr;
+	}
+	
+	SpawnedEquipment->LinkAnimLayer(GetMesh());
+	AttachedEquipments.Add(InSlotTag, SpawnedEquipment);
+	return SpawnedEquipment;
+}
+
+bool APBCharacterBase::DetachEquipment(const FGameplayTag& InSlotTag)
+{
+	if (!InSlotTag.IsValid())
+	{
+		return false;
+	}
+
+	if (!AttachedEquipments.Contains(InSlotTag))
+	{
+		return false;
+	}
+
+	APBEquipmentActor* ExistingEquipment = AttachedEquipments[InSlotTag];
+	AttachedEquipments.Remove(InSlotTag);
+
+	if (IsValid(ExistingEquipment))
+	{
+		ExistingEquipment->UnlinkAnimLayer(GetMesh());
+		ExistingEquipment->Destroy();
+	}
+
+	return true;
+}
+
 void APBCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (IsValid(GetMesh()))
+	{
+		GetMesh()->LinkAnimClassLayers(DefaultAnimLayerClass);
+	}
+	
 	// InitAbilityActorInfo 이후 어빌리티 부여
 	if (IsValid(AbilitySystemComponent))
 	{
@@ -95,7 +198,7 @@ void APBCharacterBase::OnTurnBegin()
 	{
 		AbilitySystemComponent->SetNumericAttributeBase(UPBTurnResourceAttributeSet::GetActionAttribute(), 1.0f);
 		AbilitySystemComponent->SetNumericAttributeBase(UPBTurnResourceAttributeSet::GetBonusActionAttribute(), 1.0f);
-		AbilitySystemComponent->SetNumericAttributeBase(UPBTurnResourceAttributeSet::GetMovementAttribute(), GetBaseMovementSpeed());
+		AbilitySystemComponent->ResetMovementResource();
 	}
 }
 

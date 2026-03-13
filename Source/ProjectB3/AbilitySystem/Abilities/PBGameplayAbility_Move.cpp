@@ -10,6 +10,8 @@
 #include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "ProjectB3/PBGameplayTags.h"
+#include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
+#include "ProjectB3/Combat/PBCombatSystemLibrary.h"
 
 UPBGameplayAbility_Move::UPBGameplayAbility_Move()
 {
@@ -24,6 +26,15 @@ void UPBGameplayAbility_Move::ActivateAbility(
 	const FGameplayAbilityActivationInfo ActivationInfo,
 	const FGameplayEventData* TriggerEventData)
 {
+	// 전투 상황이 아니면 이동자원 회복
+	if (!UPBCombatSystemLibrary::IsInCombat(this))
+	{
+		if (UPBAbilitySystemComponent* ASC = GetPBAbilitySystemComponent())
+		{
+			ASC->ResetMovementResource();
+		}
+	}
+	
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
@@ -38,10 +49,10 @@ void UPBGameplayAbility_Move::ActivateAbility(
 	}
 
 	// 플레이어: PC 모드를 Movement로 전환하고 MoveCommand 이벤트 대기
-	APBGameplayPlayerController* PC = Cast<APBGameplayPlayerController>(ActorInfo->PlayerController.Get());
+	APBGameplayPlayerController* PC = GetPBPlayerController();
 	if (IsValid(PC))
 	{
-		PC->SetControllerMode(EPBPlayerControllerMode::Movement);
+		PC->SetControllerMode(EPBPlayerControllerMode::TurnMovement);
 
 		// AttributeSet의 Movement 값을 PathDisplay에 전달
 		UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
@@ -72,26 +83,38 @@ void UPBGameplayAbility_Move::EndAbility(
 		ActiveMoveTask = nullptr;
 	}
 
-	// 경로 포인트 기준 실제 이동 거리 차감 (반응행동 등으로 중단될 수 있으므로 실제 거리 기준)
-	AActor* AvatarActor = GetAvatarActorFromActorInfo();
-	UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
-	if (IsValid(AvatarActor) && IsValid(ASC) && MovePathPoints.Num() > 0)
+	// 전투 중인 경우 경로 포인트 기준 실제 이동 거리 차감 (반응행동 등으로 중단될 수 있으므로 실제 거리 기준)
+	if (UPBCombatSystemLibrary::IsInCombat(this))
 	{
-		const float ActualDistance = CalculateDistanceAlongPath(AvatarActor->GetActorLocation());
-		if (ActualDistance > 0.0f)
+		AActor* AvatarActor = GetAvatarActorFromActorInfo();
+		UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+		if (IsValid(AvatarActor) && IsValid(ASC) && MovePathPoints.Num() > 0)
 		{
-			ASC->ApplyModToAttribute(UPBTurnResourceAttributeSet::GetMovementAttribute(), EGameplayModOp::Additive, -ActualDistance);
+			const float ActualDistance = CalculateDistanceAlongPath(AvatarActor->GetActorLocation());
+			if (ActualDistance > 0.0f)
+			{
+				ASC->ApplyModToAttribute(UPBTurnResourceAttributeSet::GetMovementAttribute(), EGameplayModOp::Additive, -ActualDistance);
+			}
 		}
 	}
+	
 	MovePathPoints.Reset();
 
-	// Movement 모드인 경우 None으로 복원
+	// PC 모드 복원
 	if (ActorInfo)
 	{
-		APBGameplayPlayerController* PC = Cast<APBGameplayPlayerController>(ActorInfo->PlayerController.Get());
-		if (IsValid(PC) && PC->GetControllerMode() == EPBPlayerControllerMode::Movement)
+		APBGameplayPlayerController* PC = GetPBPlayerController();
+		if (IsValid(PC))
 		{
-			PC->SetControllerMode(EPBPlayerControllerMode::None);
+			if (PC->GetControllerMode() == EPBPlayerControllerMode::Moving)
+			{
+				PC->EndMoving();
+				PC->SetControllerMode(EPBPlayerControllerMode::None);
+			}
+			else if (PC->GetControllerMode() == EPBPlayerControllerMode::TurnMovement)
+			{
+				PC->SetControllerMode(EPBPlayerControllerMode::None);
+			}
 		}
 	}
 
@@ -113,7 +136,7 @@ void UPBGameplayAbility_Move::HandleMoveEvent(FGameplayEventData Payload)
 	}
 
 	// PC는 플레이어 전용 — AI인 경우 null
-	APBGameplayPlayerController* PC = Cast<APBGameplayPlayerController>(ActorInfo->PlayerController.Get());
+	APBGameplayPlayerController* PC = GetPBPlayerController();
 
 	// Payload에서 목표 위치 추출
 	const UPBTargetPayload* TargetPayload = Cast<UPBTargetPayload>(Payload.OptionalObject);
@@ -151,6 +174,12 @@ void UPBGameplayAbility_Move::HandleMoveEvent(FGameplayEventData Payload)
 	ActiveMoveTask = UPBAbilityTask_MoveToLocation::CreateTask(this, Destination);
 	ActiveMoveTask->OnMoveCompleted.AddDynamic(this, &UPBGameplayAbility_Move::HandleMoveCompleted);
 	ActiveMoveTask->ReadyForActivation();
+
+	// 플레이어: Moving 모드로 전환하여 남은 경로 표시 시작
+	if (IsValid(PC))
+	{
+		PC->BeginMoving(MovePathPoints);
+	}
 }
 
 void UPBGameplayAbility_Move::HandleMoveCompleted(TEnumAsByte<EPathFollowingResult::Type> Result)

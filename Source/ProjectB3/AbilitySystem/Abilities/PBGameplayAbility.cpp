@@ -6,26 +6,64 @@
 #include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemLibrary.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
+#include "ProjectB3/Characters/PBCharacterBase.h"
+#include "ProjectB3/Combat/PBCombatSystemLibrary.h"
+#include "ProjectB3/Player/PBGameplayPlayerController.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPBGameplayAbility, Log, All);
 
-EPBAbilityType UPBGameplayAbility::GetAbilityType() const
+UPBGameplayAbility::UPBGameplayAbility()
 {
-	// CDO가 아닌 인스턴스에서만 Spec의 DynamicAbilityTags를 포함하여 조회한다.
-	if (IsInstantiated())
-	{
-		if (FGameplayAbilitySpec* Spec = GetCurrentAbilitySpec())
-		{
-			FGameplayTagContainer CombinedTags;
-			CombinedTags.AppendTags(GetAssetTags());
-			CombinedTags.AppendTags(Spec->GetDynamicSpecSourceTags());
-			return GetAbilityTypeFromTags(CombinedTags);
-		}
-	}
-
-	// CDO이거나 활성 Spec이 없으면 AssetTags만 조회한다.
-	return GetAbilityTypeFromTags(GetAssetTags());
+	DiceSpec.RollType = EPBDiceRollType::None;
 }
+
+APBCharacterBase* UPBGameplayAbility::K2_GetPBCharacter(EPBValidResult& Result) const
+{
+	APBCharacterBase* Character = GetPBCharacter();
+	Result = IsValid(Character) ? EPBValidResult::Valid : EPBValidResult::Invalid;
+	return Character;
+}
+
+APBCharacterBase* UPBGameplayAbility::GetPBCharacter() const
+{
+	return Cast<APBCharacterBase>(GetAvatarActorFromActorInfo());
+}
+
+APBGameplayPlayerController* UPBGameplayAbility::K2_GetPBPlayerController(EPBValidResult& Result) const
+{
+	APBGameplayPlayerController* Controller = GetPBPlayerController();
+	Result = IsValid(Controller) ? EPBValidResult::Valid : EPBValidResult::Invalid;
+	return Controller;
+}
+
+APBGameplayPlayerController* UPBGameplayAbility::GetPBPlayerController() const
+{
+	if (APawn* Pawn = Cast<APawn>(GetAvatarActorFromActorInfo()))
+	{
+		return Pawn->GetController<APBGameplayPlayerController>();
+	}
+	return nullptr;
+}
+
+UPBAbilitySystemComponent* UPBGameplayAbility::GetPBAbilitySystemComponent() const
+{
+	if (!CurrentActorInfo)
+	{
+		return nullptr;
+	}
+	return Cast<UPBAbilitySystemComponent>( CurrentActorInfo->AbilitySystemComponent.Get());
+}
+
+UPBAbilitySystemComponent* UPBGameplayAbility::GetPBAbilitySystemComponentFromActorInfo(
+	const FGameplayAbilityActorInfo* ActorInfo) const
+{
+	if (ActorInfo)
+	{
+		return Cast<UPBAbilitySystemComponent>(ActorInfo->AbilitySystemComponent.Get());	
+	}
+	return nullptr;
+}
+
 
 bool UPBGameplayAbility::CanActivateAbility(
 	const FGameplayAbilitySpecHandle Handle,
@@ -40,14 +78,13 @@ bool UPBGameplayAbility::CanActivateAbility(
 	}
 
 	// 타입이 None이면 제한 없이 활성화 허용
-	if (GetAbilityType() == EPBAbilityType::None)
+	if (GetAbilityType(Handle, ActorInfo) == EPBAbilityType::None)
 	{
 		return true;
 	}
 
 	// 턴 기반 어빌리티가 이미 실행 중이면 활성화 거부
-	if (const UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(
-		ActorInfo->AbilitySystemComponent.Get()))
+	if (const UPBAbilitySystemComponent* PBASC = GetPBAbilitySystemComponentFromActorInfo(ActorInfo))
 	{
 		if (PBASC->IsTurnAbilityActive())
 		{
@@ -65,9 +102,9 @@ void UPBGameplayAbility::ActivateAbility(
 	const FGameplayEventData* TriggerEventData)
 {
 	// 턴 기반 어빌리티인 경우 ASC에 실행 중 플래그 설정
-	if (GetAbilityType() != EPBAbilityType::None)
+	if (GetAbilityType(Handle, ActorInfo) != EPBAbilityType::None)
 	{
-		if (UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(ActorInfo->AbilitySystemComponent.Get()))
+		if (UPBAbilitySystemComponent* PBASC = GetPBAbilitySystemComponentFromActorInfo(ActorInfo))
 		{
 			PBASC->SetTurnAbilityActive(true);
 		}
@@ -83,12 +120,22 @@ void UPBGameplayAbility::EndAbility(
 	bool bReplicateEndAbility,
 	bool bWasCancelled)
 {
-	// 턴 기반 어빌리티인 경우 ASC 플래그 해제
-	if (GetAbilityType() != EPBAbilityType::None)
+	// 턴 기반 어빌리티인 경우
+	if (GetAbilityType(Handle, ActorInfo) != EPBAbilityType::None)
 	{
-		if (UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(ActorInfo->AbilitySystemComponent.Get()))
+		if (UPBAbilitySystemComponent* PBASC = GetPBAbilitySystemComponentFromActorInfo(ActorInfo))
 		{
+			// ASC 플래그 해제
 			PBASC->SetTurnAbilityActive(false);
+		}
+		
+		// 전투중이 아니면 자유 이동모드로 복귀 
+		if (!UPBCombatSystemLibrary::IsInCombat(this))
+		{
+			if (APBGameplayPlayerController* PBPC = GetPBPlayerController())
+			{
+				PBPC->SetControllerMode(EPBPlayerControllerMode::FreeMovement);
+			}
 		}
 	}
 
@@ -100,6 +147,34 @@ UGameplayEffect* UPBGameplayAbility::GetCooldownGameplayEffect() const
 	// TODO: 턴제 쿨다운은 GAS 내장 CooldownTag GE를 사용하지 않는다.
 	// 추후 턴 종료 시점에 별도 쿨다운 카운터로 관리 예정.
 	return nullptr;
+}
+
+EPBAbilityType UPBGameplayAbility::K2_GetAbilityType() const
+{
+	return GetAbilityType(GetCurrentAbilitySpecHandle(), GetCurrentActorInfo());
+}
+
+EPBAbilityType UPBGameplayAbility::GetAbilityType(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo) const
+{
+	if (!Handle.IsValid() || !ActorInfo)
+	{
+		// 활성 Spec이 없으면 AssetTags만 조회한다.
+		return GetAbilityTypeFromTags(GetAssetTags());
+	}
+
+	// Valid한 Spec이 있는 경우 DynamicTag까지 조회
+	if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
+	{
+		if (FGameplayAbilitySpec* Spec = ASC->FindAbilitySpecFromHandle(Handle))
+		{
+			FGameplayTagContainer CombinedTags;
+			CombinedTags.AppendTags(GetAssetTags());
+			CombinedTags.AppendTags(Spec->GetDynamicSpecSourceTags());
+			return GetAbilityTypeFromTags(CombinedTags);
+		}
+	}
+	
+	return GetAbilityTypeFromTags(GetAssetTags());
 }
 
 FPBHitRollResult UPBGameplayAbility::RollHit(const UAbilitySystemComponent* InTargetASC) const

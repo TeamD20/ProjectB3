@@ -5,8 +5,16 @@
 #include "CoreMinimal.h"
 #include "AttributeSet.h"
 #include "AbilitySystemComponent.h"
-#include "ProjectB3/AI/PBAIMockAttributeSet.h"
 #include "PBTurnResourceAttributeSet.generated.h"
+
+#ifndef ATTRIBUTE_ACCESSORS
+#define ATTRIBUTE_ACCESSORS(ClassName, PropertyName) \
+GAMEPLAYATTRIBUTE_PROPERTY_GETTER(ClassName, PropertyName) \
+GAMEPLAYATTRIBUTE_VALUE_GETTER(PropertyName) \
+GAMEPLAYATTRIBUTE_VALUE_SETTER(PropertyName) \
+GAMEPLAYATTRIBUTE_VALUE_INITTER(PropertyName)
+#endif
+
 
 /**
  * 턴 자원 AttributeSet.
@@ -43,4 +51,8 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Combat|TurnResource")
 	FGameplayAttributeData Movement;
 	ATTRIBUTE_ACCESSORS(UPBTurnResourceAttributeSet, Movement)
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Combat|TurnResource")
+	FGameplayAttributeData MaxMovement;
+	ATTRIBUTE_ACCESSORS(UPBTurnResourceAttributeSet, MaxMovement)
 };

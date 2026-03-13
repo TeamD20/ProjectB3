@@ -4,7 +4,6 @@
 
 #include "GameFramework/PlayerController.h"
 #include "InputActionValue.h"
-#include "PBPlayerCheatManager.h"
 #include "PBGameplayPlayerController.generated.h"
 
 class UNiagaraSystem;
@@ -29,8 +28,11 @@ enum class EPBPlayerControllerMode : uint8
 	FreeMovement,
 	
 	// 턴 기반 이동 모드 (이동력 제한)
-	Movement,
-	
+	TurnMovement,
+
+	// 이동 실행 중 (MoveToLocation Task 동작 중)
+	Moving,
+
 	// 어빌리티 타겟팅 모드
 	Targeting,
 };
@@ -62,6 +64,12 @@ public:
 
 	// PathDisplay 초기화
 	void ClearPathDisplay();
+
+	// 이동 시작 시 확정 경로를 전달하고 Moving 모드로 진입
+	void BeginMoving(const TArray<FVector>& PathPoints);
+
+	// 이동 종료 시 PathDisplay 추적 종료 (모드 전환은 호출부 담당)
+	void EndMoving();
 	
 	// 현재 모드를 종료하고 해당 모드로 전환
 	void SetControllerMode(EPBPlayerControllerMode NewMode);
