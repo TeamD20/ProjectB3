@@ -166,6 +166,20 @@ public:
 		return CachedTargets;
 	}
 
+	// 적 대상 ActionScore 캐시 맵 반환 (Fallback 후 행동 탐색용)
+	const TMap<AActor*, FPBTargetScore>& GetCachedActionScores() const
+	{
+		return CachedActionScoreMap;
+	}
+
+	// 턴 시작 시 캐싱된 최대 이동력 반환
+	float GetCachedMaxMovement() const { return CachedMaxMovement; }
+
+	// 현재 Context(잔여 자원/위치)에서 실행 가능한 후보 행동 목록 생성.
+	// DFS 내부 및 Fallback 후 단일 행동 탐색에서 공용 호출.
+	TArray<FPBSequenceAction> GetCandidateActions(
+		const FPBUtilityContext& Context) const;
+
 protected:
 	// 이번 턴에 연산 및 판단 주체가 되는 주인공 액터.
 	UPROPERTY(Transient)
@@ -227,6 +241,10 @@ protected:
 	};
 	FPBCachedArchetypeWeights CachedArchetypeWeights;
 
+	// 턴 시작 시 캐싱된 최대 이동력 (Movement 실값)
+	// EvaluateActionScore의 MovementScore 정규화 기준값으로 사용
+	float CachedMaxMovement = 1000.0f;
+
 	/*~ 헬퍼 함수 ~*/
 
 	// Character.Class.* 태그로부터 전투 역할 판정
@@ -236,13 +254,6 @@ protected:
 	// AI Scoring Example.md §5 테이블 (현재 Attack 행만 구현)
 	static float GetRoleMultiplier(EPBCombatRole TargetRole);
 
-	// DFS 탐색 시 현재 Context(잔여 자원/위치)에서 실행 가능한
-	// 후보 행동(Attack, Move) 목록을 생성한다.
-	// - Attack: 사거리 내 타겟 + AP ≥ 1 → FPBSequenceAction(Attack)
-	// - Move: 사거리 밖 타겟 + 이동력 충분 → FPBSequenceAction(Move)
-	// CachedActionScoreMap에서 어빌리티 정보(AbilityTag, Range)를 참조.
-	TArray<FPBSequenceAction> GetCandidateActions(
-		const FPBUtilityContext& Context) const;
 
 	/*~ 튜닝 상수 ~*/
 
