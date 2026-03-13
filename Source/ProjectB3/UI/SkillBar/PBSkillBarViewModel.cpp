@@ -24,11 +24,10 @@ void UPBSkillBarViewModel::InitializeForPlayer(ULocalPlayer* InLocalPlayer)
 void UPBSkillBarViewModel::Deinitialize()
 {
 	BindToPlayerState(nullptr);
-	CommonSlots.Empty();
-	ClassSlots.Empty();
-	ItemSlots.Empty();
-	PassiveSlots.Empty();
-	CustomSlots.Empty();
+	PrimaryActions.Empty();
+	SecondaryActions.Empty();
+	SpellActions.Empty();
+	ResponseActions.Empty();
 
 	Super::Deinitialize();
 }
@@ -68,11 +67,10 @@ void UPBSkillBarViewModel::BindToPlayerState(APBGameplayPlayerState* InPlayerSta
 
 void UPBSkillBarViewModel::RefreshFromCharacter(AActor* InCharacter)
 {
-	CommonSlots.Empty();
-	ClassSlots.Empty();
-	ItemSlots.Empty();
-	PassiveSlots.Empty();
-	CustomSlots.Empty();
+	PrimaryActions.Empty();
+	SecondaryActions.Empty();
+	SpellActions.Empty();
+	ResponseActions.Empty();
 
 	IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(InCharacter);
 	UAbilitySystemComponent* AbilitySystemComponent = AbilitySystemInterface != nullptr
@@ -81,21 +79,25 @@ void UPBSkillBarViewModel::RefreshFromCharacter(AActor* InCharacter)
 
 	if (IsValid(AbilitySystemComponent))
 	{
-		// 임시 구현: 추후 기획 확정 시 태그 필터를 변경하여 5개의 탭에 맞게 실제 능력들을 분배합니다.
+		// 1. 주행동 (Action)
 		FGameplayTagContainer ActionRequireTags;
 		ActionRequireTags.AddTag(PBGameplayTags::Ability_Type_Action);
+		BuildSlotsFromFilter(AbilitySystemComponent, ActionRequireTags, FGameplayTagContainer(), PrimaryActions);
 
-		FGameplayTagContainer ActionIgnoreTags;
-		ActionIgnoreTags.AddTag(PBGameplayTags::Ability_Spell);
-		BuildSlotsFromFilter(AbilitySystemComponent, ActionRequireTags, ActionIgnoreTags, CommonSlots);
-
+		// 2. 보조행동 (BonusAction)
 		FGameplayTagContainer BonusActionRequireTags;
 		BonusActionRequireTags.AddTag(PBGameplayTags::Ability_Type_BonusAction);
-		BuildSlotsFromFilter(AbilitySystemComponent, BonusActionRequireTags, FGameplayTagContainer(), ClassSlots);
+		BuildSlotsFromFilter(AbilitySystemComponent, BonusActionRequireTags, FGameplayTagContainer(), SecondaryActions);
 
+		// 3. 마법 (Spell)
 		FGameplayTagContainer SpellRequireTags;
-		SpellRequireTags.AddTag(PBGameplayTags::Ability_Spell);
-		BuildSlotsFromFilter(AbilitySystemComponent, SpellRequireTags, FGameplayTagContainer(), ItemSlots);
+		SpellRequireTags.AddTag(PBGameplayTags::Ability_Spell); 
+		BuildSlotsFromFilter(AbilitySystemComponent, SpellRequireTags, FGameplayTagContainer(), SpellActions);
+
+		// 4. 대응 (Reaction)
+		FGameplayTagContainer ReactionRequireTags;
+		ReactionRequireTags.AddTag(PBGameplayTags::Ability_Type_Reaction);
+		BuildSlotsFromFilter(AbilitySystemComponent, ReactionRequireTags, FGameplayTagContainer(), ResponseActions);
 	}
 
 	OnSlotsChanged.Broadcast();
@@ -109,27 +111,26 @@ void UPBSkillBarViewModel::RefreshAllCooldowns()
 		return;
 	}
 
-	auto RefreshSlotArray = [this, AbilitySystemComponent](TArray<FPBSkillSlotData>& Slots, int32 TabIndex)
+	auto RefreshSlotArray = [this, AbilitySystemComponent](TArray<FPBSkillSlotData>& Slots, int32 CategoryIndex)
 	{
 		const UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(AbilitySystemComponent);
 		for (int32 SlotIndex = 0; SlotIndex < Slots.Num(); ++SlotIndex)
 		{
 			FPBSkillSlotData& Slot = Slots[SlotIndex];
 			Slot.bCanActivate = IsValid(PBASC) && PBASC->CanActivateAbilityByHandle(Slot.AbilityHandle);
-			OnSlotUpdated.Broadcast(TabIndex, SlotIndex);
+			OnSlotUpdated.Broadcast(CategoryIndex, SlotIndex);
 		}
 	};
 
-	RefreshSlotArray(CommonSlots, 0);
-	RefreshSlotArray(ClassSlots, 1);
-	RefreshSlotArray(ItemSlots, 2);
-	RefreshSlotArray(PassiveSlots, 3);
-	RefreshSlotArray(CustomSlots, 4);
+	RefreshSlotArray(PrimaryActions, 0);
+	RefreshSlotArray(SecondaryActions, 1);
+	RefreshSlotArray(SpellActions, 2);
+	RefreshSlotArray(ResponseActions, 3);
 }
 
-bool UPBSkillBarViewModel::GetSlotData(int32 TabIndex, int32 SlotIndex, FPBSkillSlotData& OutSlotData) const
+bool UPBSkillBarViewModel::GetSlotData(int32 CategoryIndex, int32 SlotIndex, FPBSkillSlotData& OutSlotData) const
 {
-	const TArray<FPBSkillSlotData>* Slots = GetSlotsByTab(TabIndex);
+	const TArray<FPBSkillSlotData>* Slots = GetSlotsByCategory(CategoryIndex);
 	if (Slots == nullptr || !Slots->IsValidIndex(SlotIndex))
 	{
 		return false;
@@ -139,15 +140,14 @@ bool UPBSkillBarViewModel::GetSlotData(int32 TabIndex, int32 SlotIndex, FPBSkill
 	return true;
 }
 
-const TArray<FPBSkillSlotData>* UPBSkillBarViewModel::GetSlotsByTab(int32 TabIndex) const
+const TArray<FPBSkillSlotData>* UPBSkillBarViewModel::GetSlotsByCategory(int32 CategoryIndex) const
 {
-	switch (TabIndex)
+	switch (CategoryIndex)
 	{
-	case 0: return &CommonSlots;
-	case 1: return &ClassSlots;
-	case 2: return &ItemSlots;
-	case 3: return &PassiveSlots;
-	case 4: return &CustomSlots;
+	case 0: return &PrimaryActions;
+	case 1: return &SecondaryActions;
+	case 2: return &SpellActions;
+	case 3: return &ResponseActions;
 	default: return nullptr;
 	}
 }

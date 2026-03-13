@@ -65,17 +65,31 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
 	TSubclassOf<UUserWidget> MainHUDClass;
 
+	// [Step 1] 신규 메인 액션바 HUD 클래스
+	UPROPERTY(EditAnywhere, Category = "Test|Settings")
+	TSubclassOf<UUserWidget> MainActionBarHUDClass;
+
 	// 스폰할 더미 몬스터 액터의 클래스
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
 	TSubclassOf<AActor> DummyMonsterClass;
 
-	// 최대 스폰 개수
+	// 최대 스폰
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
 	int32 MaxSpawnCount = 4;
 	
-	// 최대 몬스터 스폰 개수
+	// 최대 몬스터 스폰 마리수
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
 	int32 MaxMonsterSpawnCount = 12;
+
+	// [Step 2] 스킬바 카테고리별 슬롯 수 (빈 칸 포함 공간 확보용)
+	UPROPERTY(EditAnywhere, Category = "Test|Settings")
+	int32 PrimarySlotCount = 12;
+
+	UPROPERTY(EditAnywhere, Category = "Test|Settings")
+	int32 SecondarySlotCount = 12;
+
+	UPROPERTY(EditAnywhere, Category = "Test|Settings")
+	int32 SpellSlotCount = 12;
 	
 	// 랜덤으로 부여할 이름들 모음
 	UPROPERTY(EditAnywhere, Category = "Test|Data")
@@ -105,6 +119,10 @@ private:
 	// 화면에 띄워진 통합 메인 HUD 위젯
 	UPROPERTY()
 	TObjectPtr<UUserWidget> CreatedMainHUDWidget;
+
+	// 생성된 메인 액션바 HUD 위젯
+	UPROPERTY()
+	TObjectPtr<UUserWidget> CreatedMainActionBarWidget;
 
 	// 생성된 몬스터들을 보관
 	UPROPERTY(VisibleAnywhere, Category = "Test|Runtime")
