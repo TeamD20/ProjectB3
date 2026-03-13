@@ -11,6 +11,7 @@ class UButton;
 class UImage;
 class UTextBlock;
 class UOverlay;
+class UBorder;
 class UPBSkillBarViewModel;
 
 /** 스킬바의 단일 슬롯 UI 위젯 */
@@ -55,6 +56,14 @@ private:
 	// 쿨다운 오버레이
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UOverlay> CooldownOverlay;
+
+	// 선택(Pressed) 시 나타나는 포커스 테두리
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UBorder> FocusBorder;
+
+	// 발동 불가 시 나타나는 오버레이 (비활성화 시각화)
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> DisabledOverlay;
 
 	// 현재 슬롯 데이터
 	FPBSkillSlotData SlotData;

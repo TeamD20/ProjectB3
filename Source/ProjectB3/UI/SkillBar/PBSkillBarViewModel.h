@@ -35,11 +35,11 @@ public:
 	// 전체 슬롯의 쿨다운/활성 가능 상태를 갱신한다.
 	void RefreshAllCooldowns();
 
-	// 탭/인덱스로 슬롯 데이터를 조회한다.
-	bool GetSlotData(int32 TabIndex, int32 SlotIndex, FPBSkillSlotData& OutSlotData) const;
+	// 탭/인덱스로 슬롯 데이터를 조회한다. (0: Primary, 1: Secondary, 2: Spell)
+	bool GetSlotData(int32 CategoryIndex, int32 SlotIndex, FPBSkillSlotData& OutSlotData) const;
 
-	// 탭 인덱스로 슬롯 배열을 조회한다.
-	const TArray<FPBSkillSlotData>* GetSlotsByTab(int32 TabIndex) const;
+	// 카테고리 인덱스로 슬롯 배열을 조회한다. (0: Primary, 1: Secondary, 2: Spell, 3: Response)
+	const TArray<FPBSkillSlotData>* GetSlotsByCategory(int32 CategoryIndex) const;
 
 	// 현재 바인딩된 PlayerState를 반환한다.
 	APBGameplayPlayerState* GetPlayerState() const { return PlayerState.Get(); }
@@ -62,20 +62,29 @@ private:
 	UAbilitySystemComponent* GetSelectedAbilitySystemComponent() const;
 
 public:
-	// 일반 탭 슬롯 (Common)
-	TArray<FPBSkillSlotData> CommonSlots;
+	// 주행동 슬롯 (Primary)
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|SkillBar")
+	TArray<FPBSkillSlotData> PrimaryActions;
 
-	// 직업 탭 슬롯 (Class)
-	TArray<FPBSkillSlotData> ClassSlots;
+	// 보조행동 슬롯 (Secondary)
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|SkillBar")
+	TArray<FPBSkillSlotData> SecondaryActions;
 
-	// 아이템 탭 슬롯 (Item)
-	TArray<FPBSkillSlotData> ItemSlots;
+	// 마법/주문 슬롯 (Spell)
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|SkillBar")
+	TArray<FPBSkillSlotData> SpellActions;
 
-	// 상시 발동 탭 슬롯 (Passive)
-	TArray<FPBSkillSlotData> PassiveSlots;
+	// [초록 영역] 대응 스킬 슬롯 (Response/Reaction)
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|SkillBar")
+	TArray<FPBSkillSlotData> ResponseActions;
 
-	// 커스텀 탭 슬롯 (Custom)
-	TArray<FPBSkillSlotData> CustomSlots;
+	// [노랑 영역] 좌측 주무기 슬롯 데이터
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|Equipment")
+	TArray<FPBEquipmentSlotData> WeaponSlots;
+
+	// [노랑 영역] 우측 유틸리티/소모품 슬롯 데이터
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|Equipment")
+	TArray<FPBEquipmentSlotData> UtilitySlots;
 
 	// 전체 슬롯 재구성 이벤트
 	FOnSkillSlotsChanged OnSlotsChanged;
