@@ -1,7 +1,7 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBSkillBarWidget.h"
-#include "PBSkillIconWidget.h"
+#include "PBSkillSlotWidget.h"
 #include "PBSkillBarViewModel.h"
 #include "ProjectB3/UI/PBUIBlueprintLibrary.h"
 #include "Components/PanelWidget.h"
@@ -12,24 +12,28 @@ void UPBSkillBarWidget::RefreshSkillBar()
 {
 	if (!IsValid(SkillBarViewModel)) return;
 
-	auto RebuildContainer = [this](UPanelWidget* Container, const TArray<FPBSkillSlotData>& Slots)
+	auto RebuildContainer = [this](UPanelWidget* Container, const TArray<FPBSkillSlotData>& Slots, int32 CategoryIndex)
 	{
 		if (!IsValid(Container)) return;
 		
 		Container->ClearChildren();
-		for (const FPBSkillSlotData& SlotData : Slots)
+
+		for (int32 i = 0; i < Slots.Num(); ++i)
 		{
-			if (UPBSkillIconWidget* IconWidget = CreateWidget<UPBSkillIconWidget>(this, SkillIconWidgetClass))
+			if (UPBSkillSlotWidget* SlotWidget = CreateWidget<UPBSkillSlotWidget>(this, SkillSlotWidgetClass))
 			{
-				IconWidget->UpdateSlot(SlotData);
-				Container->AddChild(IconWidget);
+				SlotWidget->InitializeBinding(SkillBarViewModel.Get());
+				SlotWidget->SetSlotIndex(CategoryIndex, i);
+				SlotWidget->SetSlotData(Slots[i]);
+				
+				Container->AddChild(SlotWidget);
 			}
 		}
 	};
 
-	RebuildContainer(PrimaryActionContainer, SkillBarViewModel->PrimaryActions);
-	RebuildContainer(SecondaryActionContainer, SkillBarViewModel->SecondaryActions);
-	RebuildContainer(ItemSlotContainer, SkillBarViewModel->ItemSlots);
+	RebuildContainer(PrimaryActionContainer, SkillBarViewModel->PrimaryActions, 0);
+	RebuildContainer(SecondaryActionContainer, SkillBarViewModel->SecondaryActions, 1);
+	RebuildContainer(SpellActionContainer, SkillBarViewModel->SpellActions, 2);
 }
 
 void UPBSkillBarWidget::NativeConstruct()
@@ -84,17 +88,17 @@ void UPBSkillBarWidget::HandleSlotUpdated(int32 CategoryIndex, int32 SlotIndex)
 	{
 	case 0: TargetContainer = PrimaryActionContainer; break;
 	case 1: TargetContainer = SecondaryActionContainer; break;
-	case 2: TargetContainer = ItemSlotContainer; break;
+	case 2: TargetContainer = SpellActionContainer; break;
 	}
 
 	if (IsValid(TargetContainer) && TargetContainer->GetChildrenCount() > SlotIndex)
 	{
-		if (UPBSkillIconWidget* IconWidget = Cast<UPBSkillIconWidget>(TargetContainer->GetChildAt(SlotIndex)))
+		if (UPBSkillSlotWidget* SlotWidget = Cast<UPBSkillSlotWidget>(TargetContainer->GetChildAt(SlotIndex)))
 		{
 			FPBSkillSlotData UpdatedData;
 			if (SkillBarViewModel->GetSlotData(CategoryIndex, SlotIndex, UpdatedData))
 			{
-				IconWidget->UpdateSlot(UpdatedData);
+				SlotWidget->SetSlotData(UpdatedData);
 			}
 		}
 	}

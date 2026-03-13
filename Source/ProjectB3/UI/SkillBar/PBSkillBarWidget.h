@@ -36,13 +36,13 @@ private:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UPanelWidget> SecondaryActionContainer;
 
-	// 아이템 슬롯 영역
+	// 마법/주문 슬롯 영역
 	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UPanelWidget> ItemSlotContainer;
+	TObjectPtr<UPanelWidget> SpellActionContainer;
 
-	// 개별 스킬 아이콘 위젯 클래스
+	// 개별 스킬 슬롯 위젯 클래스
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true"))
-	TSubclassOf<class UPBSkillIconWidget> SkillIconWidgetClass;
+	TSubclassOf<class UPBSkillSlotWidget> SkillSlotWidgetClass;
 
 private:
 	// 슬롯 전체 재구성 이벤트 핸들러

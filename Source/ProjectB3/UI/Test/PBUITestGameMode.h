@@ -80,6 +80,16 @@ protected:
 	// 최대 몬스터 스폰 개수
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
 	int32 MaxMonsterSpawnCount = 12;
+
+	// [Step 2] 스킬바 카테고리별 슬롯 수 (빈 칸 포함 공간 확보용)
+	UPROPERTY(EditAnywhere, Category = "Test|Settings")
+	int32 PrimarySlotCount = 12;
+
+	UPROPERTY(EditAnywhere, Category = "Test|Settings")
+	int32 SecondarySlotCount = 12;
+
+	UPROPERTY(EditAnywhere, Category = "Test|Settings")
+	int32 SpellSlotCount = 12;
 	
 	// 랜덤으로 부여할 이름들 모음
 	UPROPERTY(EditAnywhere, Category = "Test|Data")

@@ -35,7 +35,7 @@ public:
 	// 전체 슬롯의 쿨다운/활성 가능 상태를 갱신한다.
 	void RefreshAllCooldowns();
 
-	// 탭/인덱스로 슬롯 데이터를 조회한다. (0: Primary, 1: Secondary, 2: Item)
+	// 탭/인덱스로 슬롯 데이터를 조회한다. (0: Primary, 1: Secondary, 2: Spell)
 	bool GetSlotData(int32 CategoryIndex, int32 SlotIndex, FPBSkillSlotData& OutSlotData) const;
 
 	// 카테고리 인덱스로 슬롯 배열을 조회한다.
@@ -70,9 +70,17 @@ public:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|SkillBar")
 	TArray<FPBSkillSlotData> SecondaryActions;
 
-	// 아이템 슬롯 (Item)
+	// 마법/주문 슬롯 (Spell)
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|SkillBar")
-	TArray<FPBSkillSlotData> ItemSlots;
+	TArray<FPBSkillSlotData> SpellActions;
+
+	// [노랑 영역] 좌측 주무기 슬롯 데이터
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|Equipment")
+	TArray<FPBEquipmentSlotData> WeaponSlots;
+
+	// [노랑 영역] 우측 유틸리티/소모품 슬롯 데이터
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|Equipment")
+	TArray<FPBEquipmentSlotData> UtilitySlots;
 
 	// 전체 슬롯 재구성 이벤트
 	FOnSkillSlotsChanged OnSlotsChanged;
