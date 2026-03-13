@@ -80,10 +80,31 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	// CachedActionScoreMap이 채워진다 — DFS의 GetCandidateActions가 참조.
 	const TArray<FPBTargetScore> TopTargets = Clearinghouse->GetTopKTargets(3);
 
-	if (TopTargets.IsEmpty())
+	// 5-1. CachedHealScoreMap 채우기 (아군 Heal 평가)
+	// DFS의 GetCandidateActions가 Heal 후보 생성 시 참조.
+	for (const TWeakObjectPtr<AActor>& WeakAlly : Clearinghouse->GetCachedAllies())
+	{
+		if (WeakAlly.IsValid())
+		{
+			Clearinghouse->EvaluateHealScore(WeakAlly.Get());
+		}
+	}
+
+	// Heal 후보 존재 여부 확인 (적이 없어도 힐할 아군이 있으면 DFS 실행)
+	bool bHasHealCandidates = false;
+	for (const auto& HealPair : Clearinghouse->GetCachedHealScores())
+	{
+		if (HealPair.Value.GetActionScore() > 0.0f)
+		{
+			bHasHealCandidates = true;
+			break;
+		}
+	}
+
+	if (TopTargets.IsEmpty() && !bHasHealCandidates)
 	{
 		UE_LOG(LogPBStateTree, Warning,
-		       TEXT("GenerateSequenceTask: 유효한 타겟이 없습니다."));
+		       TEXT("GenerateSequenceTask: 유효한 타겟도 힐 대상도 없습니다."));
 
 		// 타겟 없지만 이동력 남아있으면 방어적 후퇴
 		if (CurrentMovement > 10.0f)
@@ -218,8 +239,12 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 			? SeqAction.TargetActor->GetName()
 			: TEXT("위치이동");
 		const TCHAR* TypeStr =
-			SeqAction.ActionType == EPBActionType::Attack ? TEXT("Attack") :
-			SeqAction.ActionType == EPBActionType::Move ? TEXT("Move") :
+			SeqAction.ActionType == EPBActionType::Attack  ? TEXT("Attack") :
+			SeqAction.ActionType == EPBActionType::Move    ? TEXT("Move") :
+			SeqAction.ActionType == EPBActionType::Heal    ? TEXT("Heal") :
+			SeqAction.ActionType == EPBActionType::Buff    ? TEXT("Buff") :
+			SeqAction.ActionType == EPBActionType::Debuff  ? TEXT("Debuff") :
+			SeqAction.ActionType == EPBActionType::Control ? TEXT("Control") :
 			TEXT("Other");
 
 		UE_LOG(LogPBStateTree, Display,

@@ -7,8 +7,19 @@
 
 
 // 단일 행동의 종류를 정의하는 열거형
+// AI 시퀀스의 각 행동이 "무엇을 하는가"를 분류
 UENUM(BlueprintType)
-enum class EPBActionType : uint8 { None, Move, Attack, UseItem };
+enum class EPBActionType : uint8
+{
+	None,
+	Move,       // 위치 이동
+	Attack,     // 적 대상 데미지
+	Heal,       // 아군 대상 회복
+	Buff,       // 아군 대상 강화
+	Debuff,     // 적 대상 약화
+	Control,    // 적 대상 행동 제한 (CC)
+	UseItem     // 아이템 사용 (향후 확장)
+};
 
 // 전투 역할 (AI 스코어링의 RoleMultiplier 산출용)
 // Character.Class.* 태그로부터 매핑

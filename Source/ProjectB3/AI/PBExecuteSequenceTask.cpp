@@ -207,14 +207,19 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
                                    &EventData);
     break;
   }
-  case EPBActionType::Attack: {
-    UE_LOG(LogPBStateTreeExec, Display, TEXT("Executing Attack on [%s]."),
-           *TargetName);
+  case EPBActionType::Attack:
+  case EPBActionType::Heal: {
+    const bool bIsHeal =
+        CurrentAction.ActionType == EPBActionType::Heal;
+    const TCHAR *ActionLabel = bIsHeal ? TEXT("Heal") : TEXT("Attack");
+
+    UE_LOG(LogPBStateTreeExec, Display,
+           TEXT("Executing %s on [%s]."), ActionLabel, *TargetName);
 
     // AbilityTag 유효성 검사
     if (!CurrentAction.AbilityTag.IsValid()) {
       UE_LOG(LogPBStateTreeExec, Warning,
-             TEXT("Attack: AbilityTag가 설정되지 않았습니다."));
+             TEXT("%s: AbilityTag가 설정되지 않았습니다."), ActionLabel);
       bIsActionInProgress = false;
       return EStateTreeRunStatus::Failed;
     }
@@ -235,9 +240,9 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
 
     if (MatchingSpecs.IsEmpty()) {
       UE_LOG(LogPBStateTreeExec, Warning,
-             TEXT("Attack: AbilityTag [%s]에 매칭되는 어빌리티를 찾을 수 "
+             TEXT("%s: AbilityTag [%s]에 매칭되는 어빌리티를 찾을 수 "
                   "없습니다."),
-             *CurrentAction.AbilityTag.ToString());
+             ActionLabel, *CurrentAction.AbilityTag.ToString());
       bIsActionInProgress = false;
       return EStateTreeRunStatus::Failed;
     }
@@ -246,35 +251,36 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
 
     // 어빌리티 종료 시 다음 행동으로 전진 (비동기 체인)
     DelegateHandle = CachedASC->OnAbilityEnded.AddLambda(
-        [this](const FAbilityEndedData &AbilityEndedData) {
+        [this, ActionLabel](const FAbilityEndedData &AbilityEndedData) {
           if (AbilityEndedData.AbilitySpecHandle == ActiveSpecHandle) {
             UE_LOG(LogPBStateTreeExec, Display,
-                   TEXT("Attack 어빌리티 종료. (bWasCancelled: %s)"),
+                   TEXT("%s 어빌리티 종료. (bWasCancelled: %s)"),
+                   ActionLabel,
                    AbilityEndedData.bWasCancelled ? TEXT("true")
                                                   : TEXT("false"));
             AdvanceToNextAction();
           }
         });
 
-    // Payload 구성: SingleTarget + 타겟 액터
-    UPBTargetPayload *AttackPayload = NewObject<UPBTargetPayload>(this);
-    AttackPayload->TargetData.TargetingMode = EPBTargetingMode::SingleTarget;
-    AttackPayload->TargetData.TargetActors.Add(
+    // Payload 구성: SingleTarget + 타겟 액터 (Attack=적, Heal=아군)
+    UPBTargetPayload *ActionPayload = NewObject<UPBTargetPayload>(this);
+    ActionPayload->TargetData.TargetingMode = EPBTargetingMode::SingleTarget;
+    ActionPayload->TargetData.TargetActors.Add(
         TWeakObjectPtr<AActor>(CurrentAction.TargetActor));
 
     // HandleGameplayEvent로 어빌리티 발동 + Payload 전달
     // → PBGameplayAbility_Targeted::ActivateAbility의 TriggerEventData로 수신
-    // → CommitAbility가 내부에서 자원(Action) 차감 처리
+    // → CommitAbility가 내부에서 자원(Action/BonusAction) 차감 처리
     FGameplayEventData EventData;
-    EventData.OptionalObject = AttackPayload;
+    EventData.OptionalObject = ActionPayload;
     const int32 Triggered = CachedASC->HandleGameplayEvent(
         CurrentAction.AbilityTag, &EventData);
 
     if (Triggered == 0) {
       UE_LOG(LogPBStateTreeExec, Warning,
-             TEXT("Attack: HandleGameplayEvent 트리거 실패. "
+             TEXT("%s: HandleGameplayEvent 트리거 실패. "
                   "AbilityTag [%s]에 등록된 트리거가 없습니다."),
-             *CurrentAction.AbilityTag.ToString());
+             ActionLabel, *CurrentAction.AbilityTag.ToString());
       CachedASC->OnAbilityEnded.Remove(DelegateHandle);
       DelegateHandle.Reset();
       bIsActionInProgress = false;
@@ -282,9 +288,9 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
     }
 
     UE_LOG(LogPBStateTreeExec, Display,
-           TEXT("Attack 어빌리티 발동 성공. AbilityTag: [%s], "
+           TEXT("%s 어빌리티 발동 성공. AbilityTag: [%s], "
                 "트리거된 어빌리티 수: %d"),
-           *CurrentAction.AbilityTag.ToString(), Triggered);
+           ActionLabel, *CurrentAction.AbilityTag.ToString(), Triggered);
     break;
   }
   default:

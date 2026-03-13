@@ -50,6 +50,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
 	FPBTargetScore EvaluateActionScore(AActor* TargetActor);
 
+	// 아군 1명에 대한 HealScore를 계산하여 FPBTargetScore로 반환
+	// AI Scoring Example.md §3.2 공식:
+	//   HealBase = EffectiveHeal × UrgencyMultiplier
+	//   ActionScore = HealBase × HealWeight
+	// EffectiveHeal = min(ExpectedHeal, MaxHP - CurrentHP)
+	// UrgencyMultiplier: HPRatio 구간별 (≤0.25→2.0, ≤0.50→1.5, ≤0.75→1.0, >0.75→0.5)
+	// ThreatMultiplier / RoleMultiplier 미적용 (아군 대상이므로)
+	FPBTargetScore EvaluateHealScore(AActor* AllyTarget);
+
 	/*~ 스코어링 (ActionScore 산출) ~*/
 
 	// CachedTargets 전체 중 ActionScore가 가장 높은 타겟 반환
@@ -99,6 +108,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
 	void RestoreTurnResources(AActor* CurrentTurnActor);
 
+	// 이번 턴에 인지한 아군 액터 목록 반환
+	const TArray<TWeakObjectPtr<AActor>>& GetCachedAllies() const
+	{
+		return CachedAllies;
+	}
+
+	// 아군 대상 HealScore 캐시 맵 반환 (GenerateSequenceTask에서 Heal 후보 존재 여부 확인용)
+	const TMap<AActor*, FPBTargetScore>& GetCachedHealScores() const
+	{
+		return CachedHealScoreMap;
+	}
+
 	// 이번 턴에 연산 대상이 될 유효 타겟 목록 반환
 	const TArray<TWeakObjectPtr<AActor>>& GetCachedTargets() const
 	{
@@ -128,13 +149,28 @@ protected:
 	// AI Scoring Example.md §5: lerp(0.5, 2.0, NormalizedThreat)
 	TMap<AActor*, float> CachedThreatMultiplierMap;
 
-	// 타겟 당 ActionScore 선가 결과 캐시 (GetBestActionScoreTarget 연산 중복
-	// 방지)
+	// 타겟(적) 당 ActionScore 평가 결과 캐시 (Attack 스코어링)
 	TMap<AActor*, FPBTargetScore> CachedActionScoreMap;
 
-	// 이번 턴 공격자의 ArchetypeWeight (CacheTurnData에서 1회 캐싱)
-	// ArchetypeData 미설정 시 기본값 1.0 (균등 가중)
-	float CachedArchetypeWeight = 1.0f;
+	// 아군 당 HealScore 평가 결과 캐시 (Heal 스코어링)
+	TMap<AActor*, FPBTargetScore> CachedHealScoreMap;
+
+	// 이번 턴에 인지한 아군 액터 목록 (Self 포함, 사망자 제외)
+	// Heal/Buff 타겟 후보로 사용
+	UPROPERTY(Transient)
+	TArray<TWeakObjectPtr<AActor>> CachedAllies;
+
+	// 카테고리별 ArchetypeWeight 캐시 (CacheTurnData에서 1회 캐싱)
+	// ArchetypeData 미설정 시 모두 기본값 1.0 (균등 가중)
+	struct FPBCachedArchetypeWeights
+	{
+		float AttackWeight  = 1.0f;
+		float HealWeight    = 1.0f;
+		float BuffWeight    = 1.0f;
+		float DebuffWeight  = 1.0f;
+		float ControlWeight = 1.0f;
+	};
+	FPBCachedArchetypeWeights CachedArchetypeWeights;
 
 	/*~ 헬퍼 함수 ~*/
 

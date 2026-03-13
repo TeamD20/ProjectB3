@@ -268,19 +268,27 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor)
 			Pair.Value, NormalizedThreat, ThreatMultiplier);
 	}
 
-	// --- ArchetypeWeight 사전 캐싱 (1회 Cast) ---
-	// APBCharacterBase로 캐스팅하여 ArchetypeData의 AttackWeight 조회.
-	// 현재 Attack 행동만 구현되어 있으므로 AttackWeight만 캐싱.
-	// 향후 Heal/Buff/Debuff 행동 추가 시 해당 가중치도 캐싱 확장.
-	CachedArchetypeWeight = 1.0f; // 기본값 (DataAsset 미설정 시 균등 가중)
+	// --- ArchetypeWeight 사전 캐싱 (카테고리별 1회 Cast) ---
+	CachedArchetypeWeights = FPBCachedArchetypeWeights();
 	if (const APBAIMockCharacter* AIChar = Cast<APBAIMockCharacter>(CurrentTurnActor))
 	{
 		if (const UPBAIArchetypeData* Archetype = AIChar->ArchetypeData)
 		{
-			CachedArchetypeWeight = Archetype->AttackWeight;
+			CachedArchetypeWeights.AttackWeight  = Archetype->AttackWeight;
+			CachedArchetypeWeights.HealWeight    = Archetype->HealWeight;
+			CachedArchetypeWeights.BuffWeight    = Archetype->BuffWeight;
+			CachedArchetypeWeights.DebuffWeight  = Archetype->DebuffWeight;
+			CachedArchetypeWeights.ControlWeight = Archetype->ControlWeight;
+
 			UE_LOG(LogPBUtility, Log,
-				TEXT("[Archetype] %s의 아키타입 캐싱 완료: AttackWeight=%.2f"),
-				*CurrentTurnActor->GetName(), CachedArchetypeWeight);
+				TEXT("[Archetype] %s 캐싱 완료: Atk=%.2f, Heal=%.2f, "
+					 "Buff=%.2f, Debuff=%.2f, Ctrl=%.2f"),
+				*CurrentTurnActor->GetName(),
+				CachedArchetypeWeights.AttackWeight,
+				CachedArchetypeWeights.HealWeight,
+				CachedArchetypeWeights.BuffWeight,
+				CachedArchetypeWeights.DebuffWeight,
+				CachedArchetypeWeights.ControlWeight);
 		}
 		else
 		{
@@ -289,6 +297,40 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor)
 				*CurrentTurnActor->GetName());
 		}
 	}
+
+	// --- 아군 캐싱 ---
+	// "Enemy" 태그 액터 중 사망자 제외, Self 포함
+	TArray<AActor*> FoundAllies;
+	UGameplayStatics::GetAllActorsWithTag(
+		CurrentTurnActor->GetWorld(), FName("Enemy"), FoundAllies);
+
+	// Self를 명시적으로 아군 목록에 추가 (자가 힐/버프 후보)
+	CachedAllies.Add(CurrentTurnActor);
+
+	for (AActor* AllyActor : FoundAllies)
+	{
+		if (!IsValid(AllyActor) || AllyActor == CurrentTurnActor)
+		{
+			continue;
+		}
+
+		UAbilitySystemComponent* AllyASC =
+			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(AllyActor);
+		if (AllyASC && AllyASC->HasMatchingGameplayTag(
+						   PBGameplayTags::Character_State_Dead))
+		{
+			UE_LOG(LogPBUtility, Log,
+				TEXT("사망 아군 [%s]를 아군 목록에서 제외합니다."),
+				*AllyActor->GetName());
+			continue;
+		}
+
+		CachedAllies.Add(AllyActor);
+	}
+
+	UE_LOG(LogPBUtility, Log,
+		TEXT("아군 탐색 완료. 총 %d명 (Self 포함) 아군 목록 캐싱 완료."),
+		CachedAllies.Num());
 }
 
 void UPBUtilityClearinghouse::ClearCache()
@@ -296,11 +338,13 @@ void UPBUtilityClearinghouse::ClearCache()
 	// 맵 컨테이너 요소들을 모두 비워 다음 턴이나 다른 캐릭터 연산 시 간섭이
 	// 없도록 한다.
 	CachedTargets.Empty();
+	CachedAllies.Empty();
 	CachedDistanceMap.Empty();
 	CachedVulnerabilityMap.Empty();
 	CachedThreatMultiplierMap.Empty();
 	CachedActionScoreMap.Empty();
-	CachedArchetypeWeight = 1.0f;
+	CachedHealScoreMap.Empty();
+	CachedArchetypeWeights = FPBCachedArchetypeWeights();
 
 	UE_LOG(LogPBUtility, Log,
 		   TEXT("클리어링하우스 메모리 캐시가 성공적으로 비워졌습니다."));
@@ -547,8 +591,8 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 	// TODO: ConcentrationBreakBonus, CliffShoveBonus 등 환경 상호작용
 
 	// --- ArchetypeWeight 산정 ---
-	// CacheTurnData에서 사전 캐싱한 값 사용 (Cast 없음)
-	Score.ArchetypeWeight = CachedArchetypeWeight;
+	// CacheTurnData에서 사전 캐싱한 카테고리별 가중치 사용 (Cast 없음)
+	Score.ArchetypeWeight = CachedArchetypeWeights.AttackWeight;
 
 	// --- MovementScore 산정 ---
 	// 공식: 1.0 - (DistToTarget / MaxMovementRange), 클램프 [0.0, 1.0]
@@ -581,6 +625,187 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 
 	// 결과 캐싱
 	CachedActionScoreMap.Add(TargetActor, Score);
+	return Score;
+}
+
+/*~ Heal 스코어링 ~*/
+
+FPBTargetScore UPBUtilityClearinghouse::EvaluateHealScore(AActor* AllyTarget)
+{
+	if (!IsValid(AllyTarget))
+	{
+		return FPBTargetScore{};
+	}
+
+	// 캐시 먼저 확인 (턴 내 중복 연산 방지)
+	if (const FPBTargetScore* Cached = CachedHealScoreMap.Find(AllyTarget))
+	{
+		return *Cached;
+	}
+
+	FPBTargetScore Score;
+	Score.TargetActor = AllyTarget;
+
+	// --- 아군 HP 정보 조회 ---
+	UAbilitySystemComponent* AllyASC =
+		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(AllyTarget);
+	if (!IsValid(AllyASC))
+	{
+		CachedHealScoreMap.Add(AllyTarget, Score);
+		return Score;
+	}
+
+	bool bHPFound = false;
+	const float CurrentHP = AllyASC->GetGameplayAttributeValue(
+		UPBCharacterAttributeSet::GetHPAttribute(), bHPFound);
+	bool bMaxHPFound = false;
+	const float MaxHP = AllyASC->GetGameplayAttributeValue(
+		UPBCharacterAttributeSet::GetMaxHPAttribute(), bMaxHPFound);
+
+	if (!bHPFound || !bMaxHPFound || MaxHP <= 0.0f)
+	{
+		CachedHealScoreMap.Add(AllyTarget, Score);
+		return Score;
+	}
+
+	// 이미 만피 → Heal 가치 없음
+	const float MissingHP = MaxHP - CurrentHP;
+	if (MissingHP <= 0.0f)
+	{
+		CachedHealScoreMap.Add(AllyTarget, Score);
+		return Score;
+	}
+
+	// --- ExpectedHeal 산정 ---
+	// SourceASC의 Heal 카테고리 어빌리티 중 최고 기대 회복량 + 해당 AbilityTag 추출
+	UAbilitySystemComponent* SourceASC =
+		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(ActiveTurnActor);
+	if (!IsValid(SourceASC))
+	{
+		CachedHealScoreMap.Add(AllyTarget, Score);
+		return Score;
+	}
+
+	float BestExpectedHeal = 0.0f;
+	FGameplayTag BestHealTag;
+
+	const TArray<FGameplayAbilitySpec>& Specs = SourceASC->GetActivatableAbilities();
+	for (const FGameplayAbilitySpec& Spec : Specs)
+	{
+		if (!Spec.Ability || !Spec.Ability->CanActivateAbility(
+								 Spec.Handle, SourceASC->AbilityActorInfo.Get()))
+		{
+			continue;
+		}
+
+		const UPBGameplayAbility* AbilityCDO = Cast<UPBGameplayAbility>(Spec.Ability);
+		if (!AbilityCDO)
+		{
+			continue;
+		}
+
+		// Heal 카테고리만 평가
+		if (AbilityCDO->GetAbilityCategory() != EPBAbilityCategory::Heal)
+		{
+			continue;
+		}
+
+		const FPBDiceSpec& Dice = AbilityCDO->GetDiceSpec();
+		if (Dice.DiceCount <= 0 || Dice.DiceFaces <= 0)
+		{
+			continue;
+		}
+
+		// 기대 회복량 = DiceCount × (DiceFaces + 1) / 2 + Modifier
+		const int32 HealMod = UPBAbilitySystemLibrary::GetAttackModifier(
+			SourceASC, Dice.AttackModifierAttributeOverride);
+		const float RawExpectedHeal =
+			Dice.DiceCount * (Dice.DiceFaces + 1) / 2.0f
+			+ static_cast<float>(HealMod);
+
+		if (RawExpectedHeal > BestExpectedHeal)
+		{
+			// AbilityTag 추출 (EvaluateActionScore와 동일 패턴)
+			FGameplayTag CandidateTag;
+			if (Spec.DynamicAbilityTags.Num() > 0)
+			{
+				CandidateTag = Spec.DynamicAbilityTags.First();
+			}
+			else
+			{
+				const FGameplayTagContainer& AbilityTags = AbilityCDO->GetAssetTags();
+				if (AbilityTags.Num() > 0)
+				{
+					CandidateTag = AbilityTags.First();
+				}
+			}
+
+			if (CandidateTag.IsValid())
+			{
+				BestExpectedHeal = RawExpectedHeal;
+				BestHealTag = CandidateTag;
+			}
+		}
+	}
+
+	// Heal 어빌리티가 없으면 점수 0
+	if (BestExpectedHeal <= 0.0f)
+	{
+		CachedHealScoreMap.Add(AllyTarget, Score);
+		return Score;
+	}
+
+	// --- EffectiveHeal (과잉 힐 방지) ---
+	const float EffectiveHeal = FMath::Min(BestExpectedHeal, MissingHP);
+
+	// --- UrgencyMultiplier (AI Scoring Example.md §3.2) ---
+	// HPRatio 구간별 긴급도 가중치
+	const float HPRatio = CurrentHP / MaxHP;
+	float UrgencyMultiplier;
+	if (HPRatio <= 0.25f)
+	{
+		UrgencyMultiplier = 2.0f; // 위급
+	}
+	else if (HPRatio <= 0.50f)
+	{
+		UrgencyMultiplier = 1.5f; // 위험
+	}
+	else if (HPRatio <= 0.75f)
+	{
+		UrgencyMultiplier = 1.0f; // 경상
+	}
+	else
+	{
+		UrgencyMultiplier = 0.5f; // 경미
+	}
+
+	// --- Score 조립 ---
+	// HealBase = EffectiveHeal × UrgencyMultiplier
+	// ActionScore = HealBase × HealWeight
+	// TargetModifier = 1.0 (아군에 Threat/Role 미적용)
+	// SituationalBonus = 0.0 (현재 미구현)
+	Score.ExpectedDamage = EffectiveHeal; // FPBTargetScore 재활용: "기대 효과량"
+	Score.AbilityTag = BestHealTag;
+	Score.TargetModifier = UrgencyMultiplier; // Heal은 UrgencyMultiplier를 여기에 저장
+	Score.SituationalBonus = 0.0f;
+	Score.ArchetypeWeight = CachedArchetypeWeights.HealWeight;
+
+	const float FinalScore = Score.GetActionScore();
+
+	UE_LOG(LogPBUtility, Log,
+		TEXT("[HealScoring] AI [%s] → 아군 [%s]: "
+			 "HP=%.0f/%.0f (%.0f%%), EffHeal=%.1f, "
+			 "Urgency=%.1f, HealWeight=%.2f → Score=%.2f "
+			 "(Ability=%s)"),
+		*(ActiveTurnActor ? ActiveTurnActor->GetName() : TEXT("Unknown")),
+		*AllyTarget->GetName(),
+		CurrentHP, MaxHP, HPRatio * 100.0f,
+		EffectiveHeal, UrgencyMultiplier,
+		CachedArchetypeWeights.HealWeight,
+		FinalScore, *BestHealTag.ToString());
+
+	// 결과 캐싱
+	CachedHealScoreMap.Add(AllyTarget, Score);
 	return Score;
 }
 
@@ -735,6 +960,69 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 		}
 	}
 
+	// --- Heal 후보: CachedHealScoreMap에서 아군 대상 ---
+	for (const auto& HealPair : CachedHealScoreMap)
+	{
+		AActor* Ally = HealPair.Key;
+		const FPBTargetScore& HealData = HealPair.Value;
+
+		if (!IsValid(Ally))
+		{
+			continue;
+		}
+
+		// 점수 0 이하 (만피 등) → 후보 불필요
+		if (HealData.GetActionScore() <= 0.0f)
+		{
+			continue;
+		}
+
+		// AP 검사 (Heal도 Action 1 소모)
+		if (Context.RemainingAP < 1.0f)
+		{
+			continue;
+		}
+
+		// 사거리 검사 (Heal 어빌리티의 Range)
+		float HealRange = 0.0f;
+		if (HealData.AbilityTag.IsValid())
+		{
+			FGameplayTagContainer SearchTags;
+			SearchTags.AddTag(HealData.AbilityTag);
+			TArray<FGameplayAbilitySpec*> MatchingSpecs;
+			SourceASC->GetActivatableGameplayAbilitySpecsByAllMatchingTags(
+				SearchTags, MatchingSpecs);
+
+			if (MatchingSpecs.Num() > 0)
+			{
+				if (const UPBGameplayAbility_Targeted* TargetedAbility =
+						Cast<UPBGameplayAbility_Targeted>(
+							MatchingSpecs[0]->Ability))
+				{
+					HealRange = TargetedAbility->GetRange();
+				}
+			}
+		}
+
+		const float DistToAlly = FVector::Dist(
+			Context.LastActionLocation, Ally->GetActorLocation());
+		const bool bHealUnlimited = (HealRange <= 0.0f);
+		constexpr float HealRangeBuffer = 50.0f;
+		const float EffectiveHealRange = bHealUnlimited
+			? TNumericLimits<float>::Max()
+			: HealRange + HealRangeBuffer;
+
+		if (DistToAlly <= EffectiveHealRange)
+		{
+			FPBSequenceAction HealAction;
+			HealAction.ActionType = EPBActionType::Heal;
+			HealAction.TargetActor = Ally;
+			HealAction.AbilityTag = HealData.AbilityTag;
+			HealAction.Cost.ActionCost = 1.0f;
+			Candidates.Add(HealAction);
+		}
+	}
+
 	UE_LOG(LogPBUtility, Log,
 		TEXT("[DFS] GetCandidateActions: %d개 후보 행동 생성 "
 			 "(AP=%.0f, BA=%.0f, MP잔여=%.0f, 누적MP=%.0f)"),
@@ -771,9 +1059,13 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 
 	// --- Branch & Bound 가지치기 (Optimization §4.2) ---
 	// 남은 행동에서 얻을 수 있는 이론적 최대 점수 추정
-	// Attack만 점수를 기여하므로: MaxSingleScore × 남은 공격 가능 횟수
+	// Attack + Heal 양쪽의 최대 단일 점수로 상한 계산
 	float MaxSingleScore = 0.0f;
 	for (const auto& Pair : CachedActionScoreMap)
+	{
+		MaxSingleScore = FMath::Max(MaxSingleScore, Pair.Value.GetActionScore());
+	}
+	for (const auto& Pair : CachedHealScoreMap)
 	{
 		MaxSingleScore = FMath::Max(MaxSingleScore, Pair.Value.GetActionScore());
 	}
@@ -817,12 +1109,20 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 				Candidate.TargetActor->GetActorLocation();
 		}
 
-		// 행동 점수 산출 (Attack만 점수 기여, Move는 0)
+		// 행동 점수 산출 (Attack/Heal은 점수 기여, Move는 0)
 		float ActionScore = 0.0f;
 		if (Candidate.ActionType == EPBActionType::Attack)
 		{
 			if (const FPBTargetScore* Cached =
 					CachedActionScoreMap.Find(Candidate.TargetActor))
+			{
+				ActionScore = Cached->GetActionScore();
+			}
+		}
+		else if (Candidate.ActionType == EPBActionType::Heal)
+		{
+			if (const FPBTargetScore* Cached =
+					CachedHealScoreMap.Find(Candidate.TargetActor))
 			{
 				ActionScore = Cached->GetActionScore();
 			}
