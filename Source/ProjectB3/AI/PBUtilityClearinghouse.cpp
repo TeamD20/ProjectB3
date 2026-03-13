@@ -216,7 +216,58 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor)
 
 	UE_LOG(LogPBUtility, Log,
 		   TEXT("주변 타겟 탐색 완료. 총 %d명의 잠재적 타겟 목록 캐싱 완료."),
-		   FoundPlayers.Num());
+		   CachedTargets.Num());
+
+	// --- ThreatScore 사전 계산 및 정규화 ---
+	// AI Scoring Example.md §5: ThreatMultiplier = lerp(0.5, 2.0, NormalizedThreat)
+	TMap<AActor*, float> RawThreatScores;
+	float MaxThreatScore = 0.0f;
+
+	for (const TWeakObjectPtr<AActor>& WeakTarget : CachedTargets)
+	{
+		if (!WeakTarget.IsValid())
+		{
+			continue;
+		}
+
+		AActor* Target = WeakTarget.Get();
+		const EPBCombatRole Role = DetermineCombatRole(Target);
+
+		// 역할별 기본 위협도
+		float RoleBaseThreat;
+		switch (Role)
+		{
+		case EPBCombatRole::Healer: RoleBaseThreat = RoleThreat_Healer; break;
+		case EPBCombatRole::Caster: RoleBaseThreat = RoleThreat_Caster; break;
+		case EPBCombatRole::Ranged: RoleBaseThreat = RoleThreat_Ranged; break;
+		case EPBCombatRole::Tank:   RoleBaseThreat = RoleThreat_Tank;   break;
+		default:                    RoleBaseThreat = RoleThreat_Melee;  break;
+		}
+
+		// LowHP 축: 빈사 상태일수록 위협 증가 (처리 우선)
+		const float VulnerabilityScore = GetTargetVulnerabilityScore(Target);
+		const float ThreatScore = RoleBaseThreat + VulnerabilityScore * LowHPThreatWeight;
+
+		RawThreatScores.Add(Target, ThreatScore);
+		MaxThreatScore = FMath::Max(MaxThreatScore, ThreatScore);
+	}
+
+	// 정규화 → ThreatMultiplier 캐싱
+	for (const auto& Pair : RawThreatScores)
+	{
+		const float NormalizedThreat = (MaxThreatScore > 0.0f)
+			? Pair.Value / MaxThreatScore
+			: 0.5f;
+		const float ThreatMultiplier = FMath::Lerp(0.5f, 2.0f, NormalizedThreat);
+		CachedThreatMultiplierMap.Add(Pair.Key, ThreatMultiplier);
+
+		UE_LOG(LogPBUtility, Log,
+			TEXT("[ThreatCache] 타겟 [%s]: Role=%d, RawThreat=%.2f, "
+				 "Normalized=%.2f, Multiplier=%.2f"),
+			*Pair.Key->GetName(),
+			static_cast<int32>(DetermineCombatRole(Pair.Key)),
+			Pair.Value, NormalizedThreat, ThreatMultiplier);
+	}
 }
 
 void UPBUtilityClearinghouse::ClearCache()
@@ -226,10 +277,54 @@ void UPBUtilityClearinghouse::ClearCache()
 	CachedTargets.Empty();
 	CachedDistanceMap.Empty();
 	CachedVulnerabilityMap.Empty();
+	CachedThreatMultiplierMap.Empty();
 	CachedActionScoreMap.Empty();
 
 	UE_LOG(LogPBUtility, Log,
 		   TEXT("클리어링하우스 메모리 캐시가 성공적으로 비워졌습니다."));
+}
+
+/*~ 헬퍼 함수 ~*/
+
+EPBCombatRole UPBUtilityClearinghouse::DetermineCombatRole(AActor *TargetActor)
+{
+	if (!IsValid(TargetActor))
+	{
+		return EPBCombatRole::Melee;
+	}
+
+	UAbilitySystemComponent *ASC =
+		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(TargetActor);
+	if (!IsValid(ASC))
+	{
+		return EPBCombatRole::Melee;
+	}
+
+	// Character.Class.* 태그 기반 역할 매핑
+	if (ASC->HasMatchingGameplayTag(PBGameplayTags::Character_Class_Magician))
+	{
+		return EPBCombatRole::Caster;
+	}
+	if (ASC->HasMatchingGameplayTag(PBGameplayTags::Character_Class_Ranger))
+	{
+		return EPBCombatRole::Ranged;
+	}
+	// Fighter 또는 태그 없음 → Melee
+	return EPBCombatRole::Melee;
+}
+
+float UPBUtilityClearinghouse::GetRoleMultiplier(EPBCombatRole TargetRole)
+{
+	// AI Scoring Example.md §5: Attack 행동 × 타겟 역할 가중치
+	// | Attack | Healer:1.3 | Caster:1.2 | Ranged:1.1 | Melee:1.0 | Tank:0.8 |
+	switch (TargetRole)
+	{
+	case EPBCombatRole::Healer: return 1.3f;
+	case EPBCombatRole::Caster: return 1.2f;
+	case EPBCombatRole::Ranged: return 1.1f;
+	case EPBCombatRole::Tank:   return 0.8f;
+	default:                    return 1.0f;
+	}
 }
 
 /*~ 스코어링 (ActionScore 산출) ~*/
@@ -406,9 +501,12 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 	Score.AbilityTag = BestAbilityTag;
 
 	// --- TargetModifier 산정 ---
-	// HP 기반 취약성 점수를 TargetModifier로 사용
-	// TODO: ThreatScore, 역할 시스템 연동 후 ThreatMultiplier × RoleMultiplier로 교체
-	Score.TargetModifier = GetTargetVulnerabilityScore(TargetActor);
+	// AI Scoring Example.md §5: TargetModifier = ThreatMultiplier × RoleMultiplier
+	const float* CachedThreat = CachedThreatMultiplierMap.Find(TargetActor);
+	const float ThreatMultiplier = CachedThreat ? *CachedThreat : 1.0f;
+	const EPBCombatRole TargetRole = DetermineCombatRole(TargetActor);
+	const float RoleMultiplier = GetRoleMultiplier(TargetRole);
+	Score.TargetModifier = ThreatMultiplier * RoleMultiplier;
 
 	// --- SituationalBonus 산정 ---
 	Score.SituationalBonus = 0.0f;

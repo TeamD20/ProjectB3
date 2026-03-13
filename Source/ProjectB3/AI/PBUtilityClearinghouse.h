@@ -111,15 +111,26 @@ protected:
 	UPROPERTY(Transient)
 	TMap<AActor*, float> CachedVulnerabilityMap;
 
+	// 타겟 당 ThreatMultiplier 캐시 (CacheTurnData에서 사전 계산)
+	// AI Scoring Example.md §5: lerp(0.5, 2.0, NormalizedThreat)
+	TMap<AActor*, float> CachedThreatMultiplierMap;
 
 	// 타겟 당 ActionScore 선가 결과 캐시 (GetBestActionScoreTarget 연산 중복
 	// 방지)
 	TMap<AActor*, FPBTargetScore> CachedActionScoreMap;
 
-	/*~ SituationalBonus 튜닝 상수 ~*/
+	/*~ 헬퍼 함수 ~*/
+
+	// Character.Class.* 태그로부터 전투 역할 판정
+	static EPBCombatRole DetermineCombatRole(AActor* TargetActor);
+
+	// 행동 유형 × 타겟 역할 → RoleMultiplier 조회
+	// AI Scoring Example.md §5 테이블 (현재 Attack 행만 구현)
+	static float GetRoleMultiplier(EPBCombatRole TargetRole);
+
+	/*~ 튜닝 상수 ~*/
 
 	// 처치 보너스 배율 (처치 가능 시 1.0 + KillBonusRate 적용)
-	// AI Scoring Example.md §3.1: KillBonus = 1.0 + KillBonusRate
 	float KillBonusRate = 0.5f;
 
 	// 처치 시 제거되는 적 턴당 위협 추정값 (HP 기준 절대값)
@@ -128,4 +139,14 @@ protected:
 
 	// FinishOffBonus 잔여 라운드 최대치
 	float MaxFinishOffRounds = 3.0f;
+
+	// ThreatScore 역할별 기본 위협도
+	static constexpr float RoleThreat_Healer = 5.0f;
+	static constexpr float RoleThreat_Caster = 4.0f;
+	static constexpr float RoleThreat_Ranged = 3.0f;
+	static constexpr float RoleThreat_Melee  = 2.0f;
+	static constexpr float RoleThreat_Tank   = 1.0f;
+
+	// LowHP 축 가중치 (빈사 상태의 위협 증폭)
+	static constexpr float LowHPThreatWeight = 2.0f;
 };

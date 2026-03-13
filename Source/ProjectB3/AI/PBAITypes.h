@@ -10,6 +10,18 @@
 UENUM(BlueprintType)
 enum class EPBActionType : uint8 { None, Move, Attack, UseItem };
 
+// 전투 역할 (AI 스코어링의 RoleMultiplier 산출용)
+// Character.Class.* 태그로부터 매핑
+UENUM(BlueprintType)
+enum class EPBCombatRole : uint8
+{
+	Melee,    // 근접 — Fighter 등
+	Ranged,   // 원거리 — Ranger 등
+	Caster,   // 마법 — Magician 등
+	Healer,   // 회복 (향후 확장)
+	Tank      // 탱커 (향후 확장)
+};
+
 // 행동에 필요한 코스트 데이터
 USTRUCT(BlueprintType)
 struct FPBCostData
