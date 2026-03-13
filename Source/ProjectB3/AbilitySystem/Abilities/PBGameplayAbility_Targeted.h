@@ -43,7 +43,7 @@ public:
 	float GetAoERadius() const { return AoERadius; }
 
 	// 타겟팅 모드 조회
-	EPBTargetingMode GetTargetingMode() const { return TargetingMode; }
+		EPBTargetingMode GetTargetingMode() const { return TargetingMode; }
 
 	// MultiTarget 최대 선택 수 조회
 	int32 GetMaxTargetCount() const { return MaxTargetCount; }
