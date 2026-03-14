@@ -14,6 +14,8 @@
 #include "ProjectB3/UI/PartyMemeber/PBPartyMemberViewModel.h"
 #include "ProjectB3/UI/TurnInfoHUD/PBTurnPortraitViewModel.h"
 #include "ProjectB3/UI/SkillBar/PBSkillBarViewModel.h"
+#include "ProjectB3/UI/Common/PBCombatStatsViewModel.h"
+#include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 
 UPBAbilitySystemUIBridge::UPBAbilitySystemUIBridge()
 {
@@ -78,8 +80,22 @@ void UPBAbilitySystemUIBridge::BindAttributeDelegates()
 	BindAttributeDelegate(UPBCharacterAttributeSet::GetHPAttribute(), &ThisClass::HandleHPChanged);
 	BindAttributeDelegate(UPBCharacterAttributeSet::GetMaxHPAttribute(), &ThisClass::HandleHPChanged);
 
+	// Movement / MaxMovement 바인딩
+	BindAttributeDelegate(UPBTurnResourceAttributeSet::GetMovementAttribute(), &ThisClass::HandleMovementChanged);
+	BindAttributeDelegate(UPBTurnResourceAttributeSet::GetMaxMovementAttribute(), &ThisClass::HandleMovementChanged);
+
+	// 전투 어트리뷰트 바인딩
+	BindAttributeDelegate(UPBCharacterAttributeSet::GetArmorClassAttribute(), &ThisClass::HandleArmorClassChanged);
+	BindAttributeDelegate(UPBCharacterAttributeSet::GetHitBonusAttribute(), &ThisClass::HandleHitBonusChanged);
+	BindAttributeDelegate(UPBCharacterAttributeSet::GetSpellSaveDCModifierAttribute(), &ThisClass::HandleSpellSaveDCChanged);
+	BindAttributeDelegate(UPBCharacterAttributeSet::GetProficiencyBonusAttribute(), &ThisClass::HandleSpellSaveDCChanged);
+
 	// 초기값 즉시 반영
 	HandleHPChanged(FOnAttributeChangeData());
+	HandleMovementChanged(FOnAttributeChangeData());
+	HandleArmorClassChanged(FOnAttributeChangeData());
+	HandleHitBonusChanged(FOnAttributeChangeData());
+	HandleSpellSaveDCChanged(FOnAttributeChangeData());
 }
 
 void UPBAbilitySystemUIBridge::ClearAttributeBindings()
@@ -157,6 +173,103 @@ void UPBAbilitySystemUIBridge::HandleHPChanged(const FOnAttributeChangeData& Dat
 	{
 		float Percent = (CurMaxHP > 0) ? static_cast<float>(CurHP) / static_cast<float>(CurMaxHP) : 0.f;
 		TurnVM->SetHealthPercent(Percent);
+	}
+}
+
+// === CombatStats 바인딩 ===
+
+void UPBAbilitySystemUIBridge::HandleMovementChanged(const FOnAttributeChangeData& Data)
+{
+	UAbilitySystemComponent* ASC = CachedASC.Get();
+	if (!IsValid(ASC))
+	{
+		return;
+	}
+
+	UPBViewModelSubsystem* VMSubsystem = GetViewModelSubsystem();
+	if (!IsValid(VMSubsystem))
+	{
+		return;
+	}
+
+	float CurMovement = ASC->GetNumericAttribute(UPBTurnResourceAttributeSet::GetMovementAttribute());
+	float CurMaxMovement = ASC->GetNumericAttribute(UPBTurnResourceAttributeSet::GetMaxMovementAttribute());
+
+	UPBCombatStatsViewModel* CombatStatsVM = VMSubsystem->GetOrCreateActorViewModel<UPBCombatStatsViewModel>(GetOwner());
+	if (IsValid(CombatStatsVM))
+	{
+		CombatStatsVM->SetMovement(CurMovement, CurMaxMovement);
+	}
+}
+
+void UPBAbilitySystemUIBridge::HandleArmorClassChanged(const FOnAttributeChangeData& Data)
+{
+	UAbilitySystemComponent* ASC = CachedASC.Get();
+	if (!IsValid(ASC))
+	{
+		return;
+	}
+
+	UPBViewModelSubsystem* VMSubsystem = GetViewModelSubsystem();
+	if (!IsValid(VMSubsystem))
+	{
+		return;
+	}
+
+	int32 AC = FMath::FloorToInt32(ASC->GetNumericAttribute(UPBCharacterAttributeSet::GetArmorClassAttribute()));
+
+	UPBCombatStatsViewModel* CombatStatsVM = VMSubsystem->GetOrCreateActorViewModel<UPBCombatStatsViewModel>(GetOwner());
+	if (IsValid(CombatStatsVM))
+	{
+		CombatStatsVM->SetArmorClass(AC);
+	}
+}
+
+void UPBAbilitySystemUIBridge::HandleHitBonusChanged(const FOnAttributeChangeData& Data)
+{
+	UAbilitySystemComponent* ASC = CachedASC.Get();
+	if (!IsValid(ASC))
+	{
+		return;
+	}
+
+	UPBViewModelSubsystem* VMSubsystem = GetViewModelSubsystem();
+	if (!IsValid(VMSubsystem))
+	{
+		return;
+	}
+
+	int32 Hit = FMath::FloorToInt32(ASC->GetNumericAttribute(UPBCharacterAttributeSet::GetHitBonusAttribute()));
+
+	UPBCombatStatsViewModel* CombatStatsVM = VMSubsystem->GetOrCreateActorViewModel<UPBCombatStatsViewModel>(GetOwner());
+	if (IsValid(CombatStatsVM))
+	{
+		CombatStatsVM->SetHitBonus(Hit);
+	}
+}
+
+void UPBAbilitySystemUIBridge::HandleSpellSaveDCChanged(const FOnAttributeChangeData& Data)
+{
+	UAbilitySystemComponent* ASC = CachedASC.Get();
+	if (!IsValid(ASC))
+	{
+		return;
+	}
+
+	UPBViewModelSubsystem* VMSubsystem = GetViewModelSubsystem();
+	if (!IsValid(VMSubsystem))
+	{
+		return;
+	}
+
+	int32 Proficiency = FMath::FloorToInt32(ASC->GetNumericAttribute(UPBCharacterAttributeSet::GetProficiencyBonusAttribute()));
+	int32 Modifier = FMath::FloorToInt32(ASC->GetNumericAttribute(UPBCharacterAttributeSet::GetSpellSaveDCModifierAttribute()));
+	int32 DC = 8 + Proficiency + Modifier;
+
+	UPBCombatStatsViewModel* CombatStatsVM = VMSubsystem->GetOrCreateActorViewModel<UPBCombatStatsViewModel>(GetOwner());
+	if (IsValid(CombatStatsVM))
+	{
+		CombatStatsVM->SetSpellSaveDC(DC);
 	}
 }
 

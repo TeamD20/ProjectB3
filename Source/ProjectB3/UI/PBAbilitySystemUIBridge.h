@@ -48,6 +48,20 @@ private:
 	// HP 또는 MaxHP 변경 시 ViewModel을 갱신
 	void HandleHPChanged(const FOnAttributeChangeData& Data);
 
+	// === CombatStats 바인딩 ===
+
+	// Movement 또는 MaxMovement 변경 시 CombatStatsVM을 갱신
+	void HandleMovementChanged(const FOnAttributeChangeData& Data);
+
+	// ArmorClass 변경 시 CombatStatsVM을 갱신
+	void HandleArmorClassChanged(const FOnAttributeChangeData& Data);
+
+	// HitBonus 변경 시 CombatStatsVM을 갱신
+	void HandleHitBonusChanged(const FOnAttributeChangeData& Data);
+
+	// SpellSaveDCModifier 또는 ProficiencyBonus 변경 시 CombatStatsVM을 갱신
+	void HandleSpellSaveDCChanged(const FOnAttributeChangeData& Data);
+
 	// === 어빌리티 상태 바인딩 ===
 
 	// ASC의 어빌리티 활성화/종료 콜백을 구독

@@ -36,7 +36,9 @@ namespace PBUIDelegate
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnImageChangedSignature, TSoftObjectPtr<UTexture2D>);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnFloatValueChangedSignature, float);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnBoolValueChangedSignature, bool);
-	
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnInt32ValueChangedSignature, int32);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnCuurentMaxChangedSignature, float /*Current*/, float /*Max*/);
+
 	// 플레이어 턴 일때 호출할 델리게이트 - 할당 예시) 플레이어 턴일때 알림 사운드 재생
 	//TODO 아직 선언만 미리 해둠
 	DECLARE_MULTICAST_DELEGATE_OneParam(OnPlayerTurnStarted, bool);
