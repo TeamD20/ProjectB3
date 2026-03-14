@@ -48,18 +48,43 @@ float UPBUtilityClearinghouse::GetNormalizedDistanceToTarget(
 		return *CachedValue;
 	}
 
-	// TODO: 실제 맵(NavMesh) 스플라인 기반 경로 길이를 기반으로 0.0 ~ 1.0으로
-	// 정규화 하는 로직
+	// NavMesh 경로 길이 기반 정규화 (0.0 ~ 1.0)
+	// 거리가 가까울수록 1.0, 최대 이동력 범위를 초과하면 0.0
+	float NormalizedScore = 0.0f;
 
-	float DummyDistanceScore = 0.9f;
+	// CacheTurnData 시점에 캐싱된 최대 이동력 사용
+	const float MaxRange = FMath::Max(CachedMaxMovement, 100.0f);
+
+	// NavMesh 경로 길이 조회 
+	double NavPathLength = 0.0;
+	const ENavigationQueryResult::Type NavResult =
+		UNavigationSystemV1::GetPathLength(
+			ActiveTurnActor,
+			ActiveTurnActor->GetActorLocation(),
+			TargetActor->GetActorLocation(),
+			NavPathLength);
+
+	// NavMesh 실패 시 유클리드 직선거리 폴백
+	const float PathLength = (NavResult == ENavigationQueryResult::Success)
+		? static_cast<float>(NavPathLength)
+		: FVector::Dist(
+			ActiveTurnActor->GetActorLocation(),
+			TargetActor->GetActorLocation());
+
+	NormalizedScore = FMath::Clamp(1.0f - (PathLength / MaxRange), 0.0f, 1.0f);
+
+	// 캐싱 (턴 내 중복 NavMesh 조회 방지)
+	const_cast<UPBUtilityClearinghouse*>(this)->CachedDistanceMap.Add(
+		TargetActor, NormalizedScore);
 
 	UE_LOG(
 		LogPBUtility, Log,
-		TEXT("AI [%s]가 타겟 [%s]과의 '거리 정규화 점수'를 요청함 -> 반환값: %f"),
+		TEXT("AI [%s]가 타겟 [%s]과의 '거리 정규화 점수'를 요청함 "
+			 "-> PathLength=%.0f, MaxRange=%.0f, Score=%f"),
 		*ActiveTurnActor->GetName(), *TargetActor->GetName(),
-		DummyDistanceScore);
+		PathLength, MaxRange, NormalizedScore);
 
-	return DummyDistanceScore;
+	return NormalizedScore;
 }
 
 float UPBUtilityClearinghouse::GetTargetVulnerabilityScore(
@@ -120,17 +145,30 @@ float UPBUtilityClearinghouse::EvaluateHighGroundAdvantage(
 		return 0.0f;
 	}
 
-	// TODO: 트레이스(Raycast)를 통한 고저차 판별 및 엄폐물 여부 확인
+	// Z축 고도 비교 기반 고지대 이점 산출 (0.0 ~ 1.0)
+	// D&D 5e: 고지대 = 약 2m(200cm) 이상 높은 위치에서 이점(Advantage) 부여
+	// HeightThreshold를 기준으로 0.0 ~ 1.0 보간
+	constexpr float HeightThreshold = 200.0f; // 고지대 판정 기준 높이 (cm)
 
-	float DummyHighGroundScore = 0.4f;
+	const float HeightDiff =
+		ActiveTurnActor->GetActorLocation().Z
+		- TargetActor->GetActorLocation().Z;
+
+	float HighGroundScore = 0.0f;
+	if (HeightDiff > 0.0f)
+	{
+		// AI가 더 높음 → 보너스 (최대 1.0)
+		HighGroundScore = FMath::Clamp(HeightDiff / HeightThreshold, 0.0f, 1.0f);
+	}
+	// HeightDiff <= 0 → AI가 같거나 낮음 → 보너스 없음 (0.0)
 
 	UE_LOG(LogPBUtility, Log,
-		   TEXT("AI [%s]가 타겟 [%s]에 대한 '고지대/엄폐 이점'을 요청함 -> "
-				"반환값: %f"),
+		   TEXT("AI [%s]가 타겟 [%s]에 대한 '고지대 이점'을 요청함 -> "
+				"HeightDiff=%.0fcm, Score=%f"),
 		   *ActiveTurnActor->GetName(), *TargetActor->GetName(),
-		   DummyHighGroundScore);
+		   HeightDiff, HighGroundScore);
 
-	return DummyHighGroundScore;
+	return HighGroundScore;
 }
 
 /*~ 캐싱 (라이프사이클) 관리 인터페이스 ~*/
@@ -300,6 +338,23 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor)
 		}
 	}
 
+	// --- MaxMovement 캐싱 (턴 시작 시 Movement = 최대치) ---
+	// GE_RestoreTurnResources가 먼저 적용되므로 현재 Movement가 곧 MaxMovement
+	CachedMaxMovement = 1000.0f; // 폴백 기본값
+	if (UAbilitySystemComponent* TurnASC =
+			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(CurrentTurnActor))
+	{
+		if (const UPBTurnResourceAttributeSet* TurnRes =
+				TurnASC->GetSet<UPBTurnResourceAttributeSet>())
+		{
+			CachedMaxMovement = TurnRes->GetMovement();
+		}
+	}
+
+	UE_LOG(LogPBUtility, Log,
+		TEXT("[MovementCache] %s MaxMovement=%.0f cm 캐싱 완료"),
+		*CurrentTurnActor->GetName(), CachedMaxMovement);
+
 	// --- 아군 캐싱 ---
 	// "Enemy" 태그 액터 중 사망자 제외, Self 포함
 	TArray<AActor*> FoundAllies;
@@ -347,6 +402,7 @@ void UPBUtilityClearinghouse::ClearCache()
 	CachedActionScoreMap.Empty();
 	CachedHealScoreMap.Empty();
 	CachedArchetypeWeights = FPBCachedArchetypeWeights();
+	CachedMaxMovement = 1000.0f;
 	EQSTargetActor = nullptr;
 
 	UE_LOG(LogPBUtility, Log,
@@ -542,9 +598,9 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 			{
 				// 어빌리티 이벤트 트리거 태그 추출 (Spec의 DynamicAbilityTags 또는 CDO AbilityTags 첫 번째)
 				FGameplayTag CandidateTag;
-				if (Spec.DynamicAbilityTags.Num() > 0)
+				if (Spec.GetDynamicSpecSourceTags().Num() > 0)
 				{
-					CandidateTag = Spec.DynamicAbilityTags.First();
+					CandidateTag = Spec.GetDynamicSpecSourceTags().First();
 				}
 				else
 				{
@@ -600,9 +656,12 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 	// --- MovementScore 산정 ---
 	// 공식: 1.0 - (DistToTarget / MaxMovementRange), 클램프 [0.0, 1.0]
 	// 거리가 가까울수록 1.0, 멀수록 0.0
-	// 거리가 가까울수록 1.0, 멀수록 0.0
-	// TODO: 이동력 AttributeSet 연동 후 Movement 실값 사용
-	constexpr float MaxMovementRange = 1000.0f; // 임시 Default(10m)
+	// MaxMovementRange = TurnResourceAttributeSet의 MaxMovement 실값
+	// CachedMaxMovement: CacheTurnData 시점(턴 시작)의 Movement 값
+	// EvaluateActionScore 호출 시점에는 이미 자원이 소모되었을 수 있으므로
+	// 턴 시작 시 캐싱된 최대 이동력을 사용한다.
+	const float MaxMovementRange = FMath::Max(CachedMaxMovement, 100.0f);
+
 	if (IsValid(ActiveTurnActor))
 	{
 		const float DistToTarget = FVector::Dist(
@@ -730,9 +789,9 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateHealScore(AActor* AllyTarget)
 		{
 			// AbilityTag 추출 (EvaluateActionScore와 동일 패턴)
 			FGameplayTag CandidateTag;
-			if (Spec.DynamicAbilityTags.Num() > 0)
+			if (Spec.GetDynamicSpecSourceTags().Num() > 0)
 			{
-				CandidateTag = Spec.DynamicAbilityTags.First();
+				CandidateTag = Spec.GetDynamicSpecSourceTags().First();
 			}
 			else
 			{

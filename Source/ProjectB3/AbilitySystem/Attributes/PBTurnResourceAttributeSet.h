@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "AttributeSet.h"
 #include "AbilitySystemComponent.h"
-#include "ProjectB3/AI/PBAIMockAttributeSet.h"
+#include "PBCharacterAttributeSet.h"
 #include "PBTurnResourceAttributeSet.generated.h"
 
 /**

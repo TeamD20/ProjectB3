@@ -183,7 +183,8 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		       TEXT("GenerateSequenceTask: 유효한 타겟도 힐 대상도 없습니다."));
 
 		// 타겟 없지만 이동력 남아있으면 방어적 후퇴
-		if (CurrentMovement > 10.0f)
+		// 단, 현재 위치가 이미 유리하면 Fallback 생략
+		if (CurrentMovement > 10.0f && !ShouldSkipFallback(CurrentMovement))
 		{
 			const FVector FallbackPos =
 				CachedClearinghouse->CalculateFallbackPosition(
@@ -203,8 +204,11 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 					       "목표: (%s)"),
 				       *FallbackPos.ToCompactString());
 
+				// Fallback 이동 후 잔여 AP로 단일 행동 탐색
+				TryAppendActionAfterFallback(
+					FallbackPos, CurrentAction, CurrentBonusAction);
+
 				// EQS로 후퇴 위치 최적화 시도
-				// (쿼리 에셋 미할당 시 기존 CalculateFallbackPosition 좌표 유지)
 				LaunchEQSQueries();
 
 				return EStateTreeRunStatus::Running;
@@ -249,7 +253,8 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		}
 		const float RemainingMPAfterSequence = CurrentMovement - ConsumedMP;
 
-		if (RemainingMPAfterSequence > 10.0f)
+		if (RemainingMPAfterSequence > 10.0f
+			&& !ShouldSkipFallback(RemainingMPAfterSequence))
 		{
 			const FVector FallbackPos =
 				CachedClearinghouse->CalculateFallbackPosition(
@@ -274,7 +279,8 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	else
 	{
 		// DFS가 유효한 행동을 찾지 못함 → Fallback 시도
-		if (CurrentMovement > 10.0f)
+		// 단, 현재 위치가 이미 유리하면 Fallback 생략
+		if (CurrentMovement > 10.0f && !ShouldSkipFallback(CurrentMovement))
 		{
 			const FVector FallbackPos =
 				CachedClearinghouse->CalculateFallbackPosition(
@@ -293,6 +299,10 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 				       TEXT("[Fallback] DFS 행동 없음, 방어적 후퇴만 실행. "
 					       "목표: (%s)"),
 				       *FallbackPos.ToCompactString());
+
+				// Fallback 이동 후 잔여 AP로 단일 행동 탐색
+				TryAppendActionAfterFallback(
+					FallbackPos, CurrentAction, CurrentBonusAction);
 			}
 		}
 
@@ -462,4 +472,135 @@ void UPBGenerateSequenceTask::CheckAllEQSComplete()
 		UE_LOG(LogPBStateTree, Display,
 			TEXT("[EQS] 모든 EQS 쿼리 완료. 시퀀스 준비 완료."));
 	}
+}
+
+/*~ Fallback 헬퍼 ~*/
+
+void UPBGenerateSequenceTask::TryAppendActionAfterFallback(
+	const FVector& FallbackPos, float RemainingAP, float RemainingBA)
+{
+	// Fallback 이동 후 잔여 AP가 있으면, 새 위치 기준으로 단일 행동 탐색
+	if (RemainingAP < 1.0f || !IsValid(CachedClearinghouse))
+	{
+		return;
+	}
+
+	// Fallback 위치 기준 컨텍스트 구성 (이동력 0 = 추가 이동 불허)
+	FPBUtilityContext PostFallbackCtx;
+	PostFallbackCtx.RemainingAP = RemainingAP;
+	PostFallbackCtx.RemainingBA = RemainingBA;
+	PostFallbackCtx.RemainingMP = 0.0f;
+	PostFallbackCtx.AccumulatedMP = 0.0f;
+	PostFallbackCtx.LastActionLocation = FallbackPos;
+
+	// 후보 행동 생성 (사거리 내 Attack/Heal만, Move는 MP=0이라 불가)
+	TArray<FPBSequenceAction> Candidates =
+		CachedClearinghouse->GetCandidateActions(PostFallbackCtx);
+
+	if (Candidates.IsEmpty())
+	{
+		UE_LOG(LogPBStateTree, Display,
+			TEXT("[Fallback+Action] Fallback 위치에서 실행 가능한 행동 없음."));
+		return;
+	}
+
+	// 최고 점수 행동 선택
+	FPBSequenceAction* BestAction = nullptr;
+	float BestActionScore = -1.0f;
+
+	for (FPBSequenceAction& Candidate : Candidates)
+	{
+		// Move는 스킵 (Fallback 후 추가 이동 무의미)
+		if (Candidate.ActionType == EPBActionType::Move)
+		{
+			continue;
+		}
+
+		float CandidateScore = 0.0f;
+		if (Candidate.ActionType == EPBActionType::Attack && IsValid(Candidate.TargetActor))
+		{
+			if (const FPBTargetScore* ScoreData =
+					CachedClearinghouse->GetCachedActionScores().Find(Candidate.TargetActor))
+			{
+				CandidateScore = ScoreData->GetActionScore();
+			}
+		}
+		else if (Candidate.ActionType == EPBActionType::Heal && IsValid(Candidate.TargetActor))
+		{
+			if (const FPBTargetScore* HealData =
+					CachedClearinghouse->GetCachedHealScores().Find(Candidate.TargetActor))
+			{
+				CandidateScore = HealData->GetActionScore();
+			}
+		}
+
+		if (CandidateScore > BestActionScore)
+		{
+			BestActionScore = CandidateScore;
+			BestAction = &Candidate;
+		}
+	}
+
+	if (BestAction && BestActionScore > 0.0f)
+	{
+		GeneratedSequence.Actions.Add(*BestAction);
+
+		const TCHAR* TypeStr =
+			BestAction->ActionType == EPBActionType::Attack ? TEXT("Attack") :
+			BestAction->ActionType == EPBActionType::Heal   ? TEXT("Heal") :
+			TEXT("Other");
+
+		UE_LOG(LogPBStateTree, Display,
+			TEXT("[Fallback+Action] Fallback 후 %s 추가 (타겟: %s, Score: %.2f)"),
+			TypeStr,
+			IsValid(BestAction->TargetActor) ? *BestAction->TargetActor->GetName() : TEXT("N/A"),
+			BestActionScore);
+	}
+}
+
+bool UPBGenerateSequenceTask::ShouldSkipFallback(float RemainingMP) const
+{
+	// 현재 위치가 이미 전술적으로 유리한지 판정
+	// 조건: (1) 사거리 내 적 존재 + (2) 잔여 이동력이 최대의 30% 미만
+	// → 조금 움직여봤자 큰 이득이 없고, 이미 교전 가능한 위치
+	if (!IsValid(SelfActor) || !IsValid(CachedClearinghouse))
+	{
+		return false;
+	}
+
+	// 잔여 이동력이 최대 이동력의 30% 이상이면 Fallback 가치 있음
+	const float MaxMovement = CachedClearinghouse->GetCachedMaxMovement();
+	if (MaxMovement > 0.0f && (RemainingMP / MaxMovement) >= 0.3f)
+	{
+		return false;
+	}
+
+	// 현재 위치에서 사거리 내 적이 있는지 확인
+	const FVector CurrentPos = SelfActor->GetActorLocation();
+	bool bHasTargetInRange = false;
+
+	for (const auto& Pair : CachedClearinghouse->GetCachedActionScores())
+	{
+		if (IsValid(Pair.Key))
+		{
+			const float Dist = FVector::Dist(CurrentPos, Pair.Key->GetActorLocation());
+			// 기본 근접 사거리(200cm) 이내에 적이 있으면 교전 가능
+			if (Dist <= 200.0f)
+			{
+				bHasTargetInRange = true;
+				break;
+			}
+		}
+	}
+
+	if (bHasTargetInRange)
+	{
+		UE_LOG(LogPBStateTree, Display,
+			TEXT("[Fallback Skip] 현재 위치에 사거리 내 적 존재 + "
+			     "잔여 MP(%.0f)가 최대(%.0f)의 30%% 미만 → Fallback 생략"),
+			RemainingMP, MaxMovement);
+		return true;
+	}
+
+	return false;
 }
