@@ -13,6 +13,7 @@ class UPBProfileWidget;
 class UPBSkillBarViewModel;
 class APBGameplayPlayerState;
 class UButton;
+class UProgressBar;
 
 /**
  * 메인 액션바 HUD 최상위 위젯
@@ -77,6 +78,14 @@ protected:
 	// 우측 인벤토리 버튼
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UButton> InventoryButton;
+
+	// 턴 종료 버튼
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> TurnEndButton;
+
+	// 이동 거리 표시 프로그레스 바
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UProgressBar> MovementDistanceProgressBar;
 
 private:
 	// 스킬바/장비 ViewModel 참조
