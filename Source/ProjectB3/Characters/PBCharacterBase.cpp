@@ -8,6 +8,7 @@
 #include "ProjectB3/AbilitySystem/Data/PBAbilitySetData.h"
 #include "ProjectB3/AbilitySystem/Data/PBAbilitySystemRegistry.h"
 #include "ProjectB3/ItemSystem/PBEquipmentActor.h"
+#include "ProjectB3/UI/PBAbilitySystemUIBridge.h"
 
 APBCharacterBase::APBCharacterBase()
 {
@@ -19,6 +20,9 @@ APBCharacterBase::APBCharacterBase()
 	// AttributeSet 생성
 	CharacterAttributeSet = CreateDefaultSubobject<UPBCharacterAttributeSet>(TEXT("CharacterAttributeSet"));
 	TurnResourceAttributeSet = CreateDefaultSubobject<UPBTurnResourceAttributeSet>(TEXT("TurnResourceAttributeSet"));
+
+	// ASC to UI 브리지
+	AbilitySystemUIBridge = CreateDefaultSubobject<UPBAbilitySystemUIBridge>(TEXT("AbilitySystemUIBridge"));
 	
 	static ConstructorHelpers::FClassFinder<UAnimInstance> ABPFinder(TEXT("/Game/2_Characters/Manny/ABP_CharacterBase.ABP_CharacterBase_C"));
 	if (ABPFinder.Succeeded())

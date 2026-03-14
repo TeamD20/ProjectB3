@@ -12,6 +12,7 @@
 class APBEquipmentActor;
 class UPBCharacterAttributeSet;
 class UPBAbilitySystemComponent;
+class UPBAbilitySystemUIBridge;
 class UPBTurnResourceAttributeSet;
 class UPBAbilitySetData;
 
@@ -138,6 +139,10 @@ protected:
 	// 턴 자원 AttributeSet
 	UPROPERTY()
 	TObjectPtr<UPBTurnResourceAttributeSet> TurnResourceAttributeSet;
+
+	// ASC → UI 브리지 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AbilitySystem")
+	TObjectPtr<UPBAbilitySystemUIBridge> AbilitySystemUIBridge;
 
 	// 전투 식별 정보 (진영, 표시 이름, 초상화)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")

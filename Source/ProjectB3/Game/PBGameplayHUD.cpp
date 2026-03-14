@@ -143,7 +143,7 @@ void APBGameplayHUD::HandlePartyMemberListReady(const TArray<AActor*>& InPartyMe
 			VM->SetCharacterName(CPI->GetCombatDisplayName());
 			VM->SetCharacterClass(FText::FromString(TEXT("임시 직업"))); // TODO: 클래스 조회
 			VM->SetLevel(0); // TODO: 레벨 조회.
-			VM->SetHP(1,1); // TODO: ASC 바인드
+			// HP는 UPBAbilitySystemUIBridge가 ASC Attribute 변경 구독으로 자동 갱신
 		}
 		
 		VM->OnPartyMemberSelected.RemoveAll(this);

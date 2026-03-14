@@ -27,7 +27,13 @@ protected:
 	virtual void NativeDestruct() override;
 
 private:
-	// -- [빨강 영역] 3개 카테고리 컨테이너 --
+	// 슬롯 전체 재구성 이벤트 핸들러
+	void HandleSlotsChanged();
+
+	// 개별 슬롯 갱신 이벤트 핸들러
+	void HandleSlotUpdated(int32 CategoryIndex, int32 SlotIndex);
+
+protected:
 	// 주행동 슬롯 영역
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UPanelWidget> PrimaryActionContainer;
@@ -43,14 +49,12 @@ private:
 	// 개별 스킬 슬롯 위젯 클래스
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<class UPBSkillSlotWidget> SkillSlotWidgetClass;
-
+	
+	// 카테고리별 최소 슬롯 개수 (스킬 미할당 시에도 빈 슬롯 표시)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true", ClampMin = 0))
+	int32 MinSlotsPerCategory = 10;
+	
 private:
-	// 슬롯 전체 재구성 이벤트 핸들러
-	void HandleSlotsChanged();
-
-	// 개별 슬롯 갱신 이벤트 핸들러
-	void HandleSlotUpdated(int32 CategoryIndex, int32 SlotIndex);
-
 	// 스킬바 ViewModel 참조
 	UPROPERTY(Transient)
 	TObjectPtr<UPBSkillBarViewModel> SkillBarViewModel;
