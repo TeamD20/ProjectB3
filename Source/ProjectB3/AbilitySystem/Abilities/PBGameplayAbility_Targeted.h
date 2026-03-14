@@ -64,7 +64,6 @@ protected:
 
 	
 	/*~ UPBGameplayAbility_Targeted Interface ~*/
-	
 	// 수신된 타겟 데이터 기반 어빌리티 로직 실행. BP 버전
 	UFUNCTION(BlueprintNativeEvent)
 	void K2_ExecuteTargetLogic(const FPBAbilityTargetData& TargetData);

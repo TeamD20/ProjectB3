@@ -9,8 +9,10 @@
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
 #include "PBCharacterBase.generated.h"
 
+class APBEquipmentActor;
 class UPBCharacterAttributeSet;
 class UPBAbilitySystemComponent;
+class UPBAbilitySystemUIBridge;
 class UPBTurnResourceAttributeSet;
 class UPBAbilitySetData;
 
@@ -95,6 +97,14 @@ public:
 	// 턴 자원 AttributeSet 반환
 	UPBTurnResourceAttributeSet* GetTurnResourceAttributeSet() const { return TurnResourceAttributeSet; }
 
+	// 장비 부착후 스폰된 액터 반환
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	APBEquipmentActor* AttachEquipment(const FGameplayTag& InSlotTag, TSubclassOf<APBEquipmentActor> EquipmentClass);
+
+	// 슬롯 기준으로 장비 제거 성공 여부 반환
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	bool DetachEquipment(const FGameplayTag& InSlotTag);
+	
 protected:
 	/*~ AActor Interface ~*/
 	virtual void BeginPlay() override;
@@ -106,6 +116,18 @@ protected:
 	virtual void InitTags();
 	
 protected:
+	// 기본 애니메이션 레이어
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
+	TSubclassOf<UAnimInstance> DefaultAnimLayerClass;
+	
+	// 장비 부착 슬롯 (메시 슬롯) 태그 매핑
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
+	TMap<FGameplayTag, FName> EquipmentSlotTagNameMap;
+	
+	// 부착된 장비 액터 목록, SlotTag : AttachedActor
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Equipment")
+	TMap<FGameplayTag, APBEquipmentActor*> AttachedEquipments;
+	
 	// AbilitySystemComponent
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AbilitySystem")
 	TObjectPtr<UPBAbilitySystemComponent> AbilitySystemComponent;
@@ -118,10 +140,14 @@ protected:
 	UPROPERTY()
 	TObjectPtr<UPBTurnResourceAttributeSet> TurnResourceAttributeSet;
 
+	// ASC → UI 브리지 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AbilitySystem")
+	TObjectPtr<UPBAbilitySystemUIBridge> AbilitySystemUIBridge;
+
 	// 전투 식별 정보 (진영, 표시 이름, 초상화)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
 	FPBCombatIdentity CombatIdentity;
-
+	
 	// 전투 중 여부
 	UPROPERTY(BlueprintReadOnly, Category = "Combat")
 	bool bIsInCombat = false;

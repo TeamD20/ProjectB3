@@ -7,35 +7,6 @@
 #include "Components/PanelWidget.h"
 #include "ProjectB3/UI/PBUITypes.h"
 
-
-void UPBSkillBarWidget::RefreshSkillBar()
-{
-	if (!IsValid(SkillBarViewModel)) return;
-
-	auto RebuildContainer = [this](UPanelWidget* Container, const TArray<FPBSkillSlotData>& Slots, int32 CategoryIndex)
-	{
-		if (!IsValid(Container)) return;
-		
-		Container->ClearChildren();
-
-		for (int32 i = 0; i < Slots.Num(); ++i)
-		{
-			if (UPBSkillSlotWidget* SlotWidget = CreateWidget<UPBSkillSlotWidget>(this, SkillSlotWidgetClass))
-			{
-				SlotWidget->InitializeBinding(SkillBarViewModel.Get());
-				SlotWidget->SetSlotIndex(CategoryIndex, i);
-				SlotWidget->SetSlotData(Slots[i]);
-				
-				Container->AddChild(SlotWidget);
-			}
-		}
-	};
-
-	RebuildContainer(PrimaryActionContainer, SkillBarViewModel->PrimaryActions, 0);
-	RebuildContainer(SecondaryActionContainer, SkillBarViewModel->SecondaryActions, 1);
-	RebuildContainer(SpellActionContainer, SkillBarViewModel->SpellActions, 2);
-}
-
 void UPBSkillBarWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
@@ -79,9 +50,56 @@ void UPBSkillBarWidget::HandleSlotsChanged()
 	RefreshSkillBar();
 }
 
+void UPBSkillBarWidget::RefreshSkillBar()
+{
+	if (!IsValid(SkillBarViewModel))
+	{
+		return;
+	}
+
+	auto RebuildContainer = [this](UPanelWidget* Container, const TArray<FPBSkillSlotData>& Slots, int32 CategoryIndex)
+	{
+		if (!IsValid(Container))
+		{
+			return;
+		}
+
+		Container->ClearChildren();
+
+		const int32 SlotCount = FMath::Max(Slots.Num(), MinSlotsPerCategory);
+		for (int32 i = 0; i < SlotCount; ++i)
+		{
+			if (UPBSkillSlotWidget* SlotWidget = CreateWidget<UPBSkillSlotWidget>(this, SkillSlotWidgetClass))
+			{
+				SlotWidget->InitializeBinding(SkillBarViewModel.Get());
+				SlotWidget->SetSlotIndex(CategoryIndex, i);
+
+				// 할당된 스킬이 있으면 데이터 설정, 없으면 빈 슬롯
+				if (Slots.IsValidIndex(i))
+				{
+					SlotWidget->SetSlotData(Slots[i]);
+				}
+				else
+				{
+					SlotWidget->SetSlotData(FPBSkillSlotData());
+				}
+
+				Container->AddChild(SlotWidget);
+			}
+		}
+	};
+
+	RebuildContainer(PrimaryActionContainer, SkillBarViewModel->PrimaryActions, 0);
+	RebuildContainer(SecondaryActionContainer, SkillBarViewModel->SecondaryActions, 1);
+	RebuildContainer(SpellActionContainer, SkillBarViewModel->SpellActions, 2);
+}
+
 void UPBSkillBarWidget::HandleSlotUpdated(int32 CategoryIndex, int32 SlotIndex)
 {
-	if (!IsValid(SkillBarViewModel)) return;
+	if (!IsValid(SkillBarViewModel))
+	{
+		return;
+	}
 
 	UPanelWidget* TargetContainer = nullptr;
 	switch (CategoryIndex)

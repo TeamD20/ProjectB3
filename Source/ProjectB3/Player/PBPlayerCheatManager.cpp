@@ -77,7 +77,7 @@ void UPBPlayerCheatManager::SetMovement(float Value)
 	}
 
 	ASC->SetNumericAttributeBase(UPBTurnResourceAttributeSet::GetMovementAttribute(), Value);
-	if (PC->GetControllerMode() == EPBPlayerControllerMode::Movement)
+	if (PC->GetControllerMode() == EPBPlayerControllerMode::TurnMovement)
 	{
 		PC->ClearPathDisplay();
 		PC->SetPathDisplayMovementRange(Value);	

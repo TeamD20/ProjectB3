@@ -10,6 +10,7 @@
 #include "NiagaraFunctionLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
+#include "PBPlayerCheatManager.h"
 #include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
 #include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
 #include "ProjectB3/PBGameplayTags.h"
@@ -83,13 +84,21 @@ void APBGameplayPlayerController::Tick(float DeltaTime)
 
 	if (bGotHit)
 	{
-		if (CurrentMode == EPBPlayerControllerMode::Movement || CurrentMode == EPBPlayerControllerMode::FreeMovement)
+		if (CurrentMode == EPBPlayerControllerMode::TurnMovement || CurrentMode == EPBPlayerControllerMode::FreeMovement)
 		{
 			UpdateHoverPathDisplay(CursorHit);
 		}
 		if (CurrentMode == EPBPlayerControllerMode::Targeting)
 		{
 			TargetingComponent->UpdateTargetingFromHit(CursorHit);
+		}
+	}
+
+	if (CurrentMode == EPBPlayerControllerMode::Moving)
+	{
+		if (APawn* MyPawn = GetPawn())
+		{
+			PathDisplayComponent->UpdateTrackedPath(MyPawn->GetActorLocation());
 		}
 	}
 }
@@ -203,6 +212,10 @@ void APBGameplayPlayerController::SetControllerMode(EPBPlayerControllerMode NewM
 			TargetingComponent->ExitTargetingMode();
 		}
 	}
+	else if (CurrentMode == EPBPlayerControllerMode::Moving)
+	{
+		PathDisplayComponent->EndPathTracking();
+	}
 
 	CurrentMode = NewMode;
 
@@ -223,6 +236,17 @@ void APBGameplayPlayerController::SetPathDisplayMovementRange(float Range)
 void APBGameplayPlayerController::ClearPathDisplay()
 {
 	PathDisplayComponent->ClearPath();
+}
+
+void APBGameplayPlayerController::BeginMoving(const TArray<FVector>& PathPoints)
+{
+	PathDisplayComponent->BeginPathTracking(PathPoints);
+	SetControllerMode(EPBPlayerControllerMode::Moving);
+}
+
+void APBGameplayPlayerController::EndMoving()
+{
+	PathDisplayComponent->EndPathTracking();
 }
 
 void APBGameplayPlayerController::EnterTargetingMode(const FPBTargetingRequest& Request)
@@ -254,7 +278,7 @@ void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value
 		}
 		return;
 
-	case EPBPlayerControllerMode::Movement:
+	case EPBPlayerControllerMode::TurnMovement:
 	{
 		FHitResult HitResult;
 		if (!GetHitResultUnderCursor(ECC_Visibility, false, HitResult))

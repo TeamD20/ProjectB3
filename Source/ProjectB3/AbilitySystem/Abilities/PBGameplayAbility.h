@@ -4,8 +4,12 @@
 
 #include "Abilities/GameplayAbility.h"
 #include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
+#include "ProjectB3/Utils/PBBlueprintTypes.h"
 #include "PBGameplayAbility.generated.h"
 
+class UPBAbilitySystemComponent;
+class APBGameplayPlayerController;
+class APBCharacterBase;
 class UTexture2D;
 
 // AI 스코어링에서 어빌리티의 효과 카테고리를 구분하는 열거형.
@@ -22,13 +26,31 @@ enum class EPBAbilityCategory : uint8
 };
 
 /** 프로젝트 전용 GameplayAbility 기반 클래스. 모든 어빌리티는 이 클래스를 상속해서 구현. */
+// TODO: 어빌리티 활성시 자동 장비 장착
 UCLASS()
 class PROJECTB3_API UPBGameplayAbility : public UGameplayAbility
 {
 	GENERATED_BODY()
 
 public:
+	UPBGameplayAbility();
+	
 	/*~ UPBGameplayAbility Interfaces ~*/
+	UFUNCTION(BlueprintCallable, BlueprintPure = false, Category = "ProjectB3", meta = (ExpandEnumAsExecs = "Result", DisplayName = "GetPBCharacter"))
+	APBCharacterBase* K2_GetPBCharacter(EPBValidResult& Result) const;
+	
+	APBCharacterBase* GetPBCharacter() const;
+	
+	UFUNCTION(BlueprintCallable, BlueprintPure = false, Category = "ProjectB3", meta = (ExpandEnumAsExecs = "Result", DisplayName = "GetPBCharacter"))
+	APBGameplayPlayerController* K2_GetPBPlayerController(EPBValidResult& Result) const;
+	
+	APBGameplayPlayerController* GetPBPlayerController() const;
+	
+	UFUNCTION(BlueprintCallable, BlueprintPure = false, Category = "ProjectB3")
+	UPBAbilitySystemComponent* GetPBAbilitySystemComponent() const;
+	
+	UPBAbilitySystemComponent* GetPBAbilitySystemComponentFromActorInfo(const FGameplayAbilityActorInfo* ActorInfo) const;
+	
 	// UI 표시용 어빌리티 이름 반환
 	UFUNCTION(BlueprintPure, Category = "Ability|Definition")
 	const FText& GetAbilityDisplayName() const { return AbilityDisplayName; }
@@ -59,8 +81,10 @@ public:
 	int32 GetEffectDuration() const { return EffectDuration; }
 
 	// 어빌리티 타입 반환. 활성화 중이면 Spec의 DynamicTags 포함, 아니면 AbilityTags만 조회.
-	UFUNCTION(BlueprintPure, Category = "Ability|Definition")
-	EPBAbilityType GetAbilityType() const;
+	UFUNCTION(BlueprintPure, Category = "Ability|Definition", meta = (DisplayName = "GetAbilityType"))
+	EPBAbilityType K2_GetAbilityType() const;
+	
+	EPBAbilityType GetAbilityType(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo) const;
 
 	// ==== 주사위 굴림 (DiceSpec 기반) ====
 

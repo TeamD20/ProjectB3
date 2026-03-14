@@ -18,6 +18,11 @@ namespace PBGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Faction_Enemy, "Combat.Faction.Enemy", "적 진영");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Faction_Neutral, "Combat.Faction.Neutral", "중립 진영");
 
+	// 장비
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Equipment_Slot_LeftHand, "Equipment.Slot.LeftHand", "왼손 장비 슬롯 태그");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Equipment_Slot_RightHand, "Equipment.Slot.RightHand", "오른손 장비 슬롯 태그");
+	
+	// 어빌리티
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Common, "Ability.Source.Common", "공통 기본 어빌리티 출처");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Class, "Ability.Source.Class", "클래스 어빌리티 출처");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Equipment_Weapon, "Ability.Source.Equipment.Weapon", "무기 장비 어빌리티 출처");
@@ -41,10 +46,12 @@ namespace PBGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Ability_Activate, "Event.Ability.Activate", "어빌리티 발동 요청 이벤트");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Ability_Confirm, "Event.Ability.Confirm", "타겟 확정 이벤트");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Ability_Cancel, "Event.Ability.Cancel", "타겟 취소 이벤트");
+	
 	// 캐릭터 이벤트 태그
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Character_Attack, "Event.Character.Attack", "공격 몽타주 내 공격 판정 이벤트");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Character_Die, "Event.Character.Die", "캐릭터 사망 이벤트");
-
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Character_HitReact, "Event.Character.HitReact", "캐릭터 피격 반응 이벤트");
+	
 	// 이동 이벤트 태그
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Movement_MoveCommand, "Event.Movement.MoveCommand", "이동 명령 이벤트");
 
