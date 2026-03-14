@@ -19,7 +19,7 @@ void UPBEquipmentSlotWidget::UpdateSlot(const FPBEquipmentSlotData& InData)
 {
 	if (EquipmentIcon)
 	{
-		if (InData.Icon.IsValid())
+		if (!InData.Icon.IsNull())
 		{
 			EquipmentIcon->SetBrushFromSoftTexture(InData.Icon);
 			EquipmentIcon->SetVisibility(ESlateVisibility::HitTestInvisible);
