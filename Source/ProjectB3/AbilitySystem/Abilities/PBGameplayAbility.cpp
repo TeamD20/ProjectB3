@@ -9,6 +9,10 @@
 #include "ProjectB3/Characters/PBCharacterBase.h"
 #include "ProjectB3/Combat/PBCombatSystemLibrary.h"
 #include "ProjectB3/Player/PBGameplayPlayerController.h"
+#include "ProjectB3/PBGameplayTags.h"
+#include "ProjectB3/ItemSystem/PBEquipmentActor.h"
+#include "ProjectB3/ItemSystem/Components/PBEquipmentComponent.h"
+#include "ProjectB3/ItemSystem/Data/PBEquipmentDataAsset.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPBGameplayAbility, Log, All);
 
@@ -109,6 +113,9 @@ void UPBGameplayAbility::ActivateAbility(
 			PBASC->SetTurnAbilityActive(true);
 		}
 	}
+
+	// 장비 슬롯 태그가 DynamicTag에 있으면 해당 무기를 캐릭터에 자동 부착
+	TryAutoAttachEquipment(Handle, ActorInfo);
 
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 }
@@ -374,6 +381,80 @@ float UPBGameplayAbility::GetExpectedDirectDamage(
 	
 	return UPBAbilitySystemLibrary::CalcExpectedDamage(
 		DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, SourceTags, TargetTags);
+}
+
+void UPBGameplayAbility::TryAutoAttachEquipment(
+	const FGameplayAbilitySpecHandle& Handle,
+	const FGameplayAbilityActorInfo* ActorInfo) const
+{
+	if (!ActorInfo)
+	{
+		return;
+	}
+
+	UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
+	if (!IsValid(ASC))
+	{
+		return;
+	}
+
+	FGameplayAbilitySpec* Spec = ASC->FindAbilitySpecFromHandle(Handle);
+	if (!Spec)
+	{
+		return;
+	}
+
+	// DynamicTags에서 Equipment.Slot 태그 탐색
+	const FGameplayTagContainer& DynamicTags = Spec->GetDynamicSpecSourceTags();
+	FGameplayTag FoundSlotTag;
+	for (const FGameplayTag& Tag : DynamicTags)
+	{
+		if (Tag.MatchesTag(PBGameplayTags::Equipment_Slot))
+		{
+			FoundSlotTag = Tag;
+			break;
+		}
+	}
+
+	if (!FoundSlotTag.IsValid())
+	{
+		return;
+	}
+
+	// 캐릭터와 EquipmentComponent 조회
+	APBCharacterBase* Character = Cast<APBCharacterBase>(ActorInfo->AvatarActor.Get());
+	if (!IsValid(Character))
+	{
+		return;
+	}
+
+	UPBEquipmentComponent* EquipComp = Character->FindComponentByClass<UPBEquipmentComponent>();
+	if (!IsValid(EquipComp))
+	{
+		return;
+	}
+
+	// 해당 슬롯 태그에 대응하는 장착 아이템의 EquipmentActorClass 조회
+	for (const auto& Pair : EquipComp->GetEquippedItems())
+	{
+		const UPBEquipmentDataAsset* EquipData = Cast<UPBEquipmentDataAsset>(Pair.Value.ItemDataAsset);
+		if (!IsValid(EquipData) || EquipData->EquipmentActorClass.IsNull())
+		{
+			continue;
+		}
+
+		// 이 슬롯의 부착 태그가 찾은 태그와 일치하는지 확인
+		const FGameplayTag SlotTag = UPBEquipmentComponent::GetAttachSlotTag(Pair.Key);
+		if (SlotTag == FoundSlotTag)
+		{
+			const TSubclassOf<APBEquipmentActor> LoadedClass = EquipData->EquipmentActorClass.LoadSynchronous();
+			if (LoadedClass)
+			{
+				Character->AttachEquipment(FoundSlotTag, LoadedClass);
+			}
+			break;
+		}
+	}
 }
 
 FPBAbilityTargetData UPBGameplayAbility::ExtractTargetDataFromEvent(

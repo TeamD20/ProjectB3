@@ -26,7 +26,6 @@ enum class EPBAbilityCategory : uint8
 };
 
 /** 프로젝트 전용 GameplayAbility 기반 클래스. 모든 어빌리티는 이 클래스를 상속해서 구현. */
-// TODO: 어빌리티 활성시 자동 장비 장착
 UCLASS()
 class PROJECTB3_API UPBGameplayAbility : public UGameplayAbility
 {
@@ -162,6 +161,9 @@ protected:
 	virtual UGameplayEffect* GetCooldownGameplayEffect() const override;
 
 	/*~ UPBGameplayAbility Interfaces ~*/
+
+	// DynamicTag에 장비 슬롯 태그가 있으면 해당 무기를 캐릭터에 자동 부착
+	void TryAutoAttachEquipment(const FGameplayAbilitySpecHandle& Handle, const FGameplayAbilityActorInfo* ActorInfo) const;
 
 	// Payload에서 타겟 데이터 추출 유틸리티
 	FPBAbilityTargetData ExtractTargetDataFromEvent(const FGameplayEventData& EventData) const;

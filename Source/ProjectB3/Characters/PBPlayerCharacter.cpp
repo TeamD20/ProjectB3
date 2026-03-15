@@ -3,6 +3,7 @@
 #include "PBPlayerCharacter.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
+#include "PBCharacterPreviewComponent.h"
 
 APBPlayerCharacter::APBPlayerCharacter()
 {
@@ -19,6 +20,8 @@ APBPlayerCharacter::APBPlayerCharacter()
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(SpringArmComponent, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
+
+	CharacterPreviewComponent = CreateDefaultSubobject<UPBCharacterPreviewComponent>(TEXT("CharacterPreview"));
 }
 
 void APBPlayerCharacter::BeginPlay()
