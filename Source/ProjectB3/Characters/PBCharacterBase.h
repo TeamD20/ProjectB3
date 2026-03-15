@@ -7,6 +7,7 @@
 #include "GameFramework/Character.h"
 #include "AbilitySystemInterface.h"
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
+#include "ProjectB3/ItemSystem/PBItemTypes.h"
 #include "PBCharacterBase.generated.h"
 
 class APBEquipmentActor;
@@ -15,6 +16,11 @@ class UPBAbilitySystemComponent;
 class UPBAbilitySystemUIBridge;
 class UPBTurnResourceAttributeSet;
 class UPBAbilitySetData;
+class UPBInventoryComponent;
+class UPBEquipmentComponent;
+
+// 장비 부착/제거 시 브로드캐스트되는 델리게이트 (슬롯 태그)
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterEquipmentChanged, const FGameplayTag&, SlotTag);
 
 // 플레이어와 AI가 공유하는 캐릭터 기반 클래스.
 UCLASS()
@@ -104,6 +110,17 @@ public:
 	// 슬롯 기준으로 장비 제거 성공 여부 반환
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	bool DetachEquipment(const FGameplayTag& InSlotTag);
+
+	// 인벤토리 컴포넌트 반환
+	UPBInventoryComponent* GetInventoryComponent() const { return InventoryComponent; }
+
+	// 장비 컴포넌트 반환
+	UPBEquipmentComponent* GetEquipmentComponent() const { return EquipmentComponent; }
+
+public:
+	// 장비 부착/제거 후 브로드캐스트되는 델리게이트
+	UPROPERTY(BlueprintAssignable, Category = "Equipment")
+	FOnCharacterEquipmentChanged OnCharacterEquipmentChanged;
 	
 protected:
 	/*~ AActor Interface ~*/
@@ -114,11 +131,21 @@ protected:
 	virtual void GrantInitialAbilities();
 	// 캐릭터 태그 부여
 	virtual void InitTags();
+	// 기본 지급 아이템/장비를 인벤토리/장비 컴포넌트에 추가
+	virtual void GrantDefaultItems();
 	
 protected:
 	// 기본 애니메이션 레이어
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
 	TSubclassOf<UAnimInstance> DefaultAnimLayerClass;
+
+	// BeginPlay 시 인벤토리에 자동 추가되는 기본 아이템 목록 (테스트용)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Items|Default")
+	TArray<FPBDefaultItemEntry> DefaultItems;
+
+	// BeginPlay 시 자동 장착되는 기본 장비 목록 (테스트용)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Items|Default")
+	TArray<FPBDefaultEquipmentEntry> DefaultEquipments;
 	
 	// 장비 부착 슬롯 (메시 슬롯) 태그 매핑
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
@@ -143,6 +170,14 @@ protected:
 	// ASC → UI 브리지 컴포넌트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AbilitySystem")
 	TObjectPtr<UPBAbilitySystemUIBridge> AbilitySystemUIBridge;
+
+	// 인벤토리 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Inventory")
+	TObjectPtr<UPBInventoryComponent> InventoryComponent;
+
+	// 장비 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Equipment")
+	TObjectPtr<UPBEquipmentComponent> EquipmentComponent;
 
 	// 전투 식별 정보 (진영, 표시 이름, 초상화)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")

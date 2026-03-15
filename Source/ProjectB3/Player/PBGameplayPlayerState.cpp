@@ -11,6 +11,7 @@ void APBGameplayPlayerState::AddGold(int32 Amount)
 	if (Amount > 0)
 	{
 		TotalGold += Amount;
+		OnGoldChanged.Broadcast(TotalGold);
 	}
 }
 
@@ -22,6 +23,7 @@ bool APBGameplayPlayerState::SpendGold(int32 Amount)
 	}
 
 	TotalGold -= Amount;
+	OnGoldChanged.Broadcast(TotalGold);
 	return true;
 }
 

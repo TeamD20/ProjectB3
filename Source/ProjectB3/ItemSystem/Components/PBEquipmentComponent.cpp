@@ -215,31 +215,48 @@ bool UPBEquipmentComponent::IsSlotEmpty(EPBEquipSlot Slot) const
 
 EPBEquipSlot UPBEquipmentComponent::ResolveAutoEquipSlot(const UPBEquipmentDataAsset* EquipData) const
 {
-	if (!IsValid(EquipData) || EquipData->AllowedSlots.IsEmpty())
+	if (!IsValid(EquipData))
 	{
 		return EPBEquipSlot::MAX;
 	}
 
-	// 방어구/장신구 등 단일 슬롯 장비
-	if (EquipData->AllowedSlots.Num() == 1)
+	const TArray<EPBEquipSlot> AllowedSlots = UPBEquipmentDataAsset::GetAllowedSlotsForType(
+		EquipData->EquipmentType, EquipData->WeaponHandType);
+
+	if (AllowedSlots.IsEmpty())
 	{
-		return EquipData->AllowedSlots[0];
+		return EPBEquipSlot::MAX;
 	}
 
-	// 무기: 활성 세트의 Main → Off 순으로 탐색
+	// 방어구/장신구 등 단일 슬롯 장비 — 빈 슬롯이면 장착, 아니면 교체
+	if (AllowedSlots.Num() == 1)
+	{
+		return AllowedSlots[0];
+	}
+
+	// 반지: Ring1 → Ring2 순으로 빈 슬롯 탐색, 둘 다 차있으면 Ring1 교체
+	if (EquipData->EquipmentType == EPBEquipmentType::Ring)
+	{
+		if (IsSlotEmpty(EPBEquipSlot::Ring1)) { return EPBEquipSlot::Ring1; }
+		if (IsSlotEmpty(EPBEquipSlot::Ring2)) { return EPBEquipSlot::Ring2; }
+		return EPBEquipSlot::Ring1;
+	}
+
+	// 무기/방패: 활성 세트의 Main → Off 순으로 탐색
 	const EPBEquipSlot MainSlot = (ActiveWeaponSet == 1)
 		? EPBEquipSlot::WeaponSet1_Main : EPBEquipSlot::WeaponSet2_Main;
 	const EPBEquipSlot OffSlot = (ActiveWeaponSet == 1)
 		? EPBEquipSlot::WeaponSet1_Off : EPBEquipSlot::WeaponSet2_Off;
 
-	// 양손무기는 Main만 가능
+	// 양손무기/방패는 해당 슬롯만 사용
+	if (EquipData->EquipmentType == EPBEquipmentType::Shield)
+	{
+		return IsSlotEmpty(OffSlot) ? OffSlot : OffSlot; // Off 슬롯 교체
+	}
+
 	if (EquipData->WeaponHandType == EPBWeaponHandType::TwoHanded)
 	{
-		if (EquipData->CanEquipToSlot(MainSlot))
-		{
-			return MainSlot;
-		}
-		return EPBEquipSlot::MAX;
+		return EquipData->CanEquipToSlot(MainSlot) ? MainSlot : EPBEquipSlot::MAX;
 	}
 
 	// 한손/다용도: Main 비었으면 Main, 아니면 Off (Main에 양손무기 있으면 Main 교체)
@@ -250,14 +267,14 @@ EPBEquipSlot UPBEquipmentComponent::ResolveAutoEquipSlot(const UPBEquipmentDataA
 
 	if (EquipData->CanEquipToSlot(OffSlot) && IsSlotEmpty(OffSlot))
 	{
-		// Main에 양손무기가 있으면 Off 사용 불가
+		// Main에 양손무기가 있으면 Off 사용 불가 → Main 교체
 		if (const FPBItemInstance* MainItem = EquippedItems.Find(MainSlot))
 		{
 			if (const UPBEquipmentDataAsset* MainData = Cast<UPBEquipmentDataAsset>(MainItem->ItemDataAsset))
 			{
 				if (MainData->WeaponHandType == EPBWeaponHandType::TwoHanded)
 				{
-					return MainSlot; // Main 교체
+					return MainSlot;
 				}
 			}
 		}
@@ -300,6 +317,41 @@ bool UPBEquipmentComponent::AutoEquipItem(const FGuid& InstanceID, UPBInventoryC
 	}
 
 	return EquipItem(InstanceID, ResolvedSlot, Inventory);
+}
+
+bool UPBEquipmentComponent::EquipItemFromExternalInventory(
+	const FGuid& InstanceID,
+	EPBEquipSlot Slot,
+	UPBInventoryComponent* SourceInventory,
+	UPBInventoryComponent* TargetInventory)
+{
+	if (!IsValid(SourceInventory) || !IsValid(TargetInventory) || !InstanceID.IsValid())
+	{
+		return false;
+	}
+
+	if (SourceInventory == TargetInventory)
+	{
+		return EquipItem(InstanceID, Slot, TargetInventory);
+	}
+
+	if (!UPBInventoryComponent::TransferItem(InstanceID, SourceInventory, TargetInventory))
+	{
+		return false;
+	}
+
+	if (EquipItem(InstanceID, Slot, TargetInventory))
+	{
+		return true;
+	}
+
+	// 장착 실패 시 원본 인벤토리로 복귀시켜 이동/장착을 원자적으로 보장한다.
+	if (!UPBInventoryComponent::TransferItem(InstanceID, TargetInventory, SourceInventory))
+	{
+		UE_LOG(LogPBEquipment, Error, TEXT("EquipItemFromExternalInventory: 롤백 실패 (InstanceID=%s)"), *InstanceID.ToString());
+	}
+
+	return false;
 }
 
 void UPBEquipmentComponent::GrantEquipmentAbilities(EPBEquipSlot Slot, const UPBEquipmentDataAsset* EquipData)

@@ -63,6 +63,28 @@ enum class EPBEquipSlot : uint8
 	MAX UMETA(Hidden)
 };
 
+// 장비 부위 유형 — 에디터에서 지정하면 코드에서 허용 슬롯을 자동 도출
+UENUM(BlueprintType)
+enum class EPBEquipmentType : uint8
+{
+	// 무기 (WeaponHandType에 따라 허용 슬롯 결정)
+	Weapon,
+	// 방패 / 오프핸드 전용 장비
+	Shield,
+	// 투구
+	Head,
+	// 갑옷
+	Body,
+	// 장갑
+	Hands,
+	// 신발
+	Feet,
+	// 목걸이
+	Amulet,
+	// 반지 (Ring1, Ring2 모두 허용)
+	Ring,
+};
+
 // 무기의 손 점유 유형
 UENUM(BlueprintType)
 enum class EPBWeaponHandType : uint8
@@ -73,6 +95,36 @@ enum class EPBWeaponHandType : uint8
 	TwoHanded,
 	// 다용도 무기 (한손 사용 가능, 양손 사용 시 데미지 증가)
 	Versatile
+};
+
+// 캐릭터 초기 지급 아이템 항목 (인벤토리용)
+USTRUCT(BlueprintType)
+struct FPBDefaultItemEntry
+{
+	GENERATED_BODY()
+
+	// 지급할 아이템 데이터 에셋
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TObjectPtr<UPBItemDataAsset> ItemData;
+
+	// 지급 수량
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (ClampMin = "1"))
+	int32 Amount = 1;
+};
+
+// 캐릭터 초기 장착 항목 (장비 슬롯용)
+USTRUCT(BlueprintType)
+struct FPBDefaultEquipmentEntry
+{
+	GENERATED_BODY()
+
+	// 장착할 아이템 데이터 에셋
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TObjectPtr<UPBItemDataAsset> ItemData;
+
+	// 장착할 슬롯
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	EPBEquipSlot Slot = EPBEquipSlot::WeaponSet1_Main;
 };
 
 // 인벤토리에 보유 중인 개별 아이템 인스턴스

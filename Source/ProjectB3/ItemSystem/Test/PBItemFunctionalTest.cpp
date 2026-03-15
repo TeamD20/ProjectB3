@@ -66,11 +66,8 @@ UPBEquipmentDataAsset* APBItemFunctionalTestBase::CreateOneHandedWeaponData(cons
 	Data->ItemName = FText::FromName(ID);
 	Data->ItemType = EPBItemType::Weapon;
 	Data->MaxStackSize = 1;
+	Data->EquipmentType = EPBEquipmentType::Weapon;
 	Data->WeaponHandType = EPBWeaponHandType::OneHanded;
-	Data->AllowedSlots = {
-		EPBEquipSlot::WeaponSet1_Main, EPBEquipSlot::WeaponSet1_Off,
-		EPBEquipSlot::WeaponSet2_Main, EPBEquipSlot::WeaponSet2_Off
-	};
 	CreatedDataAssets.Add(Data);
 	return Data;
 }
@@ -81,22 +78,19 @@ UPBEquipmentDataAsset* APBItemFunctionalTestBase::CreateTwoHandedWeaponData(cons
 	Data->ItemName = FText::FromName(ID);
 	Data->ItemType = EPBItemType::Weapon;
 	Data->MaxStackSize = 1;
+	Data->EquipmentType = EPBEquipmentType::Weapon;
 	Data->WeaponHandType = EPBWeaponHandType::TwoHanded;
-	Data->AllowedSlots = {
-		EPBEquipSlot::WeaponSet1_Main,
-		EPBEquipSlot::WeaponSet2_Main
-	};
 	CreatedDataAssets.Add(Data);
 	return Data;
 }
 
-UPBEquipmentDataAsset* APBItemFunctionalTestBase::CreateArmorData(const FName& ID, EPBEquipSlot Slot)
+UPBEquipmentDataAsset* APBItemFunctionalTestBase::CreateArmorData(const FName& ID, EPBEquipmentType EquipType)
 {
 	UPBEquipmentDataAsset* Data = NewObject<UPBEquipmentDataAsset>(this);
 	Data->ItemName = FText::FromName(ID);
 	Data->ItemType = EPBItemType::Armor;
 	Data->MaxStackSize = 1;
-	Data->AllowedSlots = { Slot };
+	Data->EquipmentType = EquipType;
 	CreatedDataAssets.Add(Data);
 	return Data;
 }
@@ -197,7 +191,7 @@ void APBTest_EquipUnequip::StartTest()
 	AssertEqual_Int(Inv->GetUsedSlotCount(), 1, TEXT("인벤토리에 복귀해야 한다"));
 
 	// --- 비허용 슬롯 거부 ---
-	UPBEquipmentDataAsset* Helmet = CreateArmorData(FName("Helmet_Test"), EPBEquipSlot::Head);
+	UPBEquipmentDataAsset* Helmet = CreateArmorData(FName("Helmet_Test"), EPBEquipmentType::Head);
 	Inv->AddItem(Helmet, 1);
 	FGuid HelmetID = Inv->GetItemAtSlot(1).InstanceID;
 
@@ -210,7 +204,7 @@ void APBTest_EquipUnequip::StartTest()
 	AssertTrue(bHeadEquip, TEXT("허용 슬롯 장착은 성공해야 한다"));
 
 	// --- 기존 장비 교체 ---
-	UPBEquipmentDataAsset* Helmet2 = CreateArmorData(FName("Helmet_Test2"), EPBEquipSlot::Head);
+	UPBEquipmentDataAsset* Helmet2 = CreateArmorData(FName("Helmet_Test2"), EPBEquipmentType::Head);
 	Inv->AddItem(Helmet2, 1);
 	FGuid Helmet2ID = Inv->GetItemAtSlot(1).InstanceID;
 
@@ -280,7 +274,7 @@ void APBTest_AutoEquipSlot::StartTest()
 	UPBEquipmentComponent* Equip = GetEquipment(TestActor);
 
 	// --- 단일 슬롯 방어구 → Head 자동 결정 ---
-	UPBEquipmentDataAsset* Helmet = CreateArmorData(FName("Helmet_Auto"), EPBEquipSlot::Head);
+	UPBEquipmentDataAsset* Helmet = CreateArmorData(FName("Helmet_Auto"), EPBEquipmentType::Head);
 	AssertTrue(Equip->ResolveAutoEquipSlot(Helmet) == EPBEquipSlot::Head,
 		TEXT("투구는 Head로 자동 결정되어야 한다"));
 

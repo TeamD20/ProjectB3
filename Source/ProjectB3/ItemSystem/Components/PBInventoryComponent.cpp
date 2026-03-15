@@ -62,6 +62,25 @@ int32 UPBInventoryComponent::AddItem(UPBItemDataAsset* ItemData, int32 Amount)
 	return TotalAdded;
 }
 
+bool UPBInventoryComponent::AddItemInstance(const FPBItemInstance& ItemInstance)
+{
+	if (!ItemInstance.IsValid())
+	{
+		UE_LOG(LogPBInventory, Warning, TEXT("AddItemInstance: 유효하지 않은 아이템 인스턴스"));
+		return false;
+	}
+
+	if (!HasFreeSlot())
+	{
+		UE_LOG(LogPBInventory, Warning, TEXT("AddItemInstance: 인벤토리 공간 부족"));
+		return false;
+	}
+
+	const int32 NewIndex = Items.Add(ItemInstance);
+	OnInventoryItemChanged.Broadcast(NewIndex);
+	return true;
+}
+
 bool UPBInventoryComponent::RemoveItem(const FGuid& InstanceID, int32 Amount)
 {
 	const int32 SlotIndex = FindSlotIndexByID(InstanceID);
@@ -90,6 +109,102 @@ bool UPBInventoryComponent::RemoveItem(const FGuid& InstanceID, int32 Amount)
 		OnInventoryItemChanged.Broadcast(SlotIndex);
 	}
 
+	return true;
+}
+
+bool UPBInventoryComponent::TransferItem(const FGuid& InstanceID, UPBInventoryComponent* Source, UPBInventoryComponent* Target)
+{
+	if (!IsValid(Source) || !IsValid(Target) || Source == Target)
+	{
+		return false;
+	}
+
+	const FPBItemInstance SourceItem = Source->FindItemByID(InstanceID);
+	if (!SourceItem.IsValid())
+	{
+		UE_LOG(LogPBInventory, Warning, TEXT("TransferItem: Source에서 아이템을 찾을 수 없음"));
+		return false;
+	}
+
+	if (!Target->AddItemInstance(SourceItem))
+	{
+		UE_LOG(LogPBInventory, Warning, TEXT("TransferItem: Target 추가 실패"));
+		return false;
+	}
+
+	if (!Source->RemoveItem(InstanceID, SourceItem.Count))
+	{
+		UE_LOG(LogPBInventory, Warning, TEXT("TransferItem: Source 제거 실패, 롤백 수행"));
+		Target->RemoveItem(SourceItem.InstanceID, SourceItem.Count);
+		return false;
+	}
+
+	return true;
+}
+
+bool UPBInventoryComponent::SwapItems(const FGuid& FirstInstanceID, const FGuid& SecondInstanceID, UPBInventoryComponent* Inventory)
+{
+	if (!IsValid(Inventory) || !FirstInstanceID.IsValid() || !SecondInstanceID.IsValid() || FirstInstanceID == SecondInstanceID)
+	{
+		return false;
+	}
+
+	const int32 FirstIndex = Inventory->FindSlotIndexByID(FirstInstanceID);
+	const int32 SecondIndex = Inventory->FindSlotIndexByID(SecondInstanceID);
+	if (!Inventory->Items.IsValidIndex(FirstIndex) || !Inventory->Items.IsValidIndex(SecondIndex))
+	{
+		return false;
+	}
+
+	if (FirstIndex == SecondIndex)
+	{
+		return false;
+	}
+
+	Inventory->Items.Swap(FirstIndex, SecondIndex);
+	Inventory->OnInventoryItemChanged.Broadcast(FirstIndex);
+	Inventory->OnInventoryItemChanged.Broadcast(SecondIndex);
+	return true;
+}
+
+bool UPBInventoryComponent::MoveItemToSlot(const FGuid& InstanceID, int32 TargetSlotIndex, UPBInventoryComponent* Inventory)
+{
+	if (!IsValid(Inventory) || !InstanceID.IsValid() || TargetSlotIndex < 0)
+	{
+		return false;
+	}
+
+	const int32 SourceIndex = Inventory->FindSlotIndexByID(InstanceID);
+	if (!Inventory->Items.IsValidIndex(SourceIndex))
+	{
+		return false;
+	}
+
+	if (Inventory->Items.Num() <= 1)
+	{
+		return true;
+	}
+
+	// 빈 슬롯 인덱스로 드롭된 경우 마지막 사용 슬롯으로 클램프한다.
+	int32 ClampedTargetIndex = FMath::Clamp(TargetSlotIndex, 0, Inventory->Items.Num() - 1);
+	if (SourceIndex == ClampedTargetIndex)
+	{
+		return true;
+	}
+
+	FPBItemInstance MovedItem = Inventory->Items[SourceIndex];
+	Inventory->Items.RemoveAt(SourceIndex);
+
+	// Source를 먼저 제거했기 때문에 뒤쪽으로 이동할 때는 목표 인덱스를 한 칸 보정한다.
+	if (SourceIndex < ClampedTargetIndex)
+	{
+		--ClampedTargetIndex;
+	}
+
+	Inventory->Items.Insert(MovedItem, ClampedTargetIndex);
+
+	// 다수 인덱스가 변동되므로 전체 리프레시 이벤트를 사용한다.
+	Inventory->OnInventoryFullRefresh.Broadcast();
 	return true;
 }
 

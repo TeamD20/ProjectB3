@@ -59,6 +59,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Equipment")
 	bool AutoEquipItem(const FGuid& InstanceID, UPBInventoryComponent* Inventory);
 
+	// 타 인벤토리 아이템을 현재 인벤토리로 이동한 뒤 지정 슬롯에 원자적으로 장착한다.
+	UFUNCTION(BlueprintCallable, Category = "Equipment")
+	bool EquipItemFromExternalInventory(const FGuid& InstanceID, EPBEquipSlot Slot, UPBInventoryComponent* SourceInventory, UPBInventoryComponent* TargetInventory);
+
 	// 슬롯에 대응하는 부착 위치 태그 반환 (Main→RightHand, Off→LeftHand)
 	UFUNCTION(BlueprintPure, Category = "Equipment")
 	static FGameplayTag GetAttachSlotTag(EPBEquipSlot Slot);

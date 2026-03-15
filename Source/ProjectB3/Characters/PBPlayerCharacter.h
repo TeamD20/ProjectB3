@@ -6,6 +6,7 @@
 
 class USpringArmComponent;
 class UCameraComponent;
+class UPBCharacterPreviewComponent;
 
 // 플레이어 전용 캐릭터. SpringArm과 Camera를 소유한다.
 UCLASS()
@@ -34,4 +35,8 @@ private:
 	// 카메라
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCameraComponent> FollowCamera;
+
+	// 인벤토리 UI용 캐릭터 3D 프리뷰 컴포넌트
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UPBCharacterPreviewComponent> CharacterPreviewComponent;
 };

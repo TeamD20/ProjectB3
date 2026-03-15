@@ -41,7 +41,7 @@ protected:
 	UPBEquipmentDataAsset* CreateTwoHandedWeaponData(const FName& ID);
 
 	// 방어구용 더미 EquipmentDataAsset 생성
-	UPBEquipmentDataAsset* CreateArmorData(const FName& ID, EPBEquipSlot Slot);
+	UPBEquipmentDataAsset* CreateArmorData(const FName& ID, EPBEquipmentType EquipType);
 
 	// 테스트 액터에서 컴포넌트 획득
 	UPBInventoryComponent* GetInventory(AActor* Actor) const;

@@ -8,6 +8,7 @@
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnSelectedPartyMemberChanged, AActor*);
 DECLARE_MULTICAST_DELEGATE(FOnPartyMembersChanged);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnGoldChanged, int32, NewGold);
 
 // 플레이어 스테이트 기반 클래스.
 UCLASS()
@@ -50,6 +51,10 @@ public:
 
 	// 파티원 목록 변경 델리게이트
 	FOnPartyMembersChanged OnPartyMembersChanged;
+
+	// 골드 변경 델리게이트
+	UPROPERTY(BlueprintAssignable, Category = "Party")
+	FOnGoldChanged OnGoldChanged;
 
 	// 파티원 전환 시 카메라 블렌딩 시간 (초)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Party", meta = (ClampMin = 0.0f))

@@ -25,6 +25,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
 	int32 AddItem(UPBItemDataAsset* ItemData, int32 Amount = 1);
 
+	// 기존 InstanceID를 유지한 채 아이템 인스턴스를 슬롯에 추가
+	UFUNCTION(BlueprintCallable, Category = "Inventory")
+	bool AddItemInstance(const FPBItemInstance& ItemInstance);
+
 	// InstanceID로 아이템 제거. 성공 여부 반환
 	UFUNCTION(BlueprintCallable, Category = "Inventory")
 	bool RemoveItem(const FGuid& InstanceID, int32 Amount = 1);
@@ -35,6 +39,16 @@ public:
 
 	// InstanceID로 아이템 인스턴스 조회
 	FPBItemInstance FindItemByID(const FGuid& InstanceID) const;
+
+	// 인벤토리 간 아이템 인스턴스 이동 헬퍼
+	static bool TransferItem(const FGuid& InstanceID, UPBInventoryComponent* Source, UPBInventoryComponent* Target);
+
+	// 동일 인벤토리 내 두 아이템 슬롯을 교환한다.
+	static bool SwapItems(const FGuid& FirstInstanceID, const FGuid& SecondInstanceID, UPBInventoryComponent* Inventory);
+
+	// 동일 인벤토리 내 아이템을 대상 슬롯 인덱스로 재배치한다.
+	// 대상이 빈 슬롯 인덱스이면 사용 중인 마지막 슬롯으로 클램프된다.
+	static bool MoveItemToSlot(const FGuid& InstanceID, int32 TargetSlotIndex, UPBInventoryComponent* Inventory);
 
 	// InstanceID로 슬롯 인덱스 조회, 없으면 INDEX_NONE
 	int32 FindSlotIndexByID(const FGuid& InstanceID) const;

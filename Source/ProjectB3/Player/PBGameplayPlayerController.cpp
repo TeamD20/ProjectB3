@@ -18,6 +18,8 @@
 #include "ProjectB3/Characters/PBPlayerCharacter.h"
 #include "ProjectB3/Combat/PBTargetingComponent.h"
 #include "ProjectB3/NavigationSystem/PBPathDisplayComponent.h"
+#include "ProjectB3/UI/PBUIManagerSubsystem.h"
+#include "ProjectB3/UI/PBWidgetBase.h"
 
 APBGameplayPlayerController::APBGameplayPlayerController()
 {
@@ -141,6 +143,10 @@ void APBGameplayPlayerController::SetupInputComponent()
 	{
 		EnhancedInput->BindAction(CameraResetAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnCameraReset);
 	}
+	if (IsValid(ToggleInventoryAction))
+	{
+		EnhancedInput->BindAction(ToggleInventoryAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnToggleInventory);
+	}
 }
 
 void APBGameplayPlayerController::OnPossess(APawn* InPawn)
@@ -155,6 +161,11 @@ void APBGameplayPlayerController::OnPossess(APawn* InPawn)
 
 void APBGameplayPlayerController::OnCameraZoom(const FInputActionValue& Value)
 {
+	if (bIsInventoryOpen)
+	{
+		return;
+	}
+	
 	CameraControlComponent->AddZoomInput(Value.Get<float>());
 }
 
@@ -260,6 +271,32 @@ void APBGameplayPlayerController::ExitCurrentMode()
 {
 	// TODO: 전투 진행 중 -> None, 비전투 -> FreeMovement
 	SetControllerMode(EPBPlayerControllerMode::None);
+}
+
+void APBGameplayPlayerController::ToggleInventory()
+{
+	UPBUIManagerSubsystem* UIManager = ULocalPlayer::GetSubsystem<UPBUIManagerSubsystem>(GetLocalPlayer());
+	if (!IsValid(UIManager) || !IsValid(InventoryWidgetClass))
+	{
+		return;
+	}
+
+	// TODO: Instance 캐싱?
+	if (UIManager->IsUIActive(InventoryWidgetClass))
+	{
+		bIsInventoryOpen = false;
+		UIManager->PopUI(nullptr);
+	}
+	else
+	{
+		bIsInventoryOpen = true;
+		UIManager->PushUI(InventoryWidgetClass);
+	}
+}
+
+void APBGameplayPlayerController::OnToggleInventory(const FInputActionValue& Value)
+{
+	ToggleInventory();
 }
 
 void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value)
