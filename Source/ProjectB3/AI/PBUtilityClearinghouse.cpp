@@ -338,8 +338,8 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor)
 		}
 	}
 
-	// --- MaxMovement 캐싱 (턴 시작 시 Movement = 최대치) ---
-	// GE_RestoreTurnResources가 먼저 적용되므로 현재 Movement가 곧 MaxMovement
+	// --- MaxMovement 캐싱 ---
+	// TurnResourceAttributeSet의 명시적 MaxMovement 속성 사용
 	CachedMaxMovement = 1000.0f; // 폴백 기본값
 	if (UAbilitySystemComponent* TurnASC =
 			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(CurrentTurnActor))
@@ -347,7 +347,7 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor)
 		if (const UPBTurnResourceAttributeSet* TurnRes =
 				TurnASC->GetSet<UPBTurnResourceAttributeSet>())
 		{
-			CachedMaxMovement = TurnRes->GetMovement();
+			CachedMaxMovement = TurnRes->GetMaxMovement();
 		}
 	}
 
