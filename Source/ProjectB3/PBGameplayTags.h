@@ -17,6 +17,7 @@ namespace PBGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Dead);
 	
 	// 장비
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Equipment_Slot);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Equipment_Slot_LeftHand);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Equipment_Slot_RightHand);
 	

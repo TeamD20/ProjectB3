@@ -17,6 +17,15 @@ class PROJECTB3_API APBGameplayPlayerState : public APlayerState
 
 public:
 	/*~ APBGameplayPlayerState Interface ~*/
+	// 골드 추가
+	void AddGold(int32 Amount);
+
+	// 골드 차감, 잔액 부족 시 false
+	bool SpendGold(int32 Amount);
+
+	// 현재 보유 골드 반환
+	int32 GetGold() const { return TotalGold; }
+
 	// 파티원 목록에 액터를 추가한다.
 	void AddPartyMember(AActor* PartyMember);
 
@@ -47,6 +56,10 @@ public:
 	float PartyMemberCameraBlendTime = 0.5f;
 
 private:
+	// 파티 공유 보유 골드
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Party", meta = (AllowPrivateAccess = "true"))
+	int32 TotalGold = 0;
+
 	// 현재 파티원 목록
 	TArray<TWeakObjectPtr<AActor>> PartyMembers;
 
