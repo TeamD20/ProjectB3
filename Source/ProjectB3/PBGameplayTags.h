@@ -12,8 +12,13 @@ namespace PBGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Fighter); // 임시
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Ranger);  // 임시
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Magician);  // 임시
+	
 	// 상태 태그
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Dead); 
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Dead);
+	
+	// 장비
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Equipment_Slot_LeftHand);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Equipment_Slot_RightHand);
 	
 	// 전투
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_State_InCombat);
@@ -50,6 +55,7 @@ namespace PBGameplayTags
 	// 캐릭터 이벤트 태그
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Character_Attack);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Character_Die);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Character_HitReact);
 
 	// 이동 이벤트 태그
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Movement_MoveCommand);

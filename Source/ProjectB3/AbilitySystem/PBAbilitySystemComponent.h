@@ -48,6 +48,9 @@ public:
 	// 턴 기반 어빌리티가 현재 실행 중인지 확인
 	bool IsTurnAbilityActive() const { return bIsTurnAbilityActive; }
 
+	// 이동 자원 최대치로 초기화
+	void ResetMovementResource();
+	
 protected:
 	// 출처별 핸들 캐시
 	TMap<FGameplayTag, FPBAbilityGrantedHandles> GrantedHandleMap;

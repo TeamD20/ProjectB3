@@ -79,6 +79,65 @@ void UPBPathDisplayComponent::ClearPath()
 	HideAllSegments();
 }
 
+void UPBPathDisplayComponent::BeginPathTracking(const TArray<FVector>& PathPoints)
+{
+	TrackedPathPoints = PathPoints;
+}
+
+void UPBPathDisplayComponent::UpdateTrackedPath(const FVector& CurrentLocation)
+{
+	if (TrackedPathPoints.Num() < 2)
+	{
+		return;
+	}
+
+	const TArray<FVector> RemainingPath = ExtractRemainingPath(CurrentLocation);
+	if (RemainingPath.Num() < 2)
+	{
+		ClearPath();
+		return;
+	}
+
+	// 이동 중엔 거리 텍스트 불필요
+	DisplayPath(RemainingPath, false);
+}
+
+void UPBPathDisplayComponent::EndPathTracking()
+{
+	TrackedPathPoints.Reset();
+	ClearPath();
+}
+
+TArray<FVector> UPBPathDisplayComponent::ExtractRemainingPath(const FVector& CurrentLocation) const
+{
+	// 가장 가까운 세그먼트 탐색
+	float NearestDistSq = MAX_FLT;
+	int32 NearestSegIndex = 0;
+
+	for (int32 i = 0; i < TrackedPathPoints.Num() - 1; ++i)
+	{
+		const FVector Projected = FMath::ClosestPointOnSegment(CurrentLocation, TrackedPathPoints[i], TrackedPathPoints[i + 1]);
+		const float DistSq = FVector::DistSquared(CurrentLocation, Projected);
+		if (DistSq < NearestDistSq)
+		{
+			NearestDistSq = DistSq;
+			NearestSegIndex = i;
+		}
+	}
+
+	// 투영점을 첫 포인트로 하여 잔여 경로 구성
+	const FVector ProjectedPoint = FMath::ClosestPointOnSegment(
+		CurrentLocation, TrackedPathPoints[NearestSegIndex], TrackedPathPoints[NearestSegIndex + 1]);
+
+	TArray<FVector> Remaining;
+	Remaining.Add(ProjectedPoint);
+	for (int32 i = NearestSegIndex + 1; i < TrackedPathPoints.Num(); ++i)
+	{
+		Remaining.Add(TrackedPathPoints[i]);
+	}
+	return Remaining;
+}
+
 void UPBPathDisplayComponent::ValidateProperties()
 {
 	// 필수 에셋 프로퍼티 검증

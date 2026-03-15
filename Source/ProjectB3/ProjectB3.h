@@ -6,3 +6,9 @@
 
 /** Main log category used across the project */
 DECLARE_LOG_CATEGORY_EXTERN(LogProjectB3, Log, All);
+
+// 프로젝트 공용 트레이스 채널 정의
+namespace PBTraceChannel
+{
+	constexpr ECollisionChannel Ground = ECollisionChannel::ECC_GameTraceChannel1;
+}

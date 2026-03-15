@@ -2,6 +2,7 @@
 
 #include "PBTargetingComponent.h"
 #include "IPBCombatTarget.h"
+#include "ProjectB3/ProjectB3.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
 #include "NiagaraComponent.h"
@@ -15,9 +16,18 @@ void UPBTargetingComponent::EnterTargetingMode(const FPBTargetingRequest& Reques
 	bIsHoverValid = false;
 	bIsTargetingActive = true;
 	
-	if (bShowingTelegraph && CurrentRequest.Mode != EPBTargetingMode::AoE)
+	if (bShowingAoETelegraph && CurrentRequest.Mode != EPBTargetingMode::AoE)
 	{
-		HideTelegraph();
+		HideAoETelegraph();
+	}
+	
+	if (!FMath::IsNearlyZero(CurrentRequest.Range))
+	{
+		ShowRangeTelegraph();
+	}
+	else
+	{
+		HideRangeTelegraph();
 	}
 }
 
@@ -28,7 +38,8 @@ void UPBTargetingComponent::ExitTargetingMode()
 	HoverPreviewData = FPBAbilityTargetData();
 	SelectedTargets.Empty();
 	bIsHoverValid = false;
-	HideTelegraph();
+	HideAoETelegraph();
+	HideRangeTelegraph();
 }
 
 void UPBTargetingComponent::UpdateTargetingFromHit(const FHitResult& HitResult)
@@ -62,7 +73,7 @@ void UPBTargetingComponent::UpdateTargetingFromHit(const FHitResult& HitResult)
 	case EPBTargetingMode::AoE:
 		NewCandidate.TargetLocations.Add(HitResult.ImpactPoint);
 		NewCandidate.AoERadius = CurrentRequest.AoERadius;
-		ShowTelegraph(HitResult.ImpactPoint);
+		ShowAoETelegraph(HitResult.ImpactPoint);
 		break;
 
 	default:
@@ -180,10 +191,10 @@ void UPBTargetingComponent::CancelTargeting()
 	OnTargetCancelled.Broadcast();
 }
 
-void UPBTargetingComponent::EnsureTelegraphComponent()
+void UPBTargetingComponent::EnsureAoETelegraphComponent()
 {
 	// 이미 생성되어 있거나 에셋이 없으면 스킵
-	if (IsValid(TelegraphNiagaraComp) || !IsValid(TelegraphNiagaraSystem))
+	if (IsValid(AoETelegraphNiagaraComp) || !IsValid(AoETelegraphNiagaraSystem))
 	{
 		return;
 	}
@@ -195,49 +206,131 @@ void UPBTargetingComponent::EnsureTelegraphComponent()
 	}
 
 	// PC에 부착하면 렌더링이 되지 않으므로 전용 액터를 월드에 소환
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	TelegraphActor = World->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+	if (!IsValid(TelegraphActor))
+	{
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		TelegraphActor = World->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);	
+	}
 	if (!IsValid(TelegraphActor))
 	{
 		return;
 	}
 
-	TelegraphNiagaraComp = NewObject<UNiagaraComponent>(TelegraphActor);
-	TelegraphNiagaraComp->SetAsset(TelegraphNiagaraSystem);
-	TelegraphNiagaraComp->bAutoActivate = false;
-	TelegraphActor->SetRootComponent(TelegraphNiagaraComp);
-	TelegraphNiagaraComp->RegisterComponent();
-	TelegraphNiagaraComp->Deactivate();
+	AoETelegraphNiagaraComp = NewObject<UNiagaraComponent>(TelegraphActor);
+	AoETelegraphNiagaraComp->SetAsset(AoETelegraphNiagaraSystem);
+	AoETelegraphNiagaraComp->bAutoActivate = false;
+	TelegraphActor->SetRootComponent(AoETelegraphNiagaraComp);
+	AoETelegraphNiagaraComp->RegisterComponent();
+	AoETelegraphNiagaraComp->Deactivate();
 }
 
-void UPBTargetingComponent::ShowTelegraph(const FVector& Location)
+void UPBTargetingComponent::EnsureRangeTelegraphComponent()
 {
-	EnsureTelegraphComponent();
-	if (!IsValid(TelegraphNiagaraComp))
+	// 이미 생성되어 있거나 에셋이 없으면 스킵
+	if (IsValid(RangeTelegraphNiagaraComp) || !IsValid(RangeTelegraphNiagaraSystem))
 	{
 		return;
 	}
 
-	TelegraphNiagaraComp->SetWorldLocation(Location);
-	TelegraphNiagaraComp->SetVariableFloat(TEXT("User.Radius"), CurrentRequest.AoERadius);
-
-	if (!TelegraphNiagaraComp->IsActive())
+	UWorld* World = GetWorld();
+	if (!IsValid(World))
 	{
-		TelegraphNiagaraComp->Activate(true);
+		return;
 	}
-	
-	bShowingTelegraph = true;
+
+	// PC에 부착하면 렌더링이 되지 않으므로 전용 액터를 월드에 소환
+	if (!IsValid(TelegraphActor))
+	{
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		TelegraphActor = World->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);	
+	}
+	if (!IsValid(TelegraphActor))
+	{
+		return;
+	}
+
+	RangeTelegraphNiagaraComp = NewObject<UNiagaraComponent>(TelegraphActor);
+	RangeTelegraphNiagaraComp->SetAsset(RangeTelegraphNiagaraSystem);
+	RangeTelegraphNiagaraComp->bAutoActivate = false;
+	TelegraphActor->SetRootComponent(RangeTelegraphNiagaraComp);
+	RangeTelegraphNiagaraComp->RegisterComponent();
+	RangeTelegraphNiagaraComp->Deactivate();
 }
 
-void UPBTargetingComponent::HideTelegraph()
+void UPBTargetingComponent::ShowAoETelegraph(const FVector& Location)
 {
-	if (IsValid(TelegraphNiagaraComp) && TelegraphNiagaraComp->IsActive())
+	EnsureAoETelegraphComponent();
+	if (!IsValid(AoETelegraphNiagaraComp))
 	{
-		TelegraphNiagaraComp->Deactivate();
+		return;
+	}
+
+	AoETelegraphNiagaraComp->SetWorldLocation(Location + FVector(0.0f, 0.0f, 2.0f)); // 지면에서 살짝 띄움
+	AoETelegraphNiagaraComp->SetVariableFloat(TEXT("User.Radius"), CurrentRequest.AoERadius);
+
+	if (!AoETelegraphNiagaraComp->IsActive())
+	{
+		AoETelegraphNiagaraComp->Activate(true);
 	}
 	
-	bShowingTelegraph = false;
+	bShowingAoETelegraph = true;
+}
+
+void UPBTargetingComponent::HideAoETelegraph()
+{
+	if (IsValid(AoETelegraphNiagaraComp) && AoETelegraphNiagaraComp->IsActive())
+	{
+		AoETelegraphNiagaraComp->Deactivate();
+	}
+	
+	bShowingAoETelegraph = false;
+}
+
+void UPBTargetingComponent::ShowRangeTelegraph()
+{
+	EnsureRangeTelegraphComponent();
+	if (!IsValid(RangeTelegraphNiagaraComp))
+	{
+		return;
+	}
+
+	FVector TelegraphLocation = CurrentRequest.OriginLocation;
+	UWorld* World = GetWorld();
+	if (IsValid(World))
+	{
+		const FVector TraceStart = CurrentRequest.OriginLocation + FVector(0.0f, 0.0f, 100.0f);
+		const FVector TraceEnd = CurrentRequest.OriginLocation - FVector(0.0f, 0.0f, 1000.0f);
+
+		FCollisionQueryParams QueryParams;
+		if (IsValid(TelegraphActor))
+		{
+			QueryParams.AddIgnoredActor(TelegraphActor);
+		}
+
+		FHitResult HitResult;
+		if (World->LineTraceSingleByChannel(HitResult, TraceStart, TraceEnd, PBTraceChannel::Ground, QueryParams))
+		{
+			TelegraphLocation = HitResult.ImpactPoint + FVector(0.0f, 0.0f, 2.0f); // 지면에서 살짝 띄움
+		}
+	}
+
+	RangeTelegraphNiagaraComp->SetWorldLocation(TelegraphLocation);
+	RangeTelegraphNiagaraComp->SetVariableFloat(TEXT("User.Radius"), CurrentRequest.Range * 2.f);
+
+	if (!RangeTelegraphNiagaraComp->IsActive())
+	{
+		RangeTelegraphNiagaraComp->Activate(true);
+	}
+}
+
+void UPBTargetingComponent::HideRangeTelegraph()
+{
+	if (IsValid(RangeTelegraphNiagaraComp) && RangeTelegraphNiagaraComp->IsActive())
+	{
+		RangeTelegraphNiagaraComp->Deactivate();
+	}
 }
 
 FPBAbilityTargetData UPBTargetingComponent::MakeMultiTargetData() const

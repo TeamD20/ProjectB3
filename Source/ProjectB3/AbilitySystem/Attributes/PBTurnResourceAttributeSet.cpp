@@ -8,7 +8,8 @@ UPBTurnResourceAttributeSet::UPBTurnResourceAttributeSet()
 	InitAction(1.0f);
 	InitBonusAction(1.0f);
 	InitReaction(1.0f);
-	InitMovement(30.0f);
+	InitMovement(500.0f);
+	InitMaxMovement(500.0f);
 }
 
 void UPBTurnResourceAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
@@ -38,6 +39,6 @@ void UPBTurnResourceAttributeSet::PostGameplayEffectExecute(const FGameplayEffec
 	}
 	else if (Data.EvaluatedData.Attribute == GetMovementAttribute())
 	{
-		SetMovement(FMath::Max(0.0f, GetMovement()));
+		SetMovement(FMath::Clamp(GetMovement(), 0.0f, GetMaxMovement()));
 	}
 }

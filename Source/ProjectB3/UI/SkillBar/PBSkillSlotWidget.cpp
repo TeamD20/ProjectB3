@@ -15,7 +15,7 @@ void UPBSkillSlotWidget::SetSlotData(const FPBSkillSlotData& InSlotData)
 
 	if (IsValid(IconImage))
 	{
-		if (SlotData.Icon.IsValid())
+		if (!SlotData.Icon.IsNull())
 		{
 			IconImage->SetVisibility(ESlateVisibility::Visible);
 			IconImage->SetBrushFromSoftTexture(SlotData.Icon);

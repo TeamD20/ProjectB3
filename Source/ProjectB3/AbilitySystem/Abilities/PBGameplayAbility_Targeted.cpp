@@ -13,6 +13,8 @@ void UPBGameplayAbility_Targeted::ActivateAbility(
 	const FGameplayAbilityActivationInfo ActivationInfo,
 	const FGameplayEventData* TriggerEventData)
 {
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+	
 	// Payload 확인 — 존재하면 타겟 결정 완료 (AI 경로)
 	const UPBTargetPayload* Payload = TriggerEventData
 		? Cast<UPBTargetPayload>(TriggerEventData->OptionalObject)
@@ -104,6 +106,7 @@ FPBTargetingRequest UPBGameplayAbility_Targeted::MakeTargetingRequest() const
 	Request.RequestingAbility  = const_cast<UPBGameplayAbility_Targeted*>(this);
 	Request.Mode               = TargetingMode;
 	Request.OriginLocation     = GetAvatarActorFromActorInfo()->GetActorLocation();
+	Request.Range			   = Range;
 	Request.AoERadius          = AoERadius;
 	Request.MaxTargetCount     = MaxTargetCount;
 	Request.bAllowGroundTarget = bAllowGroundTarget;

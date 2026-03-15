@@ -82,7 +82,9 @@ void UPBSkillBarViewModel::RefreshFromCharacter(AActor* InCharacter)
 		// 1. 주행동 (Action)
 		FGameplayTagContainer ActionRequireTags;
 		ActionRequireTags.AddTag(PBGameplayTags::Ability_Type_Action);
-		BuildSlotsFromFilter(AbilitySystemComponent, ActionRequireTags, FGameplayTagContainer(), PrimaryActions);
+		FGameplayTagContainer ActionIgnoreTags;
+		ActionIgnoreTags.AddTag(PBGameplayTags::Ability_Spell);
+		BuildSlotsFromFilter(AbilitySystemComponent, ActionRequireTags, ActionIgnoreTags, PrimaryActions);
 
 		// 2. 보조행동 (BonusAction)
 		FGameplayTagContainer BonusActionRequireTags;
@@ -197,7 +199,7 @@ void UPBSkillBarViewModel::BuildSlotsFromFilter(
 			? FText::FromString(PBAbilityCDO->GetName())
 			: PBAbilityCDO->GetAbilityDisplayName();
 		SlotData.Icon = PBAbilityCDO->GetAbilityIcon();
-		SlotData.AbilityType = PBAbilityCDO->GetAbilityType();
+		SlotData.AbilityType = PBAbilityCDO->GetAbilityType(AbilityHandle, PBASC->AbilityActorInfo.Get());
 		SlotData.CooldownRemaining = 0;
 		SlotData.bCanActivate = IsValid(PBASC) && PBASC->CanActivateAbilityByHandle(AbilityHandle);
 		OutSlots.Add(SlotData);

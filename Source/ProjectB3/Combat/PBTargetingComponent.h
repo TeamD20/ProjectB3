@@ -59,16 +59,36 @@ public:
 	bool IsMultiTargetMode() const { return CurrentRequest.Mode == EPBTargetingMode::MultiTarget; }
 
 	// AoE 텔레그래프 VFX 표시. 지정 위치에 나이아가라 이펙트를 활성화.
-	void ShowTelegraph(const FVector& Location);
-
+	void ShowAoETelegraph(const FVector& Location);
+	
 	// AoE 텔레그래프 VFX 숨김
-	void HideTelegraph();
+	void HideAoETelegraph();
+	
+	// 사거리 텔레그래프 VFX 표시. 지정 위치에 나이아가라 이펙트를 활성화.
+	void ShowRangeTelegraph();
+	
+	// 사거리 텔레그래프 VFX 숨김
+	void HideRangeTelegraph();
 
+private:
+	// SelectedTargets를 FPBAbilityTargetData로 변환하는 내부 헬퍼
+	FPBAbilityTargetData MakeMultiTargetData() const;
+
+	// AoE텔레그래프 나이아가라 컴포넌트 생성 (최초 1회)
+	void EnsureAoETelegraphComponent();
+	
+	// 사거리 나이아가라 컴포넌트 생성 (최초 1회)
+	void EnsureRangeTelegraphComponent();
+	
 public:
-	// AoE 텔레그래프에 사용할 나이아가라 시스템 에셋 (블루프린트 디폴트에서 설정)
+	// AoE 텔레그래프에 사용할 나이아가라 시스템 에셋
 	UPROPERTY(EditDefaultsOnly, Category = "Targeting|Telegraph")
-	TObjectPtr<UNiagaraSystem> TelegraphNiagaraSystem;
+	TObjectPtr<UNiagaraSystem> AoETelegraphNiagaraSystem;
 
+	// 범위 기반 어빌리티의 범위 표시 나이아가라 시스템 에셋
+	UPROPERTY(EditDefaultsOnly, Category = "Targeting|Telegraph")
+	TObjectPtr<UNiagaraSystem> RangeTelegraphNiagaraSystem;
+	
 	// 타겟 확정 델리게이트
 	FOnPBTargetConfirmed OnTargetConfirmed;
 
@@ -82,12 +102,7 @@ public:
 	FOnPBSelectionChanged OnSelectionChanged;
 
 private:
-	// SelectedTargets를 FPBAbilityTargetData로 변환하는 내부 헬퍼
-	FPBAbilityTargetData MakeMultiTargetData() const;
-
-	// 텔레그래프 나이아가라 컴포넌트 생성 (최초 1회)
-	void EnsureTelegraphComponent();
-
+	
 	// 타겟팅 세션 활성 여부
 	bool bIsTargetingActive = false;
 
@@ -109,7 +124,9 @@ private:
 
 	// TelegraphActor에 부착된 텔레그래프 나이아가라 컴포넌트
 	UPROPERTY()
-	TObjectPtr<UNiagaraComponent> TelegraphNiagaraComp;
+	TObjectPtr<UNiagaraComponent> AoETelegraphNiagaraComp;
+	UPROPERTY()
+	TObjectPtr<UNiagaraComponent> RangeTelegraphNiagaraComp;
 	
-	bool bShowingTelegraph = false;
+	bool bShowingAoETelegraph = false;
 };

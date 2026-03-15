@@ -67,7 +67,7 @@ void UPBProfileWidget::OnPortraitImageChanged(TSoftObjectPtr<UTexture2D> NewPort
 {
 	if (PortraitImage)
 	{
-		if (NewPortrait.IsValid() || !NewPortrait.IsNull())
+		if (!NewPortrait.IsNull())
 		{
 			PortraitImage->SetBrushFromSoftTexture(NewPortrait);
 		}
