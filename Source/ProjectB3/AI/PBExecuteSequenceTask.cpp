@@ -64,6 +64,7 @@ EStateTreeRunStatus UPBExecuteSequenceTask::EnterState(
 
   bIsActionInProgress = false;
   bWaitingForSequenceReady = false;
+  AbilityTimeoutRemaining = 0.0f;
 
   // EQS 좌표 최적화 대기: Generate가 아직 EQS 쿼리를 처리 중이면
   // 행동 실행을 보류하고 Tick에서 bIsReady를 폴링한다.
@@ -216,6 +217,7 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
     DelegateHandle = CachedASC->OnAbilityEnded.AddLambda(
         [this, bIsFallbackMove](const FAbilityEndedData &AbilityEndedData) {
           if (AbilityEndedData.AbilitySpecHandle == ActiveSpecHandle) {
+            AbilityTimeoutRemaining = 0.0f; // 타임아웃 해제
             // Fallback 이동 완료 후 잔여 이동력 전부 소진 (재후퇴 방지)
             if (bIsFallbackMove && CachedASC) {
               CachedASC->ApplyModToAttributeUnsafe(
@@ -228,13 +230,8 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
           }
         });
 
-    const bool bActivated = CachedASC->TryActivateAbility(ActiveSpecHandle);
-    if (!bActivated) {
-      CachedASC->OnAbilityEnded.Remove(DelegateHandle);
-      DelegateHandle.Reset();
-      bIsActionInProgress = false;
-      return EStateTreeRunStatus::Failed;
-    }
+    // 이동 어빌리티 타임아웃 (목표 미도달/EndAbility 미호출 방지)
+    AbilityTimeoutRemaining = AbilityTimeoutSeconds;
 
     // 이동 목표 위치 결정 (EQS 좌표 우선)
     // 1. TargetLocation이 설정됨 (EQS 최적화 또는 Fallback) → 해당 좌표 사용
@@ -252,15 +249,27 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
            !CurrentAction.TargetLocation.IsZero()
                ? TEXT("EQS/설정 좌표")
                : TEXT("TargetActor 위치"));
-  
+
+    // Payload 구성: Location + 이동 목표 좌표
     UPBTargetPayload *MovePayload = NewObject<UPBTargetPayload>(this);
     MovePayload->TargetData.TargetingMode = EPBTargetingMode::Location;
     MovePayload->TargetData.TargetLocations.Add(MoveDestination);
-  
+
+    // InternalTryActivateAbility로 TriggerEventData와 함께 활성화
+    // → GA_Move::ActivateAbility에서 AI 경로(HandleMoveEvent)로 직접 진입
+    // Attack/Heal과 동일한 패턴. AbilityTriggers와의 충돌 방지.
     FGameplayEventData EventData;
+    EventData.EventTag = PBGameplayTags::Event_Movement_MoveCommand;
     EventData.OptionalObject = MovePayload;
-    CachedASC->HandleGameplayEvent(PBGameplayTags::Event_Movement_MoveCommand,
-                                   &EventData);
+    const bool bActivated = CachedASC->InternalTryActivateAbility(
+        ActiveSpecHandle, FPredictionKey(), nullptr, nullptr, &EventData);
+
+    if (!bActivated) {
+      CachedASC->OnAbilityEnded.Remove(DelegateHandle);
+      DelegateHandle.Reset();
+      bIsActionInProgress = false;
+      return EStateTreeRunStatus::Failed;
+    }
     break;
   }
   case EPBActionType::Attack:
@@ -291,18 +300,73 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
     // SpecHandle로 직접 Spec 조회 (태그 검색 불필요)
     ActiveSpecHandle = CurrentAction.AbilitySpecHandle;
 
+    // 발동 전 자원 기록 (EndAbility가 자원을 실제로 차감했는지 사후 검증용)
+    const float ActionCostToConsume = CurrentAction.Cost.ActionCost;
+    const float BonusActionCostToConsume = CurrentAction.Cost.BonusActionCost;
+    bool bPreAPFound = false;
+    const float PreActivationAP = CachedASC->GetGameplayAttributeValue(
+        UPBTurnResourceAttributeSet::GetActionAttribute(), bPreAPFound);
+    bool bPreBAFound = false;
+    const float PreActivationBA = CachedASC->GetGameplayAttributeValue(
+        UPBTurnResourceAttributeSet::GetBonusActionAttribute(), bPreBAFound);
+
     // 어빌리티 종료 시 다음 행동으로 전진 (비동기 체인)
     DelegateHandle = CachedASC->OnAbilityEnded.AddLambda(
-        [this, ActionLabel](const FAbilityEndedData &AbilityEndedData) {
+        [this, ActionLabel, ActionCostToConsume, BonusActionCostToConsume,
+         PreActivationAP, PreActivationBA](
+            const FAbilityEndedData &AbilityEndedData) {
           if (AbilityEndedData.AbilitySpecHandle == ActiveSpecHandle) {
+            AbilityTimeoutRemaining = 0.0f; // 타임아웃 해제
+
             UE_LOG(LogPBStateTreeExec, Display,
                    TEXT("%s 어빌리티 종료. (bWasCancelled: %s)"),
                    ActionLabel,
                    AbilityEndedData.bWasCancelled ? TEXT("true")
                                                   : TEXT("false"));
+
+            // 자원 소모 보장: EndAbility의 태그 기반 차감이 정상 동작했는지 검증.
+            // AP 검사: ActionCost > 0인 어빌리티가 AP를 차감하지 않았으면 강제 차감.
+            if (CachedASC && ActionCostToConsume > 0.0f) {
+              bool bPostAPFound = false;
+              const float PostAP = CachedASC->GetGameplayAttributeValue(
+                  UPBTurnResourceAttributeSet::GetActionAttribute(),
+                  bPostAPFound);
+              if (bPostAPFound && PostAP >= PreActivationAP) {
+                CachedASC->ApplyModToAttributeUnsafe(
+                    UPBTurnResourceAttributeSet::GetActionAttribute(),
+                    EGameplayModOp::Additive, -ActionCostToConsume);
+                UE_LOG(LogPBStateTreeExec, Warning,
+                       TEXT("[안전장치] %s — AP 미소모 감지 (Pre=%.0f, "
+                            "Post=%.0f), %.0f 강제 차감"),
+                       ActionLabel, PreActivationAP, PostAP,
+                       ActionCostToConsume);
+              }
+            }
+
+            // BA 검사: BonusActionCost > 0인 어빌리티가 BA를 차감하지 않았으면 강제 차감.
+            if (CachedASC && BonusActionCostToConsume > 0.0f) {
+              bool bPostBAFound = false;
+              const float PostBA = CachedASC->GetGameplayAttributeValue(
+                  UPBTurnResourceAttributeSet::GetBonusActionAttribute(),
+                  bPostBAFound);
+              if (bPostBAFound && PostBA >= PreActivationBA) {
+                CachedASC->ApplyModToAttributeUnsafe(
+                    UPBTurnResourceAttributeSet::GetBonusActionAttribute(),
+                    EGameplayModOp::Additive, -BonusActionCostToConsume);
+                UE_LOG(LogPBStateTreeExec, Warning,
+                       TEXT("[안전장치] %s — BA 미소모 감지 (Pre=%.0f, "
+                            "Post=%.0f), %.0f 강제 차감"),
+                       ActionLabel, PreActivationBA, PostBA,
+                       BonusActionCostToConsume);
+              }
+            }
+
             AdvanceToNextAction();
           }
         });
+
+    // 어빌리티 실행 타임아웃 시작 (EndMode=Manual에서 EndAbility 미호출 방지)
+    AbilityTimeoutRemaining = AbilityTimeoutSeconds;
 
     // Payload 구성: SingleTarget + 타겟 액터 (Attack=적, Heal=아군)
     UPBTargetPayload *ActionPayload = NewObject<UPBTargetPayload>(this);
@@ -393,9 +457,25 @@ UPBExecuteSequenceTask::Tick(FStateTreeExecutionContext &Context,
 
 EStateTreeRunStatus
 UPBExecuteSequenceTask::UpdateCurrentAction(float DeltaTime) {
-  // 이동 완료 여부는 OnAbilityEnded 델리게이트가 bIsActionInProgress를
-  // false로 전환하므로, Tick에서 별도 폴링 불필요.
-  // 향후 타임아웃 등 안전장치 추가 시 이 함수에서 처리.
+  // 어빌리티 실행 타임아웃 감시
+  // EndMode=Manual 어빌리티에서 Blueprint가 EndAbility를 호출하지 않으면
+  // OnAbilityEnded가 영원히 오지 않아 Execute가 무한 대기한다.
+  // 타임아웃 시 CancelAbilityHandle → OnAbilityEnded(bWasCancelled=true) 트리거.
+  if (AbilityTimeoutRemaining > 0.0f) {
+    AbilityTimeoutRemaining -= DeltaTime;
+    if (AbilityTimeoutRemaining <= 0.0f) {
+      UE_LOG(LogPBStateTreeExec, Warning,
+             TEXT("[타임아웃] 어빌리티 %.0f초 내 미종료. 강제 취소합니다."),
+             AbilityTimeoutSeconds);
+      if (CachedASC && ActiveSpecHandle.IsValid()) {
+        CachedASC->CancelAbilityHandle(ActiveSpecHandle);
+        // CancelAbilityHandle → OnAbilityEnded 콜백 → AdvanceToNextAction
+      } else {
+        // ASC 없음 → 직접 다음 행동으로 진행
+        AdvanceToNextAction();
+      }
+    }
+  }
   return EStateTreeRunStatus::Running;
 }
 

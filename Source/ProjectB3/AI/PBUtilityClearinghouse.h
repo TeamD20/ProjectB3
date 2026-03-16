@@ -6,6 +6,7 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "PBUtilityClearinghouse.generated.h"
 
+class UAbilitySystemComponent;
 // 전방 선언
 class UEnvQuery;
 struct FEnvQueryResult;
@@ -239,8 +240,14 @@ protected:
 	// AI Scoring Example.md §5: lerp(0.5, 2.0, NormalizedThreat)
 	TMap<AActor*, float> CachedThreatMultiplierMap;
 
-	// 타겟(적) 당 ActionScore 평가 결과 캐시 (Attack 스코어링)
+	// 타겟(적) 당 ActionScore 평가 결과 캐시 (Attack 스코어링 — 전체 최고)
 	TMap<AActor*, FPBTargetScore> CachedActionScoreMap;
+
+	// 타겟(적) 당 AP 소모 최고 어빌리티 캐시 (DFS 후보 생성용)
+	TMap<AActor*, FPBTargetScore> CachedAPAttackScoreMap;
+
+	// 타겟(적) 당 BA 소모 최고 어빌리티 캐시 (DFS 후보 생성용)
+	TMap<AActor*, FPBTargetScore> CachedBAAttackScoreMap;
 
 	// 아군 당 HealScore 평가 결과 캐시 (Heal 스코어링)
 	TMap<AActor*, FPBTargetScore> CachedHealScoreMap;
@@ -269,6 +276,14 @@ protected:
 	// 행동 유형 × 타겟 역할 → RoleMultiplier 조회
 	// AI Scoring Example.md §5 테이블 (현재 Attack 행만 구현)
 	static float GetRoleMultiplier(EPBCombatRole TargetRole);
+
+	// 어빌리티의 Cost GE에서 실제 자원 비용(AP/BA/MP)을 추출.
+	// Cost GE의 Modifier Attribute를 TurnResourceAttributeSet에 매핑하여
+	// FPBCostData로 반환한다. 음수 Magnitude는 절대값으로 변환.
+	// Cost GE 미설정이거나 턴 자원 수정자가 없으면 ActionCost=1.0f 폴백.
+	static FPBCostData ExtractAbilityCost(
+		const UAbilitySystemComponent* ASC,
+		const FGameplayAbilitySpecHandle& SpecHandle);
 
 
 	/*~ 튜닝 상수 ~*/

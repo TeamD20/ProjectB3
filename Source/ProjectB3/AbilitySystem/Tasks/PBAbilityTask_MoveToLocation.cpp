@@ -31,21 +31,52 @@ void UPBAbilityTask_MoveToLocation::Activate()
 		return;
 	}
 
-	// SimpleMoveToLocation으로 이동 시작
-	// 첫 호출 시 내부적으로 PathFollowingComponent를 생성하므로 컴포넌트 검색보다 먼저 호출해야 한다
-	UAIBlueprintHelperLibrary::SimpleMoveToLocation(Controller, Destination);
-
-	// PathFollowingComponent 탐색: AIController이면 전용 접근자, 아니면 컴포넌트 검색
-	UPathFollowingComponent* PFComp = nullptr;
+	// AI: AAIController::MoveTo로 직접 이동 요청
+	// SimpleMoveToLocation 대비 장점:
+	//   1. FPathFollowingRequestResult로 RequestID 직접 획득 (캡처 타이밍 문제 해소)
+	//   2. AcceptanceRadius 명시 제어 (NavMesh 투영 오차로 인한 미도착 방지)
+	//   3. AlreadyAtGoal 명시 처리
 	if (AAIController* AICon = Cast<AAIController>(Controller))
 	{
-		PFComp = AICon->GetPathFollowingComponent();
-	}
-	else
-	{
-		PFComp = Controller->FindComponentByClass<UPathFollowingComponent>();
+		UPathFollowingComponent* PFComp = AICon->GetPathFollowingComponent();
+		if (!IsValid(PFComp))
+		{
+			OnMoveCompleted.Broadcast(EPathFollowingResult::Invalid);
+			EndTask();
+			return;
+		}
+
+		FAIMoveRequest MoveReq;
+		MoveReq.SetGoalLocation(Destination);
+		MoveReq.SetAcceptanceRadius(50.f);
+		MoveReq.SetUsePathfinding(true);
+
+		const FPathFollowingRequestResult Result = AICon->MoveTo(MoveReq);
+
+		if (Result.Code == EPathFollowingRequestResult::RequestSuccessful)
+		{
+			MoveRequestID = Result.MoveId;
+			WeakPathFollowingComp = PFComp;
+			PFComp->OnRequestFinished.AddUObject(
+				this, &UPBAbilityTask_MoveToLocation::HandleRequestFinished);
+		}
+		else if (Result.Code == EPathFollowingRequestResult::AlreadyAtGoal)
+		{
+			OnMoveCompleted.Broadcast(EPathFollowingResult::Success);
+			EndTask();
+		}
+		else
+		{
+			OnMoveCompleted.Broadcast(EPathFollowingResult::Invalid);
+			EndTask();
+		}
+		return;
 	}
 
+	// Player: SimpleMoveToLocation 폴백 (PlayerController용)
+	UAIBlueprintHelperLibrary::SimpleMoveToLocation(Controller, Destination);
+
+	UPathFollowingComponent* PFComp = Controller->FindComponentByClass<UPathFollowingComponent>();
 	if (!IsValid(PFComp))
 	{
 		OnMoveCompleted.Broadcast(EPathFollowingResult::Invalid);
@@ -54,13 +85,10 @@ void UPBAbilityTask_MoveToLocation::Activate()
 	}
 
 	WeakPathFollowingComp = PFComp;
-
-	// 이동 요청 ID 획득 및 완료 델리게이트 바인딩
 	MoveRequestID = PFComp->GetCurrentRequestId();
-	PFComp->OnRequestFinished.AddUObject(this, &UPBAbilityTask_MoveToLocation::HandleRequestFinished);
+	PFComp->OnRequestFinished.AddUObject(
+		this, &UPBAbilityTask_MoveToLocation::HandleRequestFinished);
 
-	// SimpleMoveToLocation이 동기적으로 완료된 경우 처리
-	// (목적지가 이미 도달 범위 내이거나 유효 경로가 없으면 바인딩 전에 OnRequestFinished가 발생함)
 	if (!MoveRequestID.IsValid() || PFComp->GetStatus() == EPathFollowingStatus::Idle)
 	{
 		OnMoveCompleted.Broadcast(EPathFollowingResult::Success);

@@ -146,12 +146,14 @@ void UPBGameplayAbility_Move::HandleMoveEvent(FGameplayEventData Payload)
 	const FGameplayAbilityActorInfo* ActorInfo = GetCurrentActorInfo();
 	if (!ActorInfo)
 	{
+		K2_EndAbility();
 		return;
 	}
 
 	APawn* MyPawn = Cast<APawn>(GetAvatarActorFromActorInfo());
 	if (!IsValid(MyPawn))
 	{
+		K2_EndAbility();
 		return;
 	}
 
@@ -162,6 +164,7 @@ void UPBGameplayAbility_Move::HandleMoveEvent(FGameplayEventData Payload)
 	const UPBTargetPayload* TargetPayload = Cast<UPBTargetPayload>(Payload.OptionalObject);
 	if (!IsValid(TargetPayload))
 	{
+		K2_EndAbility();
 		return;
 	}
 
@@ -171,6 +174,7 @@ void UPBGameplayAbility_Move::HandleMoveEvent(FGameplayEventData Payload)
 	UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(GetWorld());
 	if (!IsValid(NavSys))
 	{
+		K2_EndAbility();
 		return;
 	}
 
@@ -179,6 +183,7 @@ void UPBGameplayAbility_Move::HandleMoveEvent(FGameplayEventData Payload)
 
 	if (!IsValid(NavPath) || !NavPath->IsValid())
 	{
+		K2_EndAbility();
 		return;
 	}
 
@@ -191,6 +196,7 @@ void UPBGameplayAbility_Move::HandleMoveEvent(FGameplayEventData Payload)
 	UPBEnvironmentSubsystem* EnvSubsystem = GetEnvironmentSubsystem();
 	if (!IsValid(EnvSubsystem))
 	{
+		K2_EndAbility();
 		return;
 	}
 	const FVector Destination = EnvSubsystem->CalculateClampedDestination(NavPath->PathPoints, MaxDist, MovePathPoints);
