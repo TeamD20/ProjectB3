@@ -93,6 +93,13 @@ private:
 	// EnterState의 여러 분기(타겟 없음, DFS 후, DFS 실패)에서 공통 호출.
 	void LaunchEQSQueries();
 
+	/*~ Move 분리 헬퍼 (Phase 3) ~*/
+
+	// DFS 결과 시퀀스에서 MovementCost > 0인 행동 앞에
+	// 물리적 Move 노드를 삽입한다.
+	// DFS는 "무엇을 할지"만 결정하고, 이 함수가 "이동"을 명시화한다.
+	static void InjectMoveActions(FPBActionSequence& Sequence);
+
 	/*~ Fallback 헬퍼 ~*/
 
 	// Fallback 이동 후 잔여 AP로 단일 행동(Attack/Heal) 탐색.

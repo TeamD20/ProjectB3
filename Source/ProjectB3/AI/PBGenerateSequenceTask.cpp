@@ -8,6 +8,7 @@
 #include "PBUtilityClearinghouse.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "StateTreeExecutionContext.h"
+#include "VisualLogger/VisualLogger.h"
 
 // StateTree 디버깅을 위한 독립적인 로그 카테고리
 DEFINE_LOG_CATEGORY_STATIC(LogPBStateTree, Log, All);
@@ -29,6 +30,46 @@ void UPBGenerateSequenceTask::ResetEQSState()
 	EQSTimeoutRemaining = 0.0f;
 	AttackMoveActionIndex = INDEX_NONE;
 	FallbackMoveActionIndex = INDEX_NONE;
+}
+
+/*~ Move 분리 헬퍼 (Phase 3) ~*/
+
+void UPBGenerateSequenceTask::InjectMoveActions(FPBActionSequence& Sequence)
+{
+	// DFS 결과에서 MovementCost > 0인 행동 앞에 물리적 Move 노드를 삽입한다.
+	// 역순 순회하여 삽입 시 인덱스가 밀리지 않도록 한다.
+	for (int32 i = Sequence.Actions.Num() - 1; i >= 0; --i)
+	{
+		FPBSequenceAction& Action = Sequence.Actions[i];
+		if (Action.Cost.MovementCost <= 0.0f)
+		{
+			continue;
+		}
+
+		// 이동 노드 생성: 타겟 방향으로의 이동
+		FPBSequenceAction MoveAction;
+		MoveAction.ActionType = EPBActionType::Move;
+		MoveAction.TargetActor = Action.TargetActor;
+		MoveAction.TargetLocation = IsValid(Action.TargetActor)
+			? Action.TargetActor->GetActorLocation()
+			: FVector::ZeroVector;
+		MoveAction.Cost.MovementCost = Action.Cost.MovementCost;
+
+		// 원래 행동에서 MovementCost 제거 (이동 비용은 Move 노드가 담당)
+		Action.Cost.MovementCost = 0.0f;
+
+		// Move 노드를 행동 바로 앞에 삽입
+		Sequence.Actions.Insert(MoveAction, i);
+
+		UE_LOG(LogPBStateTree, Display,
+			TEXT("[InjectMove] 행동 [%d] 앞에 Move 노드 삽입 "
+				"(MP=%.0f, Target=%s)"),
+			i,
+			MoveAction.Cost.MovementCost,
+			IsValid(MoveAction.TargetActor)
+				? *MoveAction.TargetActor->GetName()
+				: TEXT("None"));
+	}
 }
 
 /*~ EQS 쿼리 발사 (공통 헬퍼) ~*/
@@ -83,7 +124,7 @@ void UPBGenerateSequenceTask::LaunchEQSQueries()
 	}
 }
 
-/*~ 상태 진입 실행 로직 ~*/
+/*~ 상태 진입 실행 로직 ~*/		
 
 EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	FStateTreeExecutionContext& Context,
@@ -245,6 +286,9 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		GeneratedSequence.Actions = BestPath;
 		GeneratedSequence.TotalUtilityScore = BestScore;
 
+		// Phase 3: DFS 결과에서 MovementCost > 0인 행동 앞에 Move 노드 삽입
+		InjectMoveActions(GeneratedSequence);
+
 		// Fallback 후퇴 검토: 시퀀스 실행 후 잔여 이동력으로 방어적 후퇴
 		float ConsumedMP = 0.0f;
 		for (const FPBSequenceAction& Action : BestPath)
@@ -350,6 +394,27 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 
 	UE_LOG(LogPBStateTree, Display,
 	       TEXT("============================================="));
+
+	// Visual Logger: 최종 시퀀스 타임라인 기록
+	{
+		FString SeqSummary;
+		for (int32 i = 0; i < GeneratedSequence.Actions.Num(); ++i)
+		{
+			const FPBSequenceAction& A = GeneratedSequence.Actions[i];
+			const TCHAR* T =
+				A.ActionType == EPBActionType::Attack  ? TEXT("Atk") :
+				A.ActionType == EPBActionType::Move    ? TEXT("Mov") :
+				A.ActionType == EPBActionType::Heal    ? TEXT("Heal") :
+				TEXT("Other");
+			const FString TgtName = IsValid(A.TargetActor)
+				? A.TargetActor->GetName() : TEXT("Pos");
+			SeqSummary += FString::Printf(TEXT("[%d]%s→%s "), i, T, *TgtName);
+		}
+		UE_VLOG(SelfActor, LogPBStateTree, Log,
+			TEXT("[Generate] Score=%.2f %s%s"),
+			GeneratedSequence.TotalUtilityScore, *SeqSummary,
+			bWaitingForEQS ? TEXT("[EQS pending]") : TEXT("[Ready]"));
+	}
 
 	// StateTree 하위 State(Execute)가 유지되도록 Running 반환
 	// (Succeeded를 반환하면 하위 State가 즉시 강제 종료됨)
@@ -471,6 +536,18 @@ void UPBGenerateSequenceTask::CheckAllEQSComplete()
 
 		UE_LOG(LogPBStateTree, Display,
 			TEXT("[EQS] 모든 EQS 쿼리 완료. 시퀀스 준비 완료."));
+
+		// Visual Logger: EQS 완료 후 최종 좌표 기록
+		for (int32 i = 0; i < GeneratedSequence.Actions.Num(); ++i)
+		{
+			const FPBSequenceAction& A = GeneratedSequence.Actions[i];
+			if (A.ActionType == EPBActionType::Move && !A.TargetLocation.IsZero())
+			{
+				UE_VLOG_LOCATION(SelfActor, LogPBStateTree, Log,
+					A.TargetLocation, 40.0f, FColor::Green,
+					TEXT("EQS Move[%d]"), i);
+			}
+		}
 	}
 }
 

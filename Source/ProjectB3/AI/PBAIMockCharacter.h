@@ -9,11 +9,11 @@
 #include "PBAIMockCharacter.generated.h"
 
 
-class UPBTurnResourceAttributeSet;
-class UGameplayAbility;
 class UPBAIArchetypeData;
 
-// AI 샌드박스 구동 전용 더미 캐릭터 클래스
+// AI 샌드박스 구동 전용 더미 캐릭터 클래스.
+// CombatIdentity(ClassTag, FactionTag)를 에디터에서 설정하면
+// 부모 APBCharacterBase의 GrantInitialAbilities()가 Registry 기반으로 어빌리티를 부여한다.
 UCLASS()
 class APBAIMockCharacter : public APBCharacterBase
 {
@@ -22,9 +22,6 @@ class APBAIMockCharacter : public APBCharacterBase
 	/*~ 생성자 ~*/
 public:
 	APBAIMockCharacter();
-
-	/*~ IAbilitySystemInterface ~*/
-
 
 	/*~ AActor Interface ~*/
 protected:
@@ -39,29 +36,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	TObjectPtr<UPBAIArchetypeData> ArchetypeData;
 
-protected:
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "EnemyAbility")
-	TSubclassOf<class UGameplayAbility> DefaultAttackAbility;
-
 	/*~ IPBCombatParticipant Interface ~*/
 public:
-	virtual int32 GetInitiativeModifier() const override;
-	virtual bool HasInitiativeAdvantage() const override;
-	virtual void OnCombatBegin() override;
-	virtual void OnCombatEnd() override;
-	virtual void OnRoundBegin() override;
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	virtual void OnTurnBegin() override;
 	virtual void OnTurnActivated() override;
-	virtual void OnTurnEnd() override;
-	virtual bool CanReact() const override;
-	virtual void
-	OnReactionOpportunity(const FPBReactionContext& Context) override;
 	virtual void OnActionInterrupted() override;
-	virtual bool IsIncapacitated() const override;
-	virtual FGameplayTag GetFactionTag() const override;
 	virtual float GetBaseMovementSpeed() const override;
-	virtual FText GetCombatDisplayName() const override;
-	virtual TSoftObjectPtr<UTexture2D> GetCombatPortrait() const override;
 };

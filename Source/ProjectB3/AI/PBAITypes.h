@@ -2,6 +2,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayAbilitySpecHandle.h"
 #include "GameplayTagContainer.h"
 #include "PBAITypes.generated.h"
 
@@ -93,11 +94,14 @@ struct FPBSequenceAction
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
 	FPBCostData Cost;
 
-	// 실행할 어빌리티의 이벤트 트리거 태그
-	// Execute에서 HandleGameplayEvent(AbilityTag, &EventData)로 발동
-	// Move의 경우 비어있음 (기존 Ability_Active_Move 경로 사용)
+	// 실행할 어빌리티의 이벤트 트리거 태그 (로깅/디버그용으로 유지)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Sequence")
 	FGameplayTag AbilityTag;
+
+	// 실행할 어빌리티의 Spec 핸들 (InternalTryActivateAbility용)
+	// HandleGameplayEvent 대신 직접 활성화하므로 Blueprint Triggers 설정 불필요
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Sequence")
+	FGameplayAbilitySpecHandle AbilitySpecHandle;
 };
 
 // DFS 탐색 시 각 분기에서 잔여 자원 상태를 추적하는 컨텍스트.
@@ -225,9 +229,14 @@ struct FPBTargetScore
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
 	float ExpectedDamage = 0.0f;
 
-	// 이 점수를 산출한 어빌리티의 이벤트 트리거 태그
+	// 이 점수를 산출한 어빌리티의 이벤트 트리거 태그 (로깅/디버그용)
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
 	FGameplayTag AbilityTag;
+
+	// 이 점수를 산출한 어빌리티의 Spec 핸들
+	// Scoring → Candidate → Execute 파이프라인으로 전달
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
+	FGameplayAbilitySpecHandle AbilitySpecHandle;
 
 	// 대상 보정 배수 (ThreatMultiplier × RoleMultiplier)
 	// TODO: ThreatScore, 역할 시스템 연동 후 실값 교체

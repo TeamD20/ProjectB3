@@ -22,7 +22,8 @@ enum class EPBAbilityCategory : uint8
 	Heal,       // 아군 대상 회복
 	Buff,       // 아군 대상 강화
 	Debuff,     // 적 대상 약화
-	Control     // 적 대상 행동 제한 (CC)
+	Control,     // 적 대상 행동 제한 (CC)
+	None         // 기타 상태
 };
 
 /** 프로젝트 전용 GameplayAbility 기반 클래스. 모든 어빌리티는 이 클래스를 상속해서 구현. */

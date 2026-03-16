@@ -29,7 +29,8 @@ public class ProjectB3 : ModuleRules
 		{
 			"Slate",
 			"SlateCore",
-			"FunctionalTesting"
+			"FunctionalTesting",
+			"GameplayDebugger"
 		});
 
 		// Uncomment if you are using online features
