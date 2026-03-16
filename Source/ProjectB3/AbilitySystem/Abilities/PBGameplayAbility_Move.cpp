@@ -12,6 +12,7 @@
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
 #include "ProjectB3/Combat/PBCombatSystemLibrary.h"
+#include "ProjectB3/Environment/PBEnvironmentSubsystem.h"
 
 UPBGameplayAbility_Move::UPBGameplayAbility_Move()
 {
@@ -88,9 +89,10 @@ void UPBGameplayAbility_Move::EndAbility(
 	{
 		AActor* AvatarActor = GetAvatarActorFromActorInfo();
 		UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
-		if (IsValid(AvatarActor) && IsValid(ASC) && MovePathPoints.Num() > 0)
+		UPBEnvironmentSubsystem* EnvSubsystem = GetEnvironmentSubsystem();
+		if (IsValid(AvatarActor) && IsValid(ASC) && IsValid(EnvSubsystem) && MovePathPoints.Num() > 0)
 		{
-			const float ActualDistance = CalculateDistanceAlongPath(AvatarActor->GetActorLocation());
+			const float ActualDistance = EnvSubsystem->CalculateDistanceAlongPath(MovePathPoints, AvatarActor->GetActorLocation());
 			if (ActualDistance > 0.0f)
 			{
 				ASC->ApplyModToAttribute(UPBTurnResourceAttributeSet::GetMovementAttribute(), EGameplayModOp::Additive, -ActualDistance);
@@ -168,7 +170,12 @@ void UPBGameplayAbility_Move::HandleMoveEvent(FGameplayEventData Payload)
 		? ASC->GetNumericAttribute(UPBTurnResourceAttributeSet::GetMovementAttribute())
 		: -1.0f;
 	MovePathPoints.Reset();
-	const FVector Destination = CalculateClampedDestination(NavPath->PathPoints, MaxDist, MovePathPoints);
+	UPBEnvironmentSubsystem* EnvSubsystem = GetEnvironmentSubsystem();
+	if (!IsValid(EnvSubsystem))
+	{
+		return;
+	}
+	const FVector Destination = EnvSubsystem->CalculateClampedDestination(NavPath->PathPoints, MaxDist, MovePathPoints);
 
 	// PBAbilityTask_MoveToLocation으로 NavMesh 경로 이동 — 완료 시 어빌리티 종료
 	ActiveMoveTask = UPBAbilityTask_MoveToLocation::CreateTask(this, Destination);
@@ -188,87 +195,19 @@ void UPBGameplayAbility_Move::HandleMoveCompleted(TEnumAsByte<EPathFollowingResu
 	K2_EndAbility();
 }
 
-FVector UPBGameplayAbility_Move::CalculateClampedDestination(
-	const TArray<FVector>& PathPoints, float MaxDist, TArray<FVector>& OutClampedPath) const
+UPBEnvironmentSubsystem* UPBGameplayAbility_Move::GetEnvironmentSubsystem() const
 {
-	if (PathPoints.Num() == 0)
+	const UWorld* World = GetWorld();
+	if (!IsValid(World))
 	{
-		return FVector::ZeroVector;
+		return nullptr;
 	}
 
-	// 무제한 이동력: 전체 경로 반환
-	if (MaxDist <= -1.0f)
+	const UGameInstance* GI = World->GetGameInstance();
+	if (!IsValid(GI))
 	{
-		OutClampedPath = PathPoints;
-		return PathPoints.Last();
+		return nullptr;
 	}
 
-	OutClampedPath.Add(PathPoints[0]);
-	float AccumulatedDist = 0.0f;
-
-	for (int32 i = 1; i < PathPoints.Num(); ++i)
-	{
-		const float SegDist = FVector::Dist(PathPoints[i - 1], PathPoints[i]);
-
-		if (AccumulatedDist + SegDist >= MaxDist)
-		{
-			const float Remaining = MaxDist - AccumulatedDist;
-			const float T = (SegDist > 0.0f) ? (Remaining / SegDist) : 0.0f;
-			const FVector ClampedPoint = FMath::Lerp(PathPoints[i - 1], PathPoints[i], T);
-			OutClampedPath.Add(ClampedPoint);
-			return ClampedPoint;
-		}
-
-		OutClampedPath.Add(PathPoints[i]);
-		AccumulatedDist += SegDist;
-	}
-
-	return PathPoints.Last();
-}
-
-float UPBGameplayAbility_Move::CalculateDistanceAlongPath(const FVector& CurrentLocation) const
-{
-	// MovePathPoints의 각 세그먼트에 현재 위치를 투영(projection)하여
-	// 가장 가까운 세그먼트를 찾고, 시작점부터 해당 투영 지점까지의 경로 누적 거리를 반환한다.
-	// 반응행동 등으로 이동이 중단된 경우에도 실제 이동한 경로 거리에 가깝도록 구한다.
-	if (MovePathPoints.Num() < 2)
-	{
-		return 0.0f;
-	}
-
-	// 1. 현재 위치에 가장 가까운 경로 세그먼트 탐색
-	float NearestDistSq = MAX_FLT;
-	int32 NearestSegIndex = 0;
-	float NearestSegRatio = 0.0f; // 세그먼트 내 투영 비율 (0.0 = 시작, 1.0 = 끝)
-
-	for (int32 i = 0; i < MovePathPoints.Num() - 1; ++i)
-	{
-		const FVector SegStart = MovePathPoints[i];
-		const FVector SegEnd = MovePathPoints[i + 1];
-		const FVector ProjectedPoint = FMath::ClosestPointOnSegment(CurrentLocation, SegStart, SegEnd);
-		const float DistSqToProjection = FVector::DistSquared(CurrentLocation, ProjectedPoint);
-
-		if (DistSqToProjection < NearestDistSq)
-		{
-			NearestDistSq = DistSqToProjection;
-			NearestSegIndex = i;
-
-			const float SegLength = FVector::Dist(SegStart, SegEnd);
-			NearestSegRatio = (SegLength > 0.0f)
-				? FVector::Dist(SegStart, ProjectedPoint) / SegLength
-				: 0.0f;
-		}
-	}
-
-	// 2. 시작점 ~ 투영 지점까지의 경로 누적 거리 계산
-	// 완전히 통과한 세그먼트들의 길이 합산
-	float TotalTraveledDist = 0.0f;
-	for (int32 i = 0; i < NearestSegIndex; ++i)
-	{
-		TotalTraveledDist += FVector::Dist(MovePathPoints[i], MovePathPoints[i + 1]);
-	}
-	// 현재 세그먼트의 부분 거리 추가
-	TotalTraveledDist += FVector::Dist(MovePathPoints[NearestSegIndex], MovePathPoints[NearestSegIndex + 1]) * NearestSegRatio;
-
-	return TotalTraveledDist;
+	return GI->GetSubsystem<UPBEnvironmentSubsystem>();
 }
