@@ -124,7 +124,7 @@ void UPBGenerateSequenceTask::LaunchEQSQueries()
 	}
 }
 
-/*~ 상태 진입 실행 로직 ~*/
+/*~ 상태 진입 실행 로직 ~*/		
 
 EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	FStateTreeExecutionContext& Context,

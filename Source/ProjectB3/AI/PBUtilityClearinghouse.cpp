@@ -522,6 +522,7 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 
 	float BestExpectedDamage = 0.0f;
 	FGameplayTag BestAbilityTag;
+	FGameplayAbilitySpecHandle BestSpecHandle;
 	bool bBestCanKill = false;
 
 	if (IsValid(SourceASC) && IsValid(TargetASC))
@@ -543,8 +544,10 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 			UPBCharacterAttributeSet::GetHPAttribute(), bHPFound);
 
 		const TArray<FGameplayAbilitySpec> &Specs = SourceASC->GetActivatableAbilities();
+		UE_LOG(LogTemp, Warning,TEXT("found Specs Num : %d") , Specs.Num());
 		for (const FGameplayAbilitySpec &Spec : Specs)
 		{
+			
 			// 발동 불가 어빌리티 스킵 (쿨다운, 자원 부족 등)
 			// UGameplayAbility::CanActivateAbility는 public이므로 Spec.Ability를 통해 호출
 			if (!Spec.Ability || !Spec.Ability->CanActivateAbility(
@@ -555,6 +558,18 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 
 			const UPBGameplayAbility *AbilityCDO = Cast<UPBGameplayAbility>(Spec.Ability);
 			if (!AbilityCDO)
+			{
+				continue;
+			}
+
+			// Targeted 어빌리티만 평가 (AI Execute 파이프라인이 Payload 기반이므로)
+			if (!Cast<UPBGameplayAbility_Targeted>(Spec.Ability))
+			{
+				continue;
+			}
+
+			// Attack 카테고리만 평가 (Heal/Buff/Control 등 제외)
+			if (AbilityCDO->GetAbilityCategory() != EPBAbilityCategory::Attack)
 			{
 				continue;
 			}
@@ -637,34 +652,22 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 
 			if (CandidateDamage > BestExpectedDamage)
 			{
-				// 어빌리티 이벤트 트리거 태그 추출 (Spec의 DynamicAbilityTags 또는 CDO AbilityTags 첫 번째)
-				FGameplayTag CandidateTag;
-				if (Spec.GetDynamicSpecSourceTags().Num() > 0)
-				{
-					CandidateTag = Spec.GetDynamicSpecSourceTags().First();
-				}
-				else
-				{
-					const FGameplayTagContainer &AbilityTags = AbilityCDO->GetAssetTags();
-					if (AbilityTags.Num() > 0)
-					{
-						CandidateTag = AbilityTags.First();
-					}
-				}
+				BestExpectedDamage = CandidateDamage;
+				BestSpecHandle = Spec.Handle;
+				bBestCanKill = bCandidateCanKill;
 
-				// 태그가 유효한 어빌리티만 채택 (Execute에서 HandleGameplayEvent 발동에 필수)
-				if (CandidateTag.IsValid())
-				{
-					BestExpectedDamage = CandidateDamage;
-					BestAbilityTag = CandidateTag;
-					bBestCanKill = bCandidateCanKill;
-				}
+				// AbilityTag는 로깅/디버그용으로 유지 (AssetTags에서 추출)
+				const FGameplayTagContainer &AbilityTags = AbilityCDO->GetAssetTags();
+				BestAbilityTag = AbilityTags.Num() > 0
+					? AbilityTags.First()
+					: FGameplayTag();
 			}
 		}
 	}
 
 	Score.ExpectedDamage = BestExpectedDamage;
 	Score.AbilityTag = BestAbilityTag;
+	Score.AbilitySpecHandle = BestSpecHandle;
 
 	// --- TargetModifier 산정 ---
 	// AI Scoring Example.md §5: TargetModifier = ThreatMultiplier × RoleMultiplier
@@ -796,6 +799,7 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateHealScore(AActor* AllyTarget)
 
 	float BestExpectedHeal = 0.0f;
 	FGameplayTag BestHealTag;
+	FGameplayAbilitySpecHandle BestHealSpecHandle;
 
 	const TArray<FGameplayAbilitySpec>& Specs = SourceASC->GetActivatableAbilities();
 	for (const FGameplayAbilitySpec& Spec : Specs)
@@ -808,6 +812,12 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateHealScore(AActor* AllyTarget)
 
 		const UPBGameplayAbility* AbilityCDO = Cast<UPBGameplayAbility>(Spec.Ability);
 		if (!AbilityCDO)
+		{
+			continue;
+		}
+
+		// Targeted 어빌리티만 평가 (AI Execute 파이프라인이 Payload 기반이므로)
+		if (!Cast<UPBGameplayAbility_Targeted>(Spec.Ability))
 		{
 			continue;
 		}
@@ -833,26 +843,14 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateHealScore(AActor* AllyTarget)
 
 		if (RawExpectedHeal > BestExpectedHeal)
 		{
-			// AbilityTag 추출 (EvaluateActionScore와 동일 패턴)
-			FGameplayTag CandidateTag;
-			if (Spec.GetDynamicSpecSourceTags().Num() > 0)
-			{
-				CandidateTag = Spec.GetDynamicSpecSourceTags().First();
-			}
-			else
-			{
-				const FGameplayTagContainer& AbilityTags = AbilityCDO->GetAssetTags();
-				if (AbilityTags.Num() > 0)
-				{
-					CandidateTag = AbilityTags.First();
-				}
-			}
+			BestExpectedHeal = RawExpectedHeal;
+			BestHealSpecHandle = Spec.Handle;
 
-			if (CandidateTag.IsValid())
-			{
-				BestExpectedHeal = RawExpectedHeal;
-				BestHealTag = CandidateTag;
-			}
+			// AbilityTag는 로깅/디버그용 (AssetTags에서 추출)
+			const FGameplayTagContainer& AbilityTags = AbilityCDO->GetAssetTags();
+			BestHealTag = AbilityTags.Num() > 0
+				? AbilityTags.First()
+				: FGameplayTag();
 		}
 	}
 
@@ -894,6 +892,7 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateHealScore(AActor* AllyTarget)
 	// SituationalBonus = 0.0 (현재 미구현)
 	Score.ExpectedDamage = EffectiveHeal; // FPBTargetScore 재활용: "기대 효과량"
 	Score.AbilityTag = BestHealTag;
+	Score.AbilitySpecHandle = BestHealSpecHandle;
 	Score.TargetModifier = UrgencyMultiplier; // Heal은 UrgencyMultiplier를 여기에 저장
 	Score.SituationalBonus = 0.0f;
 	Score.ArchetypeWeight = CachedArchetypeWeights.HealWeight;
@@ -1012,21 +1011,15 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			}
 		}
 
-		// 어빌리티 사거리 조회 (AbilityTag 기반)
+		// 어빌리티 사거리 조회 (SpecHandle 기반 — 태그 검색 불필요)
 		float AbilityRange = 0.0f;
-		if (ScoreData.AbilityTag.IsValid())
+		if (ScoreData.AbilitySpecHandle.IsValid())
 		{
-			FGameplayTagContainer SearchTags;
-			SearchTags.AddTag(ScoreData.AbilityTag);
-			TArray<FGameplayAbilitySpec*> MatchingSpecs;
-			SourceASC->GetActivatableGameplayAbilitySpecsByAllMatchingTags(
-				SearchTags, MatchingSpecs);
-
-			if (MatchingSpecs.Num() > 0)
+			if (const FGameplayAbilitySpec* FoundSpec =
+					SourceASC->FindAbilitySpecFromHandle(ScoreData.AbilitySpecHandle))
 			{
 				if (const UPBGameplayAbility_Targeted* TargetedAbility =
-						Cast<UPBGameplayAbility_Targeted>(
-							MatchingSpecs[0]->Ability))
+						Cast<UPBGameplayAbility_Targeted>(FoundSpec->Ability))
 				{
 					AbilityRange = TargetedAbility->GetRange();
 				}
@@ -1060,6 +1053,7 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			AttackAction.ActionType = EPBActionType::Attack;
 			AttackAction.TargetActor = Target;
 			AttackAction.AbilityTag = ScoreData.AbilityTag;
+			AttackAction.AbilitySpecHandle = ScoreData.AbilitySpecHandle;
 			AttackAction.Cost.ActionCost = 1.0f;
 
 			// 사거리 밖이거나 LoS 없으면 이동 필요
@@ -1106,21 +1100,15 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			continue;
 		}
 
-		// 사거리 검사 (Heal 어빌리티의 Range)
+		// 사거리 검사 (SpecHandle 기반)
 		float HealRange = 0.0f;
-		if (HealData.AbilityTag.IsValid())
+		if (HealData.AbilitySpecHandle.IsValid())
 		{
-			FGameplayTagContainer SearchTags;
-			SearchTags.AddTag(HealData.AbilityTag);
-			TArray<FGameplayAbilitySpec*> MatchingSpecs;
-			SourceASC->GetActivatableGameplayAbilitySpecsByAllMatchingTags(
-				SearchTags, MatchingSpecs);
-
-			if (MatchingSpecs.Num() > 0)
+			if (const FGameplayAbilitySpec* FoundSpec =
+					SourceASC->FindAbilitySpecFromHandle(HealData.AbilitySpecHandle))
 			{
 				if (const UPBGameplayAbility_Targeted* TargetedAbility =
-						Cast<UPBGameplayAbility_Targeted>(
-							MatchingSpecs[0]->Ability))
+						Cast<UPBGameplayAbility_Targeted>(FoundSpec->Ability))
 				{
 					HealRange = TargetedAbility->GetRange();
 				}
@@ -1152,6 +1140,7 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			HealAction.ActionType = EPBActionType::Heal;
 			HealAction.TargetActor = Ally;
 			HealAction.AbilityTag = HealData.AbilityTag;
+			HealAction.AbilitySpecHandle = HealData.AbilitySpecHandle;
 			HealAction.Cost.ActionCost = 1.0f;
 
 			const bool bHealNeedsMovement =
