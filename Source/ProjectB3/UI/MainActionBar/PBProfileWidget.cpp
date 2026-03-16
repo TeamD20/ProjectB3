@@ -2,7 +2,7 @@
 
 #include "ProjectB3/UI/MainActionBar/PBProfileWidget.h"
 #include "ProjectB3/UI/PartyMemeber/PBPartyMemberViewModel.h"
-#include "Components/Image.h"
+#include "ProjectB3/UI/Common/PBPortraitBaseWidget.h"
 #include "Components/ProgressBar.h"
 #include "Components/TextBlock.h"
 #include "Components/Button.h"
@@ -20,10 +20,12 @@ void UPBProfileWidget::InitializeProfile(UPBPartyMemberViewModel* InViewModel)
 		CurrentViewModel->OnHPPercentValueChanged.Remove(HPPercentChangedHandle);
 		CurrentViewModel->OnHPChanged.Remove(HPTextChangedHandle);
 		CurrentViewModel->OnPortraitChanged.Remove(PortraitChangedHandle);
+		CurrentViewModel->OnNameChanged.Remove(NameChangedHandle);
 		
 		HPPercentChangedHandle.Reset();
 		HPTextChangedHandle.Reset();
 		PortraitChangedHandle.Reset();
+		NameChangedHandle.Reset();
 	}
 
 	CurrentViewModel = InViewModel;
@@ -34,10 +36,12 @@ void UPBProfileWidget::InitializeProfile(UPBPartyMemberViewModel* InViewModel)
 		HPPercentChangedHandle = CurrentViewModel->OnHPPercentValueChanged.AddUObject(this, &UPBProfileWidget::OnHPPercentChanged);
 		HPTextChangedHandle = CurrentViewModel->OnHPChanged.AddUObject(this, &UPBProfileWidget::OnHPTextChanged);
 		PortraitChangedHandle = CurrentViewModel->OnPortraitChanged.AddUObject(this, &UPBProfileWidget::OnPortraitImageChanged);
+		NameChangedHandle = CurrentViewModel->OnNameChanged.AddUObject(this, &UPBProfileWidget::OnCharacterNameChanged);
 
 		OnHPPercentChanged(CurrentViewModel->GetHealthPercent());
 		OnHPTextChanged(CurrentViewModel->GetCharacterHPText());
 		OnPortraitImageChanged(CurrentViewModel->GetPortrait());
+		OnCharacterNameChanged(CurrentViewModel->GetCharacterName());
 	}
 }
 
@@ -53,6 +57,11 @@ void UPBProfileWidget::OnHPPercentChanged(float NewPercent)
 	{
 		HPProgressBar->SetPercent(NewPercent);
 	}
+
+	if (PortraitWidget)
+	{
+		PortraitWidget->SetHealthPercent(NewPercent);
+	}
 }
 
 void UPBProfileWidget::OnHPTextChanged(FText InHPText)
@@ -61,20 +70,25 @@ void UPBProfileWidget::OnHPTextChanged(FText InHPText)
 	{
 		HPText->SetText(InHPText);
 	}
+
+	if (PortraitWidget)
+	{
+		PortraitWidget->SetHealthText(InHPText);
+	}
 }
 
 void UPBProfileWidget::OnPortraitImageChanged(TSoftObjectPtr<UTexture2D> NewPortrait)
 {
-	if (PortraitImage)
+	if (PortraitWidget)
 	{
-		if (!NewPortrait.IsNull())
-		{
-			PortraitImage->SetBrushFromSoftTexture(NewPortrait);
-		}
-		else
-		{
-			// 빈 텍스쳐나 기본 텍스쳐 처리 가능
-			PortraitImage->SetBrushFromTexture(nullptr);
-		}
+		PortraitWidget->SetPortraitImage(NewPortrait);
+	}
+}
+
+void UPBProfileWidget::OnCharacterNameChanged(FText NewName)
+{
+	if (PortraitWidget)
+	{
+		PortraitWidget->SetDisplayName(NewName);
 	}
 }

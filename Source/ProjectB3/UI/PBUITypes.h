@@ -56,3 +56,29 @@ namespace PBSkillBarTabIndex
 	static constexpr int32 BonusAction = 1;
 	static constexpr int32 Spell = 2;
 }
+
+/** 자원(행동, 보조, 주문 등)의 종류를 구분하는 열거형 */
+UENUM(BlueprintType)
+enum class EPBResourceType : uint8
+{
+	None UMETA(DisplayName = "None"),
+	Action UMETA(DisplayName = "Action"),
+	BonusAction UMETA(DisplayName = "Bonus Action"),
+	SpellSlot UMETA(DisplayName = "Spell Slot")
+};
+
+/** 단일 자원의 현재 상태 스냅샷 */
+USTRUCT(BlueprintType)
+struct PROJECTB3_API FPBResourceState
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource")
+	EPBResourceType ResourceType = EPBResourceType::None;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource")
+	int32 CurrentValue = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource")
+	int32 MaxValue = 0;
+};
