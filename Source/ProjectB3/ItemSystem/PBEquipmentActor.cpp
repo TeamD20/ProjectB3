@@ -2,29 +2,39 @@
 
 
 #include "PBEquipmentActor.h"
+#include "Components/StaticMeshComponent.h"
 
-
-// Sets default values
 APBEquipmentActor::APBEquipmentActor()
 {
+	EquipmentMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("EquipmentMesh"));
+	SetRootComponent(EquipmentMesh);
 }
 
-void APBEquipmentActor::LinkAnimLayer(USkeletalMeshComponent* MeshComponent) const
+void APBEquipmentActor::LinkAnimLayer(USkeletalMeshComponent* InMeshComponent) const
 {
-	if (!IsValid(MeshComponent) || !IsValid(AnimLayerClass))
+	if (!IsValid(InMeshComponent) || !IsValid(AnimLayerClass))
 	{
 		return;
 	}
-	
-	MeshComponent->LinkAnimClassLayers(AnimLayerClass);
+
+	InMeshComponent->LinkAnimClassLayers(AnimLayerClass);
 }
 
-void APBEquipmentActor::UnlinkAnimLayer(USkeletalMeshComponent* MeshComponent) const
+void APBEquipmentActor::UnlinkAnimLayer(USkeletalMeshComponent* InMeshComponent) const
 {
-	if (!IsValid(MeshComponent) || !IsValid(AnimLayerClass))
+	if (!IsValid(InMeshComponent) || !IsValid(AnimLayerClass))
 	{
 		return;
 	}
-	
-	MeshComponent->UnlinkAnimClassLayers(AnimLayerClass);
+
+	InMeshComponent->UnlinkAnimClassLayers(AnimLayerClass);
+}
+
+FTransform APBEquipmentActor::GetProjectileLaunchTransform_Implementation() const
+{
+	if (EquipmentMesh)
+	{
+		return EquipmentMesh->GetComponentTransform();
+	}
+	return FTransform();
 }

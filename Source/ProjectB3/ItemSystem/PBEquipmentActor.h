@@ -4,7 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "GameplayTagContainer.h"
 #include "PBEquipmentActor.generated.h"
+
 
 // 장비 액터, 필드 드랍 혹은 캐릭터 메시에 부착
 UCLASS()
@@ -14,14 +16,23 @@ class PROJECTB3_API APBEquipmentActor : public AActor
 
 public:
 	APBEquipmentActor();
-	
+
 	// 장비 애니메이션 레이어 활성화
-	void LinkAnimLayer(USkeletalMeshComponent* MeshComponent) const;
-	
+	void LinkAnimLayer(USkeletalMeshComponent* InMeshComponent) const;
+
 	// 장비 애니메이션 레이어 해제
-	void UnlinkAnimLayer(USkeletalMeshComponent* MeshComponent) const;
-	
+	void UnlinkAnimLayer(USkeletalMeshComponent* InMeshComponent) const;
+
+	// 투사체 발사 기점 Transform 반환 (ProjectileLaunchSocket 기준)
+	UFUNCTION(BlueprintNativeEvent, Category = "Equipment|Projectile")
+	FTransform GetProjectileLaunchTransform() const;
+
 protected:
+	// 애니메이션 레이어 클래스
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	TSubclassOf<UAnimInstance> AnimLayerClass;
+
+	// 장비 스태틱 메시 컴포넌트 (소켓 활용 목적)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Equipment")
+	TObjectPtr<UStaticMeshComponent> EquipmentMesh;
 };
