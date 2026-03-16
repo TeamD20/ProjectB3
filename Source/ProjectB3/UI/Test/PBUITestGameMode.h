@@ -52,6 +52,14 @@ public:
 	UFUNCTION(BlueprintCallable, Exec, Category = "Test|Simulation")
 	void SimulateTurnAdvance();
 	
+	// Exec - 콘솔창(~)에 'SimulateResourceUse' 입력 또는 1,2,3번 단축키 연동 목적
+	UFUNCTION(BlueprintCallable, Exec, Category = "Test|Simulation")
+	void SimulateResourceUse(int32 ResourceTypeEnumIndex);
+	
+	// Exec - 콘솔창(~)에 'SimulateResourceRestore' 입력 시 모든 자원 회복
+	UFUNCTION(BlueprintCallable, Exec, Category = "Test|Simulation")
+	void SimulateResourceRestore();
+	
 protected:
 	/* ============================================================ */
 	/* 에디터 설정 변수 (블루프린트에서 값과 클래스를 할당해 줍니다) */

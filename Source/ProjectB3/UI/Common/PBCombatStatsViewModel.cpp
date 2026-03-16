@@ -49,3 +49,29 @@ void UPBCombatStatsViewModel::SetSpellSaveDC(int32 InDC)
 	SpellSaveDC = InDC;
 	OnSpellSaveDCChanged.Broadcast(SpellSaveDC);
 }
+
+bool UPBCombatStatsViewModel::GetResourceState(EPBResourceType Type, FPBResourceState& OutState) const
+{
+	if (const FPBResourceState* FoundState = ResourceStates.Find(Type))
+	{
+		OutState = *FoundState;
+		return true;
+	}
+	OutState = FPBResourceState();
+	return false;
+}
+
+void UPBCombatStatsViewModel::SetResourceState(EPBResourceType Type, int32 InCurrentValue, int32 InMaxValue)
+{
+	FPBResourceState& TargetState = ResourceStates.FindOrAdd(Type);
+	TargetState.ResourceType = Type;
+
+	// 변경 여부 체크
+	if (TargetState.CurrentValue != InCurrentValue || TargetState.MaxValue != InMaxValue)
+	{
+		TargetState.CurrentValue = InCurrentValue;
+		TargetState.MaxValue = InMaxValue;
+
+		OnResourceStateChanged.Broadcast(Type);
+	}
+}

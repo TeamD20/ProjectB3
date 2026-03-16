@@ -25,6 +25,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Portrait")
 	void SetDisplayName(const FText& InName);
 
+	// 위젯에 체력 퍼센트 설정 (옵션)
+	UFUNCTION(BlueprintCallable, Category = "Portrait")
+	void SetHealthPercent(float InPercent);
+	
+	// 위젯에 체력 텍스트 설정 (옵션)
+	UFUNCTION(BlueprintCallable, Category = "Portrait")
+	void SetHealthText(const FText& InText);
+
 protected:
 	// 블루프린트에서 시각적 연출을 담당할 이벤트 (머티리얼 파라미터 셋업, 색상 전환 등)
 	UFUNCTION(BlueprintImplementableEvent, Category = "Portrait")
@@ -33,6 +41,12 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category = "Portrait")
 	void BP_OnDisplayNameChanged(const FText& NewName);
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Portrait")
+	void BP_OnHealthPercentChanged(float NewPercent);
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "Portrait")
+	void BP_OnHealthTextChanged(const FText& NewText);
+
 protected:
 	// Base 공통 컴포넌트들
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Portrait")
@@ -40,4 +54,10 @@ protected:
 
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Portrait")
 	UTextBlock* DisplayNameText;
+
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Portrait")
+	class UProgressBar* HealthProgressBar;
+	
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Portrait")
+	UTextBlock* HealthText;
 };
