@@ -8,6 +8,7 @@
 #include "PBUtilityClearinghouse.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "StateTreeExecutionContext.h"
+#include "VisualLogger/VisualLogger.h"
 
 // StateTree 디버깅을 위한 독립적인 로그 카테고리
 DEFINE_LOG_CATEGORY_STATIC(LogPBStateTree, Log, All);
@@ -351,6 +352,27 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	UE_LOG(LogPBStateTree, Display,
 	       TEXT("============================================="));
 
+	// Visual Logger: 최종 시퀀스 타임라인 기록
+	{
+		FString SeqSummary;
+		for (int32 i = 0; i < GeneratedSequence.Actions.Num(); ++i)
+		{
+			const FPBSequenceAction& A = GeneratedSequence.Actions[i];
+			const TCHAR* T =
+				A.ActionType == EPBActionType::Attack  ? TEXT("Atk") :
+				A.ActionType == EPBActionType::Move    ? TEXT("Mov") :
+				A.ActionType == EPBActionType::Heal    ? TEXT("Heal") :
+				TEXT("Other");
+			const FString TgtName = IsValid(A.TargetActor)
+				? A.TargetActor->GetName() : TEXT("Pos");
+			SeqSummary += FString::Printf(TEXT("[%d]%s→%s "), i, T, *TgtName);
+		}
+		UE_VLOG(SelfActor, LogPBStateTree, Log,
+			TEXT("[Generate] Score=%.2f %s%s"),
+			GeneratedSequence.TotalUtilityScore, *SeqSummary,
+			bWaitingForEQS ? TEXT("[EQS pending]") : TEXT("[Ready]"));
+	}
+
 	// StateTree 하위 State(Execute)가 유지되도록 Running 반환
 	// (Succeeded를 반환하면 하위 State가 즉시 강제 종료됨)
 	return EStateTreeRunStatus::Running;
@@ -471,6 +493,18 @@ void UPBGenerateSequenceTask::CheckAllEQSComplete()
 
 		UE_LOG(LogPBStateTree, Display,
 			TEXT("[EQS] 모든 EQS 쿼리 완료. 시퀀스 준비 완료."));
+
+		// Visual Logger: EQS 완료 후 최종 좌표 기록
+		for (int32 i = 0; i < GeneratedSequence.Actions.Num(); ++i)
+		{
+			const FPBSequenceAction& A = GeneratedSequence.Actions[i];
+			if (A.ActionType == EPBActionType::Move && !A.TargetLocation.IsZero())
+			{
+				UE_VLOG_LOCATION(SelfActor, LogPBStateTree, Log,
+					A.TargetLocation, 40.0f, FColor::Green,
+					TEXT("EQS Move[%d]"), i);
+			}
+		}
 	}
 }
 

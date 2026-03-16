@@ -26,6 +26,17 @@ class UPBUtilityClearinghouse : public UWorldSubsystem
 	GENERATED_BODY()
 
 public:
+	// 카테고리별 ArchetypeWeight 캐시 구조체
+	// ArchetypeData 미설정 시 모두 기본값 1.0 (균등 가중)
+	struct FPBCachedArchetypeWeights
+	{
+		float AttackWeight  = 1.0f;
+		float HealWeight    = 1.0f;
+		float BuffWeight    = 1.0f;
+		float DebuffWeight  = 1.0f;
+		float ControlWeight = 1.0f;
+	};
+
 	/*~ USubsystem Interface ~*/
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override
 	{
@@ -175,6 +186,15 @@ public:
 	// 턴 시작 시 캐싱된 최대 이동력 반환
 	float GetCachedMaxMovement() const { return CachedMaxMovement; }
 
+	// 현재 턴 수행 액터 반환 (Gameplay Debugger 등 외부 조회용)
+	AActor* GetActiveTurnActor() const { return ActiveTurnActor; }
+
+	// 캐싱된 ArchetypeWeights 반환 (디버거 표시용)
+	const FPBCachedArchetypeWeights& GetCachedArchetypeWeights() const
+	{
+		return CachedArchetypeWeights;
+	}
+
 	// 현재 Context(잔여 자원/위치)에서 실행 가능한 후보 행동 목록 생성.
 	// DFS 내부 및 Fallback 후 단일 행동 탐색에서 공용 호출.
 	TArray<FPBSequenceAction> GetCandidateActions(
@@ -229,16 +249,6 @@ protected:
 	UPROPERTY(Transient)
 	TArray<TWeakObjectPtr<AActor>> CachedAllies;
 
-	// 카테고리별 ArchetypeWeight 캐시 (CacheTurnData에서 1회 캐싱)
-	// ArchetypeData 미설정 시 모두 기본값 1.0 (균등 가중)
-	struct FPBCachedArchetypeWeights
-	{
-		float AttackWeight  = 1.0f;
-		float HealWeight    = 1.0f;
-		float BuffWeight    = 1.0f;
-		float DebuffWeight  = 1.0f;
-		float ControlWeight = 1.0f;
-	};
 	FPBCachedArchetypeWeights CachedArchetypeWeights;
 
 	// 턴 시작 시 캐싱된 최대 이동력 (Movement 실값)

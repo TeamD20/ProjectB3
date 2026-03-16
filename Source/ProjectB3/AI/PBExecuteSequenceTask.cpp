@@ -13,7 +13,7 @@
 #include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "StateTreeExecutionContext.h"
-
+#include "VisualLogger/VisualLogger.h"
 
 // StateTree 디버깅을 위한 독립적인 로그 카테고리
 DEFINE_LOG_CATEGORY_STATIC(LogPBStateTreeExec, Log, All);
@@ -148,6 +148,33 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
   FString TargetName = IsValid(CurrentAction.TargetActor)
                            ? CurrentAction.TargetActor->GetName()
                            : TEXT("None");
+
+  // Visual Logger: 행동 실행 시작 기록
+  {
+    const TCHAR* TypeStr =
+      CurrentAction.ActionType == EPBActionType::Attack  ? TEXT("Attack") :
+      CurrentAction.ActionType == EPBActionType::Move    ? TEXT("Move") :
+      CurrentAction.ActionType == EPBActionType::Heal    ? TEXT("Heal") :
+      TEXT("Other");
+    UE_VLOG(SelfActor, LogPBStateTreeExec, Log,
+      TEXT("[Execute] %s → %s (AP=%.0f, MP=%.0f)"),
+      TypeStr, *TargetName,
+      CurrentAction.Cost.ActionCost, CurrentAction.Cost.MovementCost);
+
+    // 3D: 행동 대상 방향 세그먼트
+    const FVector TargetPos = IsValid(CurrentAction.TargetActor)
+      ? CurrentAction.TargetActor->GetActorLocation()
+      : CurrentAction.TargetLocation;
+    if (!TargetPos.IsZero() && IsValid(SelfActor))
+    {
+      const FColor SegColor = (CurrentAction.ActionType == EPBActionType::Attack)
+        ? FColor::Red : (CurrentAction.ActionType == EPBActionType::Heal)
+        ? FColor::Green : FColor::Cyan;
+      UE_VLOG_SEGMENT(SelfActor, LogPBStateTreeExec, Log,
+        SelfActor->GetActorLocation(), TargetPos, SegColor,
+        TEXT("%s→%s"), TypeStr, *TargetName);
+    }
+  }
 
   switch (CurrentAction.ActionType) {
   case EPBActionType::Move: {
@@ -391,6 +418,11 @@ void UPBExecuteSequenceTask::AdvanceToNextAction() {
     UE_LOG(LogPBStateTreeExec, Display,
            TEXT("[시퀀스] 모든 행동 실행 완료. 총 %d개 행동 처리."),
            SequenceToExecute.CurrentActionIndex);
+
+    // Visual Logger: 시퀀스 실행 완료
+    UE_VLOG(SelfActor, LogPBStateTreeExec, Log,
+      TEXT("[Execute] 시퀀스 완료: %d개 행동 처리"),
+      SequenceToExecute.CurrentActionIndex);
     return;
   }
 

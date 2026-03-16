@@ -15,6 +15,7 @@
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemLibrary.h"
 #include "ProjectB3/PBGameplayTags.h"
+#include "VisualLogger/VisualLogger.h"
 
 // 임시 로깅을 위한 로그 카테고리 정의
 DEFINE_LOG_CATEGORY_STATIC(LogPBUtility, Log, All);
@@ -388,6 +389,15 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor)
 	UE_LOG(LogPBUtility, Log,
 		TEXT("아군 탐색 완료. 총 %d명 (Self 포함) 아군 목록 캐싱 완료."),
 		CachedAllies.Num());
+
+	// Visual Logger: 턴 시작 상태 스냅샷
+	UE_VLOG(CurrentTurnActor, LogPBUtility, Log,
+		TEXT("[CacheTurnData] Targets=%d, Allies=%d, MaxMP=%.0f, "
+			 "Archetype(Atk=%.1f Heal=%.1f Buff=%.1f Debuff=%.1f Ctrl=%.1f)"),
+		CachedTargets.Num(), CachedAllies.Num(), CachedMaxMovement,
+		CachedArchetypeWeights.AttackWeight, CachedArchetypeWeights.HealWeight,
+		CachedArchetypeWeights.BuffWeight, CachedArchetypeWeights.DebuffWeight,
+		CachedArchetypeWeights.ControlWeight);
 }
 
 void UPBUtilityClearinghouse::ClearCache()
@@ -684,6 +694,11 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 		   Score.TargetModifier, Score.SituationalBonus,
 		   Score.ArchetypeWeight, Score.MovementScore,
 		   FinalScore);
+
+	// Visual Logger: 타겟 위치에 스코어 마커 표시
+	UE_VLOG_LOCATION(ActiveTurnActor, LogPBUtility, Log,
+		TargetActor->GetActorLocation(), 30.0f, FColor::Red,
+		TEXT("%s: %.1f"), *TargetActor->GetName(), FinalScore);
 
 	// 결과 캐싱
 	CachedActionScoreMap.Add(TargetActor, Score);
@@ -1111,6 +1126,11 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 	{
 		BestScore = CurrentScore;
 		BestPath = CurrentPath;
+
+		// Visual Logger: 최적 경로 갱신 기록
+		UE_VLOG(ActiveTurnActor, LogPBUtility, Log,
+			TEXT("[DFS] BestPath 갱신: Score=%.2f, Depth=%d, Actions=%d"),
+			BestScore, Depth, BestPath.Num());
 	}
 
 	// 기저 조건: 깊이 한계 도달
@@ -1294,6 +1314,14 @@ FVector UPBUtilityClearinghouse::CalculateFallbackPosition(
 		   *AIPos.ToCompactString(),
 		   *ProjectedLocation.Location.ToCompactString(),
 		   *EnemyCentroid.ToCompactString());
+
+	// Visual Logger: 후퇴 경로 시각화 (AI→후퇴 위치, 적 Centroid 표시)
+	UE_VLOG_SEGMENT(SelfRef, LogPBUtility, Log,
+		AIPos, ProjectedLocation.Location, FColor::Blue,
+		TEXT("Fallback"));
+	UE_VLOG_LOCATION(SelfRef, LogPBUtility, Log,
+		EnemyCentroid, 50.0f, FColor::Orange,
+		TEXT("EnemyCentroid"));
 
 	return ProjectedLocation.Location;
 }
