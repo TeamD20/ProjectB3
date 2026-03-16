@@ -136,12 +136,17 @@ void UPBGameplayAbility::EndAbility(
 			PBASC->SetTurnAbilityActive(false);
 		}
 		
-		// 전투중이 아니면 자유 이동모드로 복귀 
-		if (!UPBCombatSystemLibrary::IsInCombat(this))
+		if (APBGameplayPlayerController* PBPC = GetPBPlayerController())
 		{
-			if (APBGameplayPlayerController* PBPC = GetPBPlayerController())
+			// 전투중이 아니면 자유 이동모드로 복귀 
+			if (!UPBCombatSystemLibrary::IsInCombat(this))
 			{
 				PBPC->SetControllerMode(EPBPlayerControllerMode::FreeMovement);
+			}
+			// 전투 중이면 턴기반 이동모드로 복귀
+			else
+			{
+				PBPC->SetControllerMode(EPBPlayerControllerMode::TurnMovement);
 			}
 		}
 	}
