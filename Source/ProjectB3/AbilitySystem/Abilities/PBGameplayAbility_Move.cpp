@@ -19,6 +19,12 @@ UPBGameplayAbility_Move::UPBGameplayAbility_Move()
 	FGameplayTagContainer AssetTags;
 	AssetTags.AddTag(PBGameplayTags::Ability_Active_Move);
 	SetAssetTags(AssetTags);
+	
+	FAbilityTriggerData TriggerData;
+	TriggerData.TriggerSource = EGameplayAbilityTriggerSource::GameplayEvent;
+	TriggerData.TriggerTag = PBGameplayTags::Event_Movement_MoveCommand;
+	
+	AbilityTriggers.Add(TriggerData);
 }
 
 void UPBGameplayAbility_Move::ActivateAbility(
@@ -99,6 +105,14 @@ void UPBGameplayAbility_Move::EndAbility(
 			}
 		}
 	}
+	// 전투 중이 아닌 경우 이동 자원 회복
+	else
+	{
+		if (UPBAbilitySystemComponent* ASC = GetPBAbilitySystemComponent())
+		{
+			ASC->ResetMovementResource();
+		}
+	}
 	
 	MovePathPoints.Reset();
 
@@ -111,11 +125,15 @@ void UPBGameplayAbility_Move::EndAbility(
 			if (PC->GetControllerMode() == EPBPlayerControllerMode::Moving)
 			{
 				PC->EndMoving();
-				PC->SetControllerMode(EPBPlayerControllerMode::None);
+				PC->SetControllerMode(EPBPlayerControllerMode::TurnMovement);
 			}
-			else if (PC->GetControllerMode() == EPBPlayerControllerMode::TurnMovement)
+			
+			// AttributeSet의 Movement 값을 PathDisplay에 전달
+			UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+			if (IsValid(ASC))
 			{
-				PC->SetControllerMode(EPBPlayerControllerMode::None);
+				const float MovementRange = ASC->GetNumericAttribute(UPBTurnResourceAttributeSet::GetMovementAttribute());
+				PC->SetPathDisplayMovementRange(MovementRange);
 			}
 		}
 	}

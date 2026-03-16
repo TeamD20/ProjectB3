@@ -10,6 +10,7 @@
 #include "ProjectB3/Combat/PBCombatSystemLibrary.h"
 #include "ProjectB3/Player/PBGameplayPlayerController.h"
 #include "ProjectB3/PBGameplayTags.h"
+#include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "ProjectB3/ItemSystem/PBEquipmentActor.h"
 #include "ProjectB3/ItemSystem/Components/PBEquipmentComponent.h"
 #include "ProjectB3/ItemSystem/Data/PBEquipmentDataAsset.h"
@@ -128,20 +129,39 @@ void UPBGameplayAbility::EndAbility(
 	bool bWasCancelled)
 {
 	// 턴 기반 어빌리티인 경우
-	if (GetAbilityType(Handle, ActorInfo) != EPBAbilityType::None)
+	EPBAbilityType AbilityType = GetAbilityType(Handle, ActorInfo);
+	if (AbilityType != EPBAbilityType::None)
 	{
 		if (UPBAbilitySystemComponent* PBASC = GetPBAbilitySystemComponentFromActorInfo(ActorInfo))
 		{
 			// ASC 플래그 해제
 			PBASC->SetTurnAbilityActive(false);
+			
+			if (UPBCombatSystemLibrary::IsInCombat(PBASC))
+			{
+				// 행동 타입별 자원 차감
+				if (AbilityType == EPBAbilityType::Action)
+				{
+					PBASC->ApplyModToAttribute(UPBTurnResourceAttributeSet::GetActionAttribute(), EGameplayModOp::Additive, -1.f);
+				}
+				if (AbilityType == EPBAbilityType::BonusAction)
+				{
+					PBASC->ApplyModToAttribute(UPBTurnResourceAttributeSet::GetBonusActionAttribute(), EGameplayModOp::Additive, -1.f);
+				}
+			}
 		}
 		
-		// 전투중이 아니면 자유 이동모드로 복귀 
-		if (!UPBCombatSystemLibrary::IsInCombat(this))
+		if (APBGameplayPlayerController* PBPC = GetPBPlayerController())
 		{
-			if (APBGameplayPlayerController* PBPC = GetPBPlayerController())
+			// 전투중이 아니면 자유 이동모드로 복귀 
+			if (!UPBCombatSystemLibrary::IsInCombat(this))
 			{
 				PBPC->SetControllerMode(EPBPlayerControllerMode::FreeMovement);
+			}
+			// 전투 중이면 턴기반 이동모드로 복귀
+			else
+			{
+				PBPC->SetControllerMode(EPBPlayerControllerMode::TurnMovement);
 			}
 		}
 	}
