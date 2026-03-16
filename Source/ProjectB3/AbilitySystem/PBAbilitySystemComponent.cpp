@@ -4,6 +4,8 @@
 
 #include "Attributes/PBTurnResourceAttributeSet.h"
 #include "Data/PBAbilitySetData.h"
+#include "ProjectB3/Combat/PBCombatManagerSubsystem.h"
+#include "ProjectB3/Combat/PBCombatSystemLibrary.h"
 
 DEFINE_LOG_CATEGORY(LogPBAbilitySystem);
 
@@ -139,6 +141,53 @@ void UPBAbilitySystemComponent::ResetMovementResource()
 {
 	const float MaxMovement = GetNumericAttributeBase(UPBTurnResourceAttributeSet::GetMaxMovementAttribute());
 	SetNumericAttributeBase(UPBTurnResourceAttributeSet::GetMovementAttribute(), MaxMovement);
+}
+
+void UPBAbilitySystemComponent::OnProgressTurn()
+{
+	for (const FActiveGameplayEffectHandle& ActiveGEHandle : ActiveGameplayEffects.GetAllActiveEffectHandles())
+	{
+		if (const UGameplayEffect* EffectCDO = GetGameplayEffectCDO(ActiveGEHandle))
+		{
+			if (EffectCDO->StackingType == EGameplayEffectStackingType::None)
+			{
+				continue;
+			}
+			
+			RemoveActiveGameplayEffect(ActiveGEHandle, 1); // 1스택 차감
+		}
+	}
+}
+
+void UPBAbilitySystemComponent::BeginPlay()
+{
+	Super::BeginPlay();
+}
+
+void UPBAbilitySystemComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+}
+
+void UPBAbilitySystemComponent::OnTagUpdated(const FGameplayTag& Tag, bool TagExists)
+{
+	Super::OnTagUpdated(Tag, TagExists);
+	
+	if (OnGameplayTagUpdated.IsBound())
+	{
+		OnGameplayTagUpdated.Broadcast(Tag, TagExists);
+	}
+}
+
+void UPBAbilitySystemComponent::HandleActiveTurnChanged(AActor* CurrentTurnActor, int32 TurnIndex)
+{
+	if (CurrentTurnActor != GetOwner())
+	{
+		return;
+	}
+	
+	// Owner의 턴이 되면 이펙트 스택 차감
+	OnProgressTurn();
 }
 
 bool UPBAbilitySystemComponent::CanActivateAbilityByHandle(const FGameplayAbilitySpecHandle& Handle) const
