@@ -11,6 +11,8 @@ class UPBAbilitySetData;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogPBAbilitySystem, Log, All);
 
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnGameplayTagUpdatedSignature, const FGameplayTag& /**Tag*/, bool /**TagExists*/)
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PROJECTB3_API UPBAbilitySystemComponent : public UAbilitySystemComponent
 {
@@ -18,7 +20,7 @@ class PROJECTB3_API UPBAbilitySystemComponent : public UAbilitySystemComponent
 
 public:
 	UPBAbilitySystemComponent();
-
+	
 	// DA 기반 어빌리티 일괄 부여.
 	void GrantAbilitiesFromData(
 		const FGameplayTag& SourceTag,
@@ -50,6 +52,23 @@ public:
 
 	// 이동 자원 최대치로 초기화
 	void ResetMovementResource();
+	
+	// 한 턴 진행 후 호출, 적용된 이펙트들의 턴 스택 차감
+	void OnProgressTurn();
+	
+protected:
+	/*~ UActorComponent Interface ~*/
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	/*~ UAbilitySystemComponent Interface ~*/
+	virtual void OnTagUpdated(const FGameplayTag& Tag, bool TagExists) override;
+	
+private:
+	void HandleActiveTurnChanged(AActor* CurrentTurnActor, int32 TurnIndex);
+	
+public:
+	FOnGameplayTagUpdatedSignature OnGameplayTagUpdated;
 	
 protected:
 	// 출처별 핸들 캐시
