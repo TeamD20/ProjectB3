@@ -364,7 +364,7 @@ void UPBEquipmentComponent::GrantEquipmentAbilities(EPBEquipSlot Slot, const UPB
 	}
 
 	// 무기 슬롯이면 부착 위치 태그 조회
-	const FGameplayTag AttachTag = GetAttachSlotTag(Slot);
+	const FGameplayTag AttachTag = EquipData->AttachSlotOverride.IsValid() ? EquipData->AttachSlotOverride : GetAttachSlotTag(Slot);
 
 	FPBAbilityGrantedHandles Handles;
 

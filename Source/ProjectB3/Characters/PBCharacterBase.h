@@ -111,6 +111,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	bool DetachEquipment(const FGameplayTag& InSlotTag);
 
+	// 슬롯 태그에 부착된 장비 액터 반환. 없으면 nullptr.
+	APBEquipmentActor* GetAttachedEquipment(const FGameplayTag& SlotTag) const;
+
 	// 인벤토리 컴포넌트 반환
 	UPBInventoryComponent* GetInventoryComponent() const { return InventoryComponent; }
 

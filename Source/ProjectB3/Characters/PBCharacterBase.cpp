@@ -138,6 +138,12 @@ bool APBCharacterBase::DetachEquipment(const FGameplayTag& InSlotTag)
 	return true;
 }
 
+APBEquipmentActor* APBCharacterBase::GetAttachedEquipment(const FGameplayTag& SlotTag) const
+{
+	APBEquipmentActor* const* Found = AttachedEquipments.Find(SlotTag);
+	return Found ? *Found : nullptr;
+}
+
 void APBCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();

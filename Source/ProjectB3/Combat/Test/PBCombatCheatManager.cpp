@@ -78,28 +78,25 @@ void UPBCombatCheatManager::SpawnTestEnemies(int32 NumEnemies)
 		return;
 	}
 
-	FVector Origin = FVector::ZeroVector;
-	if (APawn* Pawn = PC->GetPawn())
-	{
-		Origin = Pawn->GetActorLocation();
-	}
-
 	FActorSpawnParameters SpawnParams;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
 
+	FVector SpawnOrigin = FVector::ZeroVector;
+	
+	if (auto Pawn = GetPlayerController()->GetPawn())
+	{
+		SpawnOrigin = Pawn->GetActorLocation();
+	}
+	
 	// 적 스폰
 	for (int32 i = 0; i < NumEnemies; ++i)
 	{
-		FVector SpawnLoc = Origin + FVector(i * 200.0f, 200.0f, 100.0f);
+		FVector SpawnLoc = SpawnOrigin + FVector(i * 300.0f, 300.0f, 10.0f);
 		APBTestCombatCharacter* Enemy = World->SpawnActor<APBTestCombatCharacter>(
-			APBTestCombatCharacter::StaticClass(), SpawnLoc, FRotator::ZeroRotator, SpawnParams);
+			AICharacterClass, SpawnLoc, FRotator::ZeroRotator, SpawnParams);
 
 		if (IsValid(Enemy))
 		{
-			FPBCombatIdentity Identity;
-			Identity.FactionTag = PBGameplayTags::Combat_Faction_Enemy;
-			Identity.DisplayName = FText::FromString(FString::Printf(TEXT("적_%d"), i + 1));
-			Enemy->SetCombatIdentity(Identity);
 			Enemy->TestInitiativeModifier = FMath::RandRange(0, 3);
 			SpawnedEnemies.Add(Enemy);
 		}

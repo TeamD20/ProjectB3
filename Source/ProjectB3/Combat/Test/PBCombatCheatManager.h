@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PBTestCombatCharacter.h"
 #include "GameFramework/CheatManager.h"
 #include "PBCombatCheatManager.generated.h"
 
@@ -87,4 +88,8 @@ private:
 
 	// Status HUD 표시 여부
 	bool bStatusHUDVisible = false;
+	
+public:
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<APBTestCombatCharacter> AICharacterClass = APBTestCombatCharacter::StaticClass();
 };

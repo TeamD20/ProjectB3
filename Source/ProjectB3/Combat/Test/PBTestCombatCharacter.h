@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "ProjectB3/AI/PBAIMockCharacter.h"
 #include "ProjectB3/Characters/PBCharacterBase.h"
 #include "PBTestCombatCharacter.generated.h"
 
@@ -11,7 +12,7 @@
  * 테스트 시 IPBCombatParticipant의 동작을 검증하기 위한 최소 구현.
  */
 UCLASS()
-class PROJECTB3_API APBTestCombatCharacter : public APBCharacterBase
+class PROJECTB3_API APBTestCombatCharacter : public APBAIMockCharacter
 {
 	GENERATED_BODY()
 
@@ -49,6 +50,8 @@ public:
 	// OnTurnActivated 호출 시 카운터 증가
 	virtual void OnTurnActivated() override;
 
+protected:
+	virtual void PossessedBy(AController* NewController) override;
 public:
 	// 이니셔티브 수정치
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Test|Combat")
