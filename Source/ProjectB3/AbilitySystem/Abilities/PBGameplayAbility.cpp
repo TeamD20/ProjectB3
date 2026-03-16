@@ -444,13 +444,14 @@ void UPBGameplayAbility::TryAutoAttachEquipment(
 		}
 
 		// 이 슬롯의 부착 태그가 찾은 태그와 일치하는지 확인
-		const FGameplayTag SlotTag = UPBEquipmentComponent::GetAttachSlotTag(Pair.Key);
+		const FGameplayTag SlotTag = EquipData->AttachSlotOverride.IsValid() ? EquipData->AttachSlotOverride : UPBEquipmentComponent::GetAttachSlotTag(Pair.Key);
 		if (SlotTag == FoundSlotTag)
 		{
+			FGameplayTag AttachSlotTag = FoundSlotTag;
 			const TSubclassOf<APBEquipmentActor> LoadedClass = EquipData->EquipmentActorClass.LoadSynchronous();
 			if (LoadedClass)
 			{
-				Character->AttachEquipment(FoundSlotTag, LoadedClass);
+				Character->AttachEquipment(AttachSlotTag, LoadedClass);
 			}
 			break;
 		}

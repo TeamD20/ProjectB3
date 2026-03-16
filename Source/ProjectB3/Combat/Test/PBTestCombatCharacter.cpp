@@ -53,3 +53,13 @@ void APBTestCombatCharacter::OnTurnActivated()
 	Super::OnTurnActivated();
 	TurnActivatedCount++;
 }
+
+void APBTestCombatCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+	
+	if (NewController != nullptr)
+	{
+		UE_LOG(LogTemp,Warning,TEXT("PossesdBy %s"), *NewController->GetName());	
+	}
+}
