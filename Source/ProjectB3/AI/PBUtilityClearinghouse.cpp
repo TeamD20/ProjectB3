@@ -14,6 +14,7 @@
 #include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemLibrary.h"
+#include "ProjectB3/Environment/PBEnvironmentSubsystem.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "VisualLogger/VisualLogger.h"
 
@@ -49,28 +50,29 @@ float UPBUtilityClearinghouse::GetNormalizedDistanceToTarget(
 		return *CachedValue;
 	}
 
-	// NavMesh 경로 길이 기반 정규화 (0.0 ~ 1.0)
+	// 경로 비용 기반 정규화 (0.0 ~ 1.0)
 	// 거리가 가까울수록 1.0, 최대 이동력 범위를 초과하면 0.0
 	float NormalizedScore = 0.0f;
 
 	// CacheTurnData 시점에 캐싱된 최대 이동력 사용
 	const float MaxRange = FMath::Max(CachedMaxMovement, 100.0f);
 
-	// NavMesh 경로 길이 조회 
-	double NavPathLength = 0.0;
-	const ENavigationQueryResult::Type NavResult =
-		UNavigationSystemV1::GetPathLength(
-			ActiveTurnActor,
-			ActiveTurnActor->GetActorLocation(),
-			TargetActor->GetActorLocation(),
-			NavPathLength);
+	// EnvironmentSubsystem 경로 비용 조회 (팀 공용 API)
+	float PathLength = FVector::Dist(
+		ActiveTurnActor->GetActorLocation(),
+		TargetActor->GetActorLocation()); // 유클리드 폴백
 
-	// NavMesh 실패 시 유클리드 직선거리 폴백
-	const float PathLength = (NavResult == ENavigationQueryResult::Success)
-		? static_cast<float>(NavPathLength)
-		: FVector::Dist(
+	if (CachedEnvSubsystem)
+	{
+		const FPBPathCostResult PathResult = CachedEnvSubsystem->CalculatePathCost(
 			ActiveTurnActor->GetActorLocation(),
 			TargetActor->GetActorLocation());
+
+		if (PathResult.bIsValid)
+		{
+			PathLength = PathResult.TotalCost;
+		}
+	}
 
 	NormalizedScore = FMath::Clamp(1.0f - (PathLength / MaxRange), 0.0f, 1.0f);
 
@@ -146,14 +148,25 @@ float UPBUtilityClearinghouse::EvaluateHighGroundAdvantage(
 		return 0.0f;
 	}
 
-	// Z축 고도 비교 기반 고지대 이점 산출 (0.0 ~ 1.0)
-	// D&D 5e: 고지대 = 약 2m(200cm) 이상 높은 위치에서 이점(Advantage) 부여
-	// HeightThreshold를 기준으로 0.0 ~ 1.0 보간
-	constexpr float HeightThreshold = 200.0f; // 고지대 판정 기준 높이 (cm)
+	// EnvironmentSubsystem의 LoS 결과에서 ElevationDelta 활용
+	// BG3 기준 고지대 = 2.5m(250cm) 이상 높은 위치에서 이점(Advantage) 부여
+	constexpr float HeightThreshold = 250.0f; // 팀 공용 기준 (PBLoS_Trace와 동일)
 
-	const float HeightDiff =
-		ActiveTurnActor->GetActorLocation().Z
-		- TargetActor->GetActorLocation().Z;
+	float HeightDiff = 0.0f;
+
+	if (CachedEnvSubsystem)
+	{
+		const FPBLoSResult LoSResult = CachedEnvSubsystem->CheckLineOfSight(
+			ActiveTurnActor->GetActorLocation(), TargetActor);
+		// ElevationDelta: 양수 = AI가 높음 (EnvironmentSubsystem 기준)
+		HeightDiff = LoSResult.ElevationDelta;
+	}
+	else
+	{
+		// 폴백: 직접 Z축 비교
+		HeightDiff = ActiveTurnActor->GetActorLocation().Z
+			- TargetActor->GetActorLocation().Z;
+	}
 
 	float HighGroundScore = 0.0f;
 	if (HeightDiff > 0.0f)
@@ -220,6 +233,18 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor)
 	// 이전 캐시를 초기화한다.
 	ActiveTurnActor = CurrentTurnActor;
 	ClearCache();
+
+	// EnvironmentSubsystem 획득 (GameInstanceSubsystem)
+	if (UGameInstance* GI = CurrentTurnActor->GetGameInstance())
+	{
+		CachedEnvSubsystem = GI->GetSubsystem<UPBEnvironmentSubsystem>();
+	}
+
+	// LoS 캐시 세션 시작 — 턴 평가 중 Trace 결과 재사용
+	if (CachedEnvSubsystem)
+	{
+		CachedEnvSubsystem->BeginLoSCache();
+	}
 
 	UE_LOG(LogPBUtility, Display,
 		   TEXT("=== AI [%s]의 턴 시작. 클리어링하우스 캐싱 작업 개시 ==="),
@@ -414,6 +439,12 @@ void UPBUtilityClearinghouse::ClearCache()
 	CachedArchetypeWeights = FPBCachedArchetypeWeights();
 	CachedMaxMovement = 1000.0f;
 	EQSTargetActor = nullptr;
+
+	// LoS 캐시 세션 종료 — Trace 결과 캐시 파기
+	if (CachedEnvSubsystem)
+	{
+		CachedEnvSubsystem->EndLoSCache();
+	}
 
 	UE_LOG(LogPBUtility, Log,
 		   TEXT("클리어링하우스 메모리 캐시가 성공적으로 비워졌습니다."));
@@ -1011,6 +1042,15 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			: AbilityRange + RangeBuffer;
 		const bool bInRange = (DistToTarget <= EffectiveRange);
 
+		// LoS 판정: 현재 위치에서 타겟에 대한 시야 확보 여부
+		bool bHasLoS = true; // EnvironmentSubsystem 없으면 기본 통과
+		if (CachedEnvSubsystem)
+		{
+			const FPBLoSResult LoSResult = CachedEnvSubsystem->CheckLineOfSight(
+				Context.LastActionLocation, Target);
+			bHasLoS = LoSResult.bHasLineOfSight;
+		}
+
 		// --- Attack 후보: AP 충분하면 사거리 무관하게 후보 생성 ---
 		// Phase 3: Move는 별도 후보가 아니라, Attack에 MovementCost를 태워서
 		//          DFS 이후 InjectMoveActions에서 물리적 Move 노드를 삽입한다.
@@ -1022,11 +1062,14 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			AttackAction.AbilityTag = ScoreData.AbilityTag;
 			AttackAction.Cost.ActionCost = 1.0f;
 
-			if (!bInRange && !bUnlimitedRange)
+			// 사거리 밖이거나 LoS 없으면 이동 필요
+			const bool bNeedsMovement = (!bInRange && !bUnlimitedRange) || !bHasLoS;
+
+			if (bNeedsMovement)
 			{
-				const float NeededMovement = DistToTarget - EffectiveRange;
-				if (NeededMovement > 0.0f
-					&& Context.CanReachTarget(Target->GetActorLocation()))
+				const float NeededMovement = FMath::Max(
+					DistToTarget - EffectiveRange, 1.0f); // 최소 1cm (LoS만 없는 경우)
+				if (Context.CanReachTarget(Target->GetActorLocation()))
 				{
 					AttackAction.Cost.MovementCost = NeededMovement;
 				}
@@ -1094,7 +1137,16 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 
 		const bool bHealInRange = (DistToAlly <= EffectiveHealRange);
 
-		// Phase 3: Heal도 Attack과 동일하게 사거리 밖이면 MovementCost 부착
+		// LoS 판정 (Heal도 시야 필요 — 벽 뒤 아군 힐 불가)
+		bool bHealHasLoS = true;
+		if (CachedEnvSubsystem)
+		{
+			const FPBLoSResult LoSResult = CachedEnvSubsystem->CheckLineOfSight(
+				Context.LastActionLocation, Ally);
+			bHealHasLoS = LoSResult.bHasLineOfSight;
+		}
+
+		// Phase 3: Heal도 Attack과 동일하게 사거리 밖/LoS 없으면 MovementCost 부착
 		{
 			FPBSequenceAction HealAction;
 			HealAction.ActionType = EPBActionType::Heal;
@@ -1102,11 +1154,14 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			HealAction.AbilityTag = HealData.AbilityTag;
 			HealAction.Cost.ActionCost = 1.0f;
 
-			if (!bHealInRange && !bHealUnlimited)
+			const bool bHealNeedsMovement =
+				(!bHealInRange && !bHealUnlimited) || !bHealHasLoS;
+
+			if (bHealNeedsMovement)
 			{
-				const float NeededMovement = DistToAlly - EffectiveHealRange;
-				if (NeededMovement > 0.0f
-					&& Context.CanReachTarget(Ally->GetActorLocation()))
+				const float NeededMovement = FMath::Max(
+					DistToAlly - EffectiveHealRange, 1.0f);
+				if (Context.CanReachTarget(Ally->GetActorLocation()))
 				{
 					HealAction.Cost.MovementCost = NeededMovement;
 				}

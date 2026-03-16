@@ -9,6 +9,7 @@
 // 전방 선언
 class UEnvQuery;
 struct FEnvQueryResult;
+class UPBEnvironmentSubsystem;
 
 // EQS 쿼리 결과 콜백 델리게이트
 // bSuccess: 유효한 결과가 있는지
@@ -254,6 +255,11 @@ protected:
 	// 턴 시작 시 캐싱된 최대 이동력 (Movement 실값)
 	// EvaluateActionScore의 MovementScore 정규화 기준값으로 사용
 	float CachedMaxMovement = 1000.0f;
+
+	// 환경 판정 서브시스템 (LoS, 경로 비용 일원화)
+	// CacheTurnData에서 1회 획득, GameInstanceSubsystem이므로 월드 독립
+	UPROPERTY(Transient)
+	TObjectPtr<UPBEnvironmentSubsystem> CachedEnvSubsystem = nullptr;
 
 	/*~ 헬퍼 함수 ~*/
 
