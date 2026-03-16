@@ -77,6 +77,10 @@ protected:
   UPROPERTY()
   UAbilitySystemComponent *CachedASC = nullptr;
 
+  // EndMode=Manual 어빌리티에서 EndAbility 미호출 시 무한 대기 방지 타임아웃
+  float AbilityTimeoutRemaining = 0.0f;
+  static constexpr float AbilityTimeoutSeconds = 3.0f;
+
   // StateTree Input 바인딩은 매 Tick마다 소스(Generate)에서 재복사되어
   // CurrentActionIndex가 0으로 초기화된다. 실행 로직에서는 이 로컬 복사본을 사용하여
   // 바인딩 갱신으로부터 실행 상태를 격리한다.

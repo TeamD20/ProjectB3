@@ -102,6 +102,10 @@ struct FPBSequenceAction
 	// HandleGameplayEvent 대신 직접 활성화하므로 Blueprint Triggers 설정 불필요
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Sequence")
 	FGameplayAbilitySpecHandle AbilitySpecHandle;
+
+	// DFS 스코어링에서 사용할 행동 점수 (GetCandidateActions에서 캐싱)
+	// AP/BA 혼합 시퀀스에서 어빌리티별 개별 점수를 보존
+	float CachedActionScore = 0.0f;
 };
 
 // DFS 탐색 시 각 분기에서 잔여 자원 상태를 추적하는 컨텍스트.

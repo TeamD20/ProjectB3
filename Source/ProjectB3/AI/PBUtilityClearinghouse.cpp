@@ -1,6 +1,8 @@
 #include "PBUtilityClearinghouse.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemGlobals.h"
+#include "GameplayEffect.h"
+#include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
 #include "Engine/World.h"
 #include "EnvironmentQuery/EnvQuery.h"
 #include "EnvironmentQuery/EnvQueryManager.h"
@@ -435,6 +437,8 @@ void UPBUtilityClearinghouse::ClearCache()
 	CachedVulnerabilityMap.Empty();
 	CachedThreatMultiplierMap.Empty();
 	CachedActionScoreMap.Empty();
+	CachedAPAttackScoreMap.Empty();
+	CachedBAAttackScoreMap.Empty();
 	CachedHealScoreMap.Empty();
 	CachedArchetypeWeights = FPBCachedArchetypeWeights();
 	CachedMaxMovement = 1000.0f;
@@ -493,6 +497,100 @@ float UPBUtilityClearinghouse::GetRoleMultiplier(EPBCombatRole TargetRole)
 	}
 }
 
+FPBCostData UPBUtilityClearinghouse::ExtractAbilityCost(
+	const UAbilitySystemComponent* ASC,
+	const FGameplayAbilitySpecHandle& SpecHandle)
+{
+	// 폴백: Cost GE가 없거나 턴 자원 Modifier가 없으면 AP 1 소모
+	FPBCostData Fallback;
+	Fallback.ActionCost = 1.0f;
+
+	if (!IsValid(ASC) || !SpecHandle.IsValid())
+	{
+		return Fallback;
+	}
+
+	const FGameplayAbilitySpec* Spec = ASC->FindAbilitySpecFromHandle(SpecHandle);
+	if (!Spec || !IsValid(Spec->Ability))
+	{
+		return Fallback;
+	}
+
+	// 어빌리티의 Cost GE CDO 획득 — 없으면 태그 기반 폴백으로 이동
+	const UGameplayEffect* CostGE = Spec->Ability->GetCostGameplayEffect();
+
+	// Cost GE의 Modifier를 순회하며 턴 자원(AP/BA/MP) 매핑
+	bool bFoundTurnResource = false;
+	FPBCostData ExtractedCost;
+
+	if (!CostGE)
+	{
+		// Cost GE 없음 → 아래 태그 폴백으로 이동
+	}
+	else for (const FGameplayModifierInfo& Mod : CostGE->Modifiers)
+	{
+		float Magnitude = 0.0f;
+		// ScalableFloat 기반 정적 값 추출 (Level 1 기준)
+		if (!Mod.ModifierMagnitude.GetStaticMagnitudeIfPossible(1.0f, Magnitude))
+		{
+			continue;
+		}
+
+		// Cost GE는 차감용 음수 → 절대값으로 변환
+		const float PositiveCost = FMath::Abs(Magnitude);
+
+		if (Mod.Attribute == UPBTurnResourceAttributeSet::GetActionAttribute())
+		{
+			ExtractedCost.ActionCost = PositiveCost;
+			bFoundTurnResource = true;
+		}
+		else if (Mod.Attribute == UPBTurnResourceAttributeSet::GetBonusActionAttribute())
+		{
+			ExtractedCost.BonusActionCost = PositiveCost;
+			bFoundTurnResource = true;
+		}
+		else if (Mod.Attribute == UPBTurnResourceAttributeSet::GetMovementAttribute())
+		{
+			ExtractedCost.MovementCost = PositiveCost;
+			bFoundTurnResource = true;
+		}
+	}
+
+	if (bFoundTurnResource)
+	{
+		UE_LOG(LogPBUtility, Verbose,
+			TEXT("[ExtractAbilityCost] %s → AP=%.1f, BA=%.1f, MP=%.1f"),
+			*GetNameSafe(Spec->Ability),
+			ExtractedCost.ActionCost, ExtractedCost.BonusActionCost,
+			ExtractedCost.MovementCost);
+		return ExtractedCost;
+	}
+
+	// 턴 자원 Modifier 없음 → DynamicAbilityTags 기반 폴백
+	// Ability.Type.BonusAction 태그가 있으면 BA 1 소모, 그 외 AP 1 소모
+	const EPBAbilityType AbilityType = GetAbilityTypeFromTags(Spec->GetDynamicSpecSourceTags());
+	FPBCostData TagFallback;
+	switch (AbilityType)
+	{
+	case EPBAbilityType::BonusAction:
+		TagFallback.BonusActionCost = 1.0f;
+		break;
+	case EPBAbilityType::Free:
+		// Free: 자원 소모 없음
+		break;
+	default:
+		// Action, Reaction, None → AP 1 소모
+		TagFallback.ActionCost = 1.0f;
+		break;
+	}
+
+	UE_LOG(LogPBUtility, Verbose,
+		TEXT("[ExtractAbilityCost] %s: Cost GE 턴자원 없음 → 태그 폴백 (Type=%d, AP=%.1f, BA=%.1f)"),
+		*GetNameSafe(Spec->Ability), static_cast<int32>(AbilityType),
+		TagFallback.ActionCost, TagFallback.BonusActionCost);
+	return TagFallback;
+}
+
 /*~ 스코어링 (ActionScore 산출) ~*/
 
 FPBTargetScore
@@ -524,6 +622,17 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 	FGameplayTag BestAbilityTag;
 	FGameplayAbilitySpecHandle BestSpecHandle;
 	bool bBestCanKill = false;
+
+	// AP/BA 자원 유형별 최고 어빌리티 추적 (DFS 후보 분리용)
+	float BestAPDamage = 0.0f;
+	FGameplayTag BestAPTag;
+	FGameplayAbilitySpecHandle BestAPHandle;
+	bool bBestAPCanKill = false;
+
+	float BestBADamage = 0.0f;
+	FGameplayTag BestBATag;
+	FGameplayAbilitySpecHandle BestBAHandle;
+	bool bBestBACanKill = false;
 
 	if (IsValid(SourceASC) && IsValid(TargetASC))
 	{
@@ -650,6 +759,33 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 				// else: 초과 피해 없으므로 수정 없음
 			}
 
+			// --- 자원 유형별 최고 어빌리티 추적 ---
+			const FPBCostData AbilityCost = ExtractAbilityCost(SourceASC, Spec.Handle);
+			const bool bIsBonusAction = (AbilityCost.BonusActionCost > 0.0f);
+
+			if (bIsBonusAction)
+			{
+				if (CandidateDamage > BestBADamage)
+				{
+					BestBADamage = CandidateDamage;
+					BestBAHandle = Spec.Handle;
+					bBestBACanKill = bCandidateCanKill;
+					const FGameplayTagContainer& Tags = AbilityCDO->GetAssetTags();
+					BestBATag = Tags.Num() > 0 ? Tags.First() : FGameplayTag();
+				}
+			}
+			else
+			{
+				if (CandidateDamage > BestAPDamage)
+				{
+					BestAPDamage = CandidateDamage;
+					BestAPHandle = Spec.Handle;
+					bBestAPCanKill = bCandidateCanKill;
+					const FGameplayTagContainer& Tags = AbilityCDO->GetAssetTags();
+					BestAPTag = Tags.Num() > 0 ? Tags.First() : FGameplayTag();
+				}
+			}
+
 			if (CandidateDamage > BestExpectedDamage)
 			{
 				BestExpectedDamage = CandidateDamage;
@@ -734,8 +870,40 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 		TargetActor->GetActorLocation(), 30.0f, FColor::Red,
 		TEXT("%s: %.1f"), *TargetActor->GetName(), FinalScore);
 
-	// 결과 캐싱
+	// 결과 캐싱 (전체 최고 — 타겟 랭킹용)
 	CachedActionScoreMap.Add(TargetActor, Score);
+
+	// --- 자원 유형별 캐시 맵 갱신 (DFS 후보 생성용) ---
+	// TargetModifier, ArchetypeWeight, MovementScore는 타겟 수준 속성이므로 공유
+	if (BestAPHandle.IsValid())
+	{
+		FPBTargetScore APScore;
+		APScore.TargetActor = TargetActor;
+		APScore.ExpectedDamage = BestAPDamage;
+		APScore.AbilityTag = BestAPTag;
+		APScore.AbilitySpecHandle = BestAPHandle;
+		APScore.TargetModifier = Score.TargetModifier;
+		APScore.ArchetypeWeight = Score.ArchetypeWeight;
+		APScore.MovementScore = Score.MovementScore;
+		APScore.SituationalBonus = bBestAPCanKill
+			? FinishOffBaseThreat * MaxFinishOffRounds : 0.0f;
+		CachedAPAttackScoreMap.Add(TargetActor, APScore);
+	}
+	if (BestBAHandle.IsValid())
+	{
+		FPBTargetScore BAScore;
+		BAScore.TargetActor = TargetActor;
+		BAScore.ExpectedDamage = BestBADamage;
+		BAScore.AbilityTag = BestBATag;
+		BAScore.AbilitySpecHandle = BestBAHandle;
+		BAScore.TargetModifier = Score.TargetModifier;
+		BAScore.ArchetypeWeight = Score.ArchetypeWeight;
+		BAScore.MovementScore = Score.MovementScore;
+		BAScore.SituationalBonus = bBestBACanKill
+			? FinishOffBaseThreat * MaxFinishOffRounds : 0.0f;
+		CachedBAAttackScoreMap.Add(TargetActor, BAScore);
+	}
+
 	return Score;
 }
 
@@ -989,93 +1157,100 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 		return Candidates;
 	}
 
-	// CachedActionScoreMap의 각 타겟에 대해 Attack/Move 후보 생성
-	for (const auto& Pair : CachedActionScoreMap)
+	// 공격 후보 생성 헬퍼 (AP/BA 어빌리티 맵 공용)
+	// 같은 타겟이라도 AP 어빌리티와 BA 어빌리티가 각각 후보로 등록될 수 있다.
+	auto GenerateAttackCandidates = [&](const TMap<AActor*, FPBTargetScore>& ScoreMap)
 	{
-		AActor* Target = Pair.Key;
-		const FPBTargetScore& ScoreData = Pair.Value;
-
-		if (!IsValid(Target))
+		for (const auto& Pair : ScoreMap)
 		{
-			continue;
-		}
+			AActor* Target = Pair.Key;
+			const FPBTargetScore& ScoreData = Pair.Value;
 
-		// 사망 타겟 스킵
-		if (const UAbilitySystemComponent* TargetASC =
-				UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Target))
-		{
-			if (TargetASC->HasMatchingGameplayTag(
-					PBGameplayTags::Character_State_Dead))
+			if (!IsValid(Target))
 			{
 				continue;
 			}
-		}
 
-		// 어빌리티 사거리 조회 (SpecHandle 기반 — 태그 검색 불필요)
-		float AbilityRange = 0.0f;
-		if (ScoreData.AbilitySpecHandle.IsValid())
-		{
-			if (const FGameplayAbilitySpec* FoundSpec =
-					SourceASC->FindAbilitySpecFromHandle(ScoreData.AbilitySpecHandle))
+			// 사망 타겟 스킵
+			if (const UAbilitySystemComponent* TargetASC =
+					UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Target))
 			{
-				if (const UPBGameplayAbility_Targeted* TargetedAbility =
-						Cast<UPBGameplayAbility_Targeted>(FoundSpec->Ability))
+				if (TargetASC->HasMatchingGameplayTag(
+						PBGameplayTags::Character_State_Dead))
 				{
-					AbilityRange = TargetedAbility->GetRange();
-				}
-			}
-		}
-
-		const float DistToTarget = FVector::Dist(
-			Context.LastActionLocation, Target->GetActorLocation());
-		const bool bUnlimitedRange = (AbilityRange <= 0.0f);
-		constexpr float RangeBuffer = 50.0f;
-		const float EffectiveRange = bUnlimitedRange
-			? TNumericLimits<float>::Max()
-			: AbilityRange + RangeBuffer;
-		const bool bInRange = (DistToTarget <= EffectiveRange);
-
-		// LoS 판정: 현재 위치에서 타겟에 대한 시야 확보 여부
-		bool bHasLoS = true; // EnvironmentSubsystem 없으면 기본 통과
-		if (CachedEnvSubsystem)
-		{
-			const FPBLoSResult LoSResult = CachedEnvSubsystem->CheckLineOfSight(
-				Context.LastActionLocation, Target);
-			bHasLoS = LoSResult.bHasLineOfSight;
-		}
-
-		// --- Attack 후보: AP 충분하면 사거리 무관하게 후보 생성 ---
-		// Phase 3: Move는 별도 후보가 아니라, Attack에 MovementCost를 태워서
-		//          DFS 이후 InjectMoveActions에서 물리적 Move 노드를 삽입한다.
-		if (Context.RemainingAP >= 1.0f)
-		{
-			FPBSequenceAction AttackAction;
-			AttackAction.ActionType = EPBActionType::Attack;
-			AttackAction.TargetActor = Target;
-			AttackAction.AbilityTag = ScoreData.AbilityTag;
-			AttackAction.AbilitySpecHandle = ScoreData.AbilitySpecHandle;
-			AttackAction.Cost.ActionCost = 1.0f;
-
-			// 사거리 밖이거나 LoS 없으면 이동 필요
-			const bool bNeedsMovement = (!bInRange && !bUnlimitedRange) || !bHasLoS;
-
-			if (bNeedsMovement)
-			{
-				const float NeededMovement = FMath::Max(
-					DistToTarget - EffectiveRange, 1.0f); // 최소 1cm (LoS만 없는 경우)
-				if (Context.CanReachTarget(Target->GetActorLocation()))
-				{
-					AttackAction.Cost.MovementCost = NeededMovement;
-				}
-				else
-				{
-					continue;  // 도달 불가 → 후보 제외
+					continue;
 				}
 			}
 
-			Candidates.Add(AttackAction);
+			// 어빌리티 사거리 조회 (SpecHandle 기반 — 태그 검색 불필요)
+			float AbilityRange = 0.0f;
+			if (ScoreData.AbilitySpecHandle.IsValid())
+			{
+				if (const FGameplayAbilitySpec* FoundSpec =
+						SourceASC->FindAbilitySpecFromHandle(ScoreData.AbilitySpecHandle))
+				{
+					if (const UPBGameplayAbility_Targeted* TargetedAbility =
+							Cast<UPBGameplayAbility_Targeted>(FoundSpec->Ability))
+					{
+						AbilityRange = TargetedAbility->GetRange();
+					}
+				}
+			}
+
+			// IsTargetInRange과 동일한 2D(XY) 수평 거리 사용 (고도 차이 무시)
+			const float DistToTargetXY = FVector::DistXY(
+				Context.LastActionLocation, Target->GetActorLocation());
+			const bool bUnlimitedRange = (AbilityRange <= 0.0f);
+			const bool bInRange = bUnlimitedRange || (DistToTargetXY <= AbilityRange);
+
+			// LoS 판정: 현재 위치에서 타겟에 대한 시야 확보 여부
+			bool bHasLoS = true;
+			if (CachedEnvSubsystem)
+			{
+				const FPBLoSResult LoSResult = CachedEnvSubsystem->CheckLineOfSight(
+					Context.LastActionLocation, Target);
+				bHasLoS = LoSResult.bHasLineOfSight;
+			}
+
+			// Attack 후보: Cost GE 기반 자원 검사
+			const FPBCostData AttackCost = ExtractAbilityCost(SourceASC, ScoreData.AbilitySpecHandle);
+			if (Context.RemainingAP >= AttackCost.ActionCost
+				&& Context.RemainingBA >= AttackCost.BonusActionCost)
+			{
+				FPBSequenceAction AttackAction;
+				AttackAction.ActionType = EPBActionType::Attack;
+				AttackAction.TargetActor = Target;
+				AttackAction.AbilityTag = ScoreData.AbilityTag;
+				AttackAction.AbilitySpecHandle = ScoreData.AbilitySpecHandle;
+				AttackAction.Cost.ActionCost = AttackCost.ActionCost;
+				AttackAction.Cost.BonusActionCost = AttackCost.BonusActionCost;
+				AttackAction.CachedActionScore = ScoreData.GetActionScore();
+
+				// 사거리 밖이거나 LoS 없으면 이동 필요
+				const bool bNeedsMovement = (!bInRange && !bUnlimitedRange) || !bHasLoS;
+
+				if (bNeedsMovement)
+				{
+					const float NeededMovement = FMath::Max(
+						DistToTargetXY - AbilityRange, 1.0f);
+					if (Context.CanReachTarget(Target->GetActorLocation()))
+					{
+						AttackAction.Cost.MovementCost = NeededMovement;
+					}
+					else
+					{
+						continue;  // 도달 불가 → 후보 제외
+					}
+				}
+
+				Candidates.Add(AttackAction);
+			}
 		}
-	}
+	};
+
+	// AP/BA 양쪽 어빌리티 맵에서 공격 후보 생성
+	GenerateAttackCandidates(CachedAPAttackScoreMap);
+	GenerateAttackCandidates(CachedBAAttackScoreMap);
 
 	// --- Heal 후보: CachedHealScoreMap에서 아군 대상 ---
 	for (const auto& HealPair : CachedHealScoreMap)
@@ -1094,8 +1269,10 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			continue;
 		}
 
-		// AP 검사 (Heal도 Action 1 소모)
-		if (Context.RemainingAP < 1.0f)
+		// Cost GE 기반 자원 검사
+		const FPBCostData HealCost = ExtractAbilityCost(SourceASC, HealData.AbilitySpecHandle);
+		if (Context.RemainingAP < HealCost.ActionCost
+			|| Context.RemainingBA < HealCost.BonusActionCost)
 		{
 			continue;
 		}
@@ -1115,15 +1292,11 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			}
 		}
 
-		const float DistToAlly = FVector::Dist(
+		// IsTargetInRange과 동일한 2D(XY) 수평 거리 사용
+		const float DistToAllyXY = FVector::DistXY(
 			Context.LastActionLocation, Ally->GetActorLocation());
 		const bool bHealUnlimited = (HealRange <= 0.0f);
-		constexpr float HealRangeBuffer = 50.0f;
-		const float EffectiveHealRange = bHealUnlimited
-			? TNumericLimits<float>::Max()
-			: HealRange + HealRangeBuffer;
-
-		const bool bHealInRange = (DistToAlly <= EffectiveHealRange);
+		const bool bHealInRange = bHealUnlimited || (DistToAllyXY <= HealRange);
 
 		// LoS 판정 (Heal도 시야 필요 — 벽 뒤 아군 힐 불가)
 		bool bHealHasLoS = true;
@@ -1141,7 +1314,9 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			HealAction.TargetActor = Ally;
 			HealAction.AbilityTag = HealData.AbilityTag;
 			HealAction.AbilitySpecHandle = HealData.AbilitySpecHandle;
-			HealAction.Cost.ActionCost = 1.0f;
+			HealAction.Cost.ActionCost = HealCost.ActionCost;
+			HealAction.Cost.BonusActionCost = HealCost.BonusActionCost;
+			HealAction.CachedActionScore = HealData.GetActionScore();
 
 			const bool bHealNeedsMovement =
 				(!bHealInRange && !bHealUnlimited) || !bHealHasLoS;
@@ -1149,7 +1324,7 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			if (bHealNeedsMovement)
 			{
 				const float NeededMovement = FMath::Max(
-					DistToAlly - EffectiveHealRange, 1.0f);
+					DistToAllyXY - HealRange, 1.0f);
 				if (Context.CanReachTarget(Ally->GetActorLocation()))
 				{
 					HealAction.Cost.MovementCost = NeededMovement;
@@ -1216,11 +1391,13 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 		MaxSingleScore = FMath::Max(MaxSingleScore, Pair.Value.GetActionScore());
 	}
 
-	const int32 MaxRemainingAttacks = FMath::Min(
-		FMath::FloorToInt32(Context.RemainingAP),
+	// AP + BA 양쪽 자원으로 수행 가능한 최대 행동 수 상한
+	// (각 행동은 AP 또는 BA 중 하나만 소모하므로 합산이 상한)
+	const int32 MaxRemainingActions = FMath::Min(
+		FMath::FloorToInt32(Context.RemainingAP) + FMath::FloorToInt32(Context.RemainingBA),
 		MaxDFSDepth - Depth);
 	const float UpperBound = CurrentScore
-		+ MaxSingleScore * MaxRemainingAttacks;
+		+ MaxSingleScore * MaxRemainingActions;
 
 	if (UpperBound <= BestScore)
 	{
@@ -1257,24 +1434,8 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 				Candidate.TargetActor->GetActorLocation();
 		}
 
-		// 행동 점수 산출 (Attack/Heal만 점수 기여)
-		float ActionScore = 0.0f;
-		if (Candidate.ActionType == EPBActionType::Attack)
-		{
-			if (const FPBTargetScore* Cached =
-					CachedActionScoreMap.Find(Candidate.TargetActor))
-			{
-				ActionScore = Cached->GetActionScore();
-			}
-		}
-		else if (Candidate.ActionType == EPBActionType::Heal)
-		{
-			if (const FPBTargetScore* Cached =
-					CachedHealScoreMap.Find(Candidate.TargetActor))
-			{
-				ActionScore = Cached->GetActionScore();
-			}
-		}
+		// 행동 점수: GetCandidateActions에서 어빌리티별 개별 점수를 캐싱
+		const float ActionScore = Candidate.CachedActionScore;
 
 		// 경로에 추가 → 재귀 탐색 → 백트래킹
 		CurrentPath.Add(Candidate);

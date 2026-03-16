@@ -187,8 +187,10 @@ protected:
 	TObjectPtr<UPBEquipmentComponent> EquipmentComponent;
 	
 	// NavModifier (캐릭터 영역을 경로에서 제외)
+	/*
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Equipment")
 	TObjectPtr<UNavModifierComponent> NavModifierComponent;
+	*/
 
 	// 전투 식별 정보 (진영, 표시 이름, 초상화)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")

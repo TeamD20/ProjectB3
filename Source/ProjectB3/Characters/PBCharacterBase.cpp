@@ -38,8 +38,8 @@ APBCharacterBase::APBCharacterBase()
 	EquipmentComponent = CreateDefaultSubobject<UPBEquipmentComponent>(TEXT("EquipmentComponent"));
 	
 	// NavModifier
-	NavModifierComponent = CreateDefaultSubobject<UNavModifierComponent>(TEXT("NavModifierComponent"));
-	NavModifierComponent->AreaClass = UNavArea_Obstacle::StaticClass();
+	//NavModifierComponent = CreateDefaultSubobject<UNavModifierComponent>(TEXT("NavModifierComponent"));
+	//NavModifierComponent->AreaClass = UNavArea_Obstacle::StaticClass();
 	
 	static ConstructorHelpers::FClassFinder<UAnimInstance> ABPFinder(TEXT("/Game/2_Characters/Manny/ABP_CharacterBase.ABP_CharacterBase_C"));
 	if (ABPFinder.Succeeded())
