@@ -75,6 +75,17 @@ public:
 	// 주문 내성 난이도 변경
 	FOnInt32ValueChangedSignature OnSpellSaveDCChanged;
 
+	// 특정 자원(주행동, 보조행동 등) 수치 변경 알림
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnResourceStateChangedSignature, EPBResourceType);
+	FOnResourceStateChangedSignature OnResourceStateChanged;
+
+	// 특정 자원 상태 가져오기
+	UFUNCTION(BlueprintCallable, Category = "UI|ViewModel")
+	bool GetResourceState(EPBResourceType Type, FPBResourceState& OutState) const;
+
+	// 특정 자원 상태 갱신
+	void SetResourceState(EPBResourceType Type, int32 InCurrentValue, int32 InMaxValue);
+
 private:
 	// 현재 이동력 (cm)
 	float CurrentMovement = 0.f;
@@ -93,4 +104,8 @@ private:
 
 	// 주문 내성 난이도
 	int32 SpellSaveDC = 0;
+
+	// 자원 상태 맵 보관
+	UPROPERTY(Transient)
+	TMap<EPBResourceType, FPBResourceState> ResourceStates;
 };

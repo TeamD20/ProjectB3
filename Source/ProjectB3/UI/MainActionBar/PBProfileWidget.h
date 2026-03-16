@@ -7,7 +7,7 @@
 #include "PBProfileWidget.generated.h"
 
 class UPBPartyMemberViewModel;
-class UImage;
+class UPBPortraitBaseWidget;
 class UProgressBar;
 class UTextBlock;
 class UButton;
@@ -36,10 +36,13 @@ protected:
 	UFUNCTION()
 	void OnPortraitImageChanged(TSoftObjectPtr<UTexture2D> NewPortrait);
 
+	UFUNCTION()
+	void OnCharacterNameChanged(FText NewName);
+
 protected: 
-	// 초상화 이미지
+	// 공용 초상화 위젯
 	UPROPERTY(meta = (BindWidgetOptional))
-	TObjectPtr<UImage> PortraitImage;
+	TObjectPtr<UPBPortraitBaseWidget> PortraitWidget;
 
 	// 체력 프로그레스 바 (원형 혹은 가로바)
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -58,4 +61,5 @@ private:
 	FDelegateHandle HPPercentChangedHandle;
 	FDelegateHandle HPTextChangedHandle;
 	FDelegateHandle PortraitChangedHandle;
+	FDelegateHandle NameChangedHandle;
 };

@@ -1,6 +1,9 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBUITestGameMode.h"
+
+#include <ProjectB3/UI/Common/PBCombatStatsViewModel.h>
+
 #include "Blueprint/UserWidget.h"
 #include "ProjectB3/UI/PBUIBlueprintLibrary.h"
 #include "ProjectB3/UI/PartyMemeber/PBPartyMemberListViewmodel.h"
@@ -415,6 +418,57 @@ void APBUITestGameMode::SimulateDamage(int32 DamageAmount)
 					}
 				}
 			}
+		}
+	}
+}
+
+void APBUITestGameMode::SimulateResourceUse(int32 ResourceTypeEnumIndex)
+{
+	EPBResourceType TargetType = static_cast<EPBResourceType>(ResourceTypeEnumIndex);
+	
+	// 1. 현재 포커스 맞춰진(선택된) 캐릭터(CurrentTurnIndex 위치)의 CombatStatsVM을 찾습니다.
+	if (SpawnPartyMembers.IsValidIndex(CurrentTurnIndex))
+	{
+		AActor* TargetActor = SpawnPartyMembers[CurrentTurnIndex];
+		if (UPBCombatStatsViewModel* CombatVM = UPBUIBlueprintLibrary::GetOrCreateActorViewModel<UPBCombatStatsViewModel>(GetWorld()->GetFirstLocalPlayerFromController(), TargetActor))
+		{
+			FPBResourceState State;
+			if (CombatVM->GetResourceState(TargetType, State))
+			{
+				if (State.CurrentValue > 0)
+				{
+					CombatVM->SetResourceState(TargetType, State.CurrentValue - 1, State.MaxValue);
+					UE_LOG(LogTemp, Warning, TEXT("[SimulateResourceUse] Used Resource %d. Current: %d / %d"), 
+						ResourceTypeEnumIndex, State.CurrentValue - 1, State.MaxValue);
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("[SimulateResourceUse] No Resource left! Type: %d"), ResourceTypeEnumIndex);
+				}
+			}
+			else
+			{
+				// 처음 사용하는 자원일 경우, 임시로 최대 3을 주고 2로 감소시켜 생성
+				CombatVM->SetResourceState(TargetType, 2, 3);
+				UE_LOG(LogTemp, Warning, TEXT("[SimulateResourceUse] Initialized Dummy Resource %d. Current: 2 / 3"), ResourceTypeEnumIndex);
+			}
+		}
+	}
+}
+
+void APBUITestGameMode::SimulateResourceRestore()
+{
+	if (SpawnPartyMembers.IsValidIndex(CurrentTurnIndex))
+	{
+		AActor* TargetActor = SpawnPartyMembers[CurrentTurnIndex];
+		if (UPBCombatStatsViewModel* CombatVM = UPBUIBlueprintLibrary::GetOrCreateActorViewModel<UPBCombatStatsViewModel>(GetWorld()->GetFirstLocalPlayerFromController(), TargetActor))
+		{
+			// 주요 3가지 자원 모두 최대치로 회복 시뮬레이션
+			CombatVM->SetResourceState(EPBResourceType::Action, 3, 3);
+			CombatVM->SetResourceState(EPBResourceType::BonusAction, 1, 1);
+			CombatVM->SetResourceState(EPBResourceType::SpellSlot, 4, 4);
+
+			UE_LOG(LogTemp, Warning, TEXT("[SimulateResourceRestore] All Resources Restored for Current Turn Character!"));
 		}
 	}
 }
