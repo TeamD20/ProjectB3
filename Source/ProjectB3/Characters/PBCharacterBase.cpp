@@ -8,6 +8,9 @@
 #include "ProjectB3/AbilitySystem/Data/PBAbilitySetData.h"
 #include "ProjectB3/AbilitySystem/Data/PBAbilitySystemRegistry.h"
 #include "ProjectB3/ItemSystem/PBEquipmentActor.h"
+#include "ProjectB3/ItemSystem/Components/PBEquipmentComponent.h"
+#include "ProjectB3/ItemSystem/Components/PBInventoryComponent.h"
+#include "ProjectB3/ItemSystem/Data/PBItemDataAsset.h"
 #include "ProjectB3/UI/PBAbilitySystemUIBridge.h"
 
 APBCharacterBase::APBCharacterBase()
@@ -23,6 +26,12 @@ APBCharacterBase::APBCharacterBase()
 
 	// ASC to UI 브리지
 	AbilitySystemUIBridge = CreateDefaultSubobject<UPBAbilitySystemUIBridge>(TEXT("AbilitySystemUIBridge"));
+
+	// 인벤토리 컴포넌트 생성
+	InventoryComponent = CreateDefaultSubobject<UPBInventoryComponent>(TEXT("InventoryComponent"));
+
+	// 장비 컴포넌트 생성
+	EquipmentComponent = CreateDefaultSubobject<UPBEquipmentComponent>(TEXT("EquipmentComponent"));
 	
 	static ConstructorHelpers::FClassFinder<UAnimInstance> ABPFinder(TEXT("/Game/2_Characters/Manny/ABP_CharacterBase.ABP_CharacterBase_C"));
 	if (ABPFinder.Succeeded())
@@ -100,6 +109,7 @@ APBEquipmentActor* APBCharacterBase::AttachEquipment(const FGameplayTag& InSlotT
 	
 	SpawnedEquipment->LinkAnimLayer(GetMesh());
 	AttachedEquipments.Add(InSlotTag, SpawnedEquipment);
+	OnCharacterEquipmentChanged.Broadcast(InSlotTag);
 	return SpawnedEquipment;
 }
 
@@ -124,6 +134,7 @@ bool APBCharacterBase::DetachEquipment(const FGameplayTag& InSlotTag)
 		ExistingEquipment->Destroy();
 	}
 
+	OnCharacterEquipmentChanged.Broadcast(InSlotTag);
 	return true;
 }
 
@@ -143,6 +154,9 @@ void APBCharacterBase::BeginPlay()
 		InitTags();
 		GrantInitialAbilities();
 	}
+
+	// 기본 아이템/장비 지급 (GAS 초기화 이후 장비 어빌리티 부여가 올바르게 동작하도록 순서 보장)
+	GrantDefaultItems();
 }
 
 void APBCharacterBase::GrantInitialAbilities()
@@ -152,6 +166,40 @@ void APBCharacterBase::GrantInitialAbilities()
 	UPBAbilitySystemLibrary::ApplyStatsInitialization(AbilitySystemComponent,Handles,CombatIdentity.ClassTag);
 	UPBAbilitySystemLibrary::ApplyCommonAbilitySet(AbilitySystemComponent);
 	UPBAbilitySystemLibrary::ApplyClassAbilitySet(AbilitySystemComponent,CombatIdentity.ClassTag);
+}
+
+void APBCharacterBase::GrantDefaultItems()
+{
+	// 인벤토리 기본 아이템 추가
+	if (IsValid(InventoryComponent))
+	{
+		for (const FPBDefaultItemEntry& Entry : DefaultItems)
+		{
+			if (IsValid(Entry.ItemData))
+			{
+				InventoryComponent->AddItem(Entry.ItemData, Entry.Amount);
+			}
+		}
+	}
+
+	// 기본 장비 장착: 인벤토리에 추가 후 지정 슬롯에 장착
+	if (IsValid(InventoryComponent) && IsValid(EquipmentComponent))
+	{
+		for (const FPBDefaultEquipmentEntry& Entry : DefaultEquipments)
+		{
+			if (!IsValid(Entry.ItemData))
+			{
+				continue;
+			}
+
+			// InstanceID를 보존해 장착 시 정확한 인스턴스를 참조할 수 있도록 직접 생성
+			const FPBItemInstance NewInstance = FPBItemInstance::Create(Entry.ItemData, 1);
+			if (InventoryComponent->AddItemInstance(NewInstance))
+			{
+				EquipmentComponent->EquipItem(NewInstance.InstanceID, Entry.Slot, InventoryComponent);
+			}
+		}
+	}
 }
 
 void APBCharacterBase::InitTags()

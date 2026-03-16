@@ -6,6 +6,27 @@
 #include "AbilitySystemInterface.h"
 #include "AbilitySystemComponent.h"
 
+void APBGameplayPlayerState::AddGold(int32 Amount)
+{
+	if (Amount > 0)
+	{
+		TotalGold += Amount;
+		OnGoldChanged.Broadcast(TotalGold);
+	}
+}
+
+bool APBGameplayPlayerState::SpendGold(int32 Amount)
+{
+	if (Amount <= 0 || TotalGold < Amount)
+	{
+		return false;
+	}
+
+	TotalGold -= Amount;
+	OnGoldChanged.Broadcast(TotalGold);
+	return true;
+}
+
 void APBGameplayPlayerState::AddPartyMember(AActor* PartyMember)
 {
 	if (!IsValid(PartyMember))

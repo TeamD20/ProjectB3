@@ -12,6 +12,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnViewDataPropertyChangedSiganture);
 class UPBPathDisplayComponent;
 class UPBCameraControlComponent;
 class UPBTargetingComponent;
+class UPBWidgetBase;
 class UInputMappingContext;
 class UInputAction;
 struct FPBCameraModeParams;
@@ -80,6 +81,9 @@ public:
 	// 현재 모드를 None으로 종료
 	void ExitCurrentMode();
 
+	// 인벤토리 UI를 토글 (열기/닫기)
+	void ToggleInventory();
+
 protected:
 	/*~ AActor Interface ~*/
 	virtual void BeginPlay() override;
@@ -110,6 +114,9 @@ private:
 
 	// Possess 시 SpringArm 참조를 컴포넌트에 전달
 	void BindCameraToCharacter();
+
+	// 인벤토리 토글 입력 이벤트 처리
+	void OnToggleInventory(const FInputActionValue& Value);
 
 public:
 	/*~ Input Settings ~*/
@@ -150,6 +157,14 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Input|Camera")
 	TObjectPtr<UInputAction> CameraResetAction;
 
+	// 인벤토리 토글 입력 액션 (I)
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> ToggleInventoryAction;
+
+	// 인벤토리 UI 위젯 클래스
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UPBWidgetBase> InventoryWidgetClass;
+
 	/*~ Movement Settings ~*/
 
 	/*~ PathDisplay Settings ~*/
@@ -186,4 +201,7 @@ private:
 
 	// 마우스 프리룩(우클릭/드래그 등) 홀드 여부
 	bool bIsFreeLookHeld = false;
+	
+	// 인벤토리 표시 여부
+	bool bIsInventoryOpen = false;
 };
