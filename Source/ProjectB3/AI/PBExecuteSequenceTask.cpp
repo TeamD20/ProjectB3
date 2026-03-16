@@ -13,7 +13,7 @@
 #include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "StateTreeExecutionContext.h"
-
+#include "VisualLogger/VisualLogger.h"
 
 // StateTree 디버깅을 위한 독립적인 로그 카테고리
 DEFINE_LOG_CATEGORY_STATIC(LogPBStateTreeExec, Log, All);
@@ -64,7 +64,6 @@ EStateTreeRunStatus UPBExecuteSequenceTask::EnterState(
 
   bIsActionInProgress = false;
   bWaitingForSequenceReady = false;
-  SequenceToExecute.CurrentActionIndex = 0;
 
   // EQS 좌표 최적화 대기: Generate가 아직 EQS 쿼리를 처리 중이면
   // 행동 실행을 보류하고 Tick에서 bIsReady를 폴링한다.
@@ -76,18 +75,23 @@ EStateTreeRunStatus UPBExecuteSequenceTask::EnterState(
     return EStateTreeRunStatus::Running;
   }
 
+  // StateTree Input 바인딩은 매 Tick마다 소스(Generate)에서 재복사되어
+  // CurrentActionIndex가 0으로 초기화된다. 로컬 복사본으로 실행 상태를 격리한다.
+  ExecutionSequence = SequenceToExecute;
+  ExecutionSequence.CurrentActionIndex = 0;
+
   // 첫 번째 행동 시작
-  if (!SequenceToExecute.HasNextAction()) {
+  if (!ExecutionSequence.HasNextAction()) {
     return EStateTreeRunStatus::Succeeded;
   }
 
-  CurrentAction = SequenceToExecute.ConsumeNextAction();
+  CurrentAction = ExecutionSequence.ConsumeNextAction();
   EStateTreeRunStatus Status = ProcessSingleAction();
 
   // 동기적 완료 (타겟 사망 스킵 등) 시 다음 행동을 즉시 체인
   while (Status == EStateTreeRunStatus::Succeeded &&
-         SequenceToExecute.HasNextAction()) {
-    CurrentAction = SequenceToExecute.ConsumeNextAction();
+         ExecutionSequence.HasNextAction()) {
+    CurrentAction = ExecutionSequence.ConsumeNextAction();
     Status = ProcessSingleAction();
   }
 
@@ -148,6 +152,33 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
   FString TargetName = IsValid(CurrentAction.TargetActor)
                            ? CurrentAction.TargetActor->GetName()
                            : TEXT("None");
+
+  // Visual Logger: 행동 실행 시작 기록
+  {
+    const TCHAR* TypeStr =
+      CurrentAction.ActionType == EPBActionType::Attack  ? TEXT("Attack") :
+      CurrentAction.ActionType == EPBActionType::Move    ? TEXT("Move") :
+      CurrentAction.ActionType == EPBActionType::Heal    ? TEXT("Heal") :
+      TEXT("Other");
+    UE_VLOG(SelfActor, LogPBStateTreeExec, Log,
+      TEXT("[Execute] %s → %s (AP=%.0f, MP=%.0f)"),
+      TypeStr, *TargetName,
+      CurrentAction.Cost.ActionCost, CurrentAction.Cost.MovementCost);
+
+    // 3D: 행동 대상 방향 세그먼트
+    const FVector TargetPos = IsValid(CurrentAction.TargetActor)
+      ? CurrentAction.TargetActor->GetActorLocation()
+      : CurrentAction.TargetLocation;
+    if (!TargetPos.IsZero() && IsValid(SelfActor))
+    {
+      const FColor SegColor = (CurrentAction.ActionType == EPBActionType::Attack)
+        ? FColor::Red : (CurrentAction.ActionType == EPBActionType::Heal)
+        ? FColor::Green : FColor::Cyan;
+      UE_VLOG_SEGMENT(SelfActor, LogPBStateTreeExec, Log,
+        SelfActor->GetActorLocation(), TargetPos, SegColor,
+        TEXT("%s→%s"), TypeStr, *TargetName);
+    }
+  }
 
   switch (CurrentAction.ActionType) {
   case EPBActionType::Move: {
@@ -241,10 +272,11 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
     UE_LOG(LogPBStateTreeExec, Display,
            TEXT("Executing %s on [%s]."), ActionLabel, *TargetName);
 
-    // AbilityTag 유효성 검사
-    if (!CurrentAction.AbilityTag.IsValid()) {
+    // AbilitySpecHandle 유효성 검사 (Scoring 파이프라인에서 전달)
+    if (!CurrentAction.AbilitySpecHandle.IsValid()) {
       UE_LOG(LogPBStateTreeExec, Warning,
-             TEXT("%s: AbilityTag가 설정되지 않았습니다."), ActionLabel);
+             TEXT("%s: AbilitySpecHandle이 유효하지 않습니다. (AbilityTag=%s)"),
+             ActionLabel, *CurrentAction.AbilityTag.ToString());
       bIsActionInProgress = false;
       return EStateTreeRunStatus::Failed;
     }
@@ -256,23 +288,8 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
       return EStateTreeRunStatus::Failed;
     }
 
-    // AbilityTag로 어빌리티 Spec 조회 (OnAbilityEnded 핸들 매칭용)
-    FGameplayTagContainer AbilityTags;
-    AbilityTags.AddTag(CurrentAction.AbilityTag);
-    TArray<FGameplayAbilitySpec *> MatchingSpecs;
-    CachedASC->GetActivatableGameplayAbilitySpecsByAllMatchingTags(
-        AbilityTags, MatchingSpecs);
-
-    if (MatchingSpecs.IsEmpty()) {
-      UE_LOG(LogPBStateTreeExec, Warning,
-             TEXT("%s: AbilityTag [%s]에 매칭되는 어빌리티를 찾을 수 "
-                  "없습니다."),
-             ActionLabel, *CurrentAction.AbilityTag.ToString());
-      bIsActionInProgress = false;
-      return EStateTreeRunStatus::Failed;
-    }
-
-    ActiveSpecHandle = MatchingSpecs[0]->Handle;
+    // SpecHandle로 직접 Spec 조회 (태그 검색 불필요)
+    ActiveSpecHandle = CurrentAction.AbilitySpecHandle;
 
     // 어빌리티 종료 시 다음 행동으로 전진 (비동기 체인)
     DelegateHandle = CachedASC->OnAbilityEnded.AddLambda(
@@ -293,19 +310,21 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
     ActionPayload->TargetData.TargetActors.Add(
         TWeakObjectPtr<AActor>(CurrentAction.TargetActor));
 
-    // HandleGameplayEvent로 어빌리티 발동 + Payload 전달
-    // → PBGameplayAbility_Targeted::ActivateAbility의 TriggerEventData로 수신
-    // → CommitAbility가 내부에서 자원(Action/BonusAction) 차감 처리
+    // InternalTryActivateAbility로 어빌리티 직접 발동
+    // HandleGameplayEvent 대신 사용 — Blueprint Triggers 설정 불필요
+    // TriggerEventData가 ActivateAbility로 전달되어 AI 경로(Payload 즉시 처리) 활성화
     FGameplayEventData EventData;
     EventData.OptionalObject = ActionPayload;
-    const int32 Triggered = CachedASC->HandleGameplayEvent(
-        CurrentAction.AbilityTag, &EventData);
+    const bool bActivated = CachedASC->InternalTryActivateAbility(
+        ActiveSpecHandle, FPredictionKey(), nullptr, nullptr, &EventData);
 
-    if (Triggered == 0) {
+    if (!bActivated) {
       UE_LOG(LogPBStateTreeExec, Warning,
-             TEXT("%s: HandleGameplayEvent 트리거 실패. "
-                  "AbilityTag [%s]에 등록된 트리거가 없습니다."),
-             ActionLabel, *CurrentAction.AbilityTag.ToString());
+             TEXT("%s: InternalTryActivateAbility 실패. "
+                  "SpecHandle=%s, AbilityTag=%s"),
+             ActionLabel,
+             *ActiveSpecHandle.ToString(),
+             *CurrentAction.AbilityTag.ToString());
       CachedASC->OnAbilityEnded.Remove(DelegateHandle);
       DelegateHandle.Reset();
       bIsActionInProgress = false;
@@ -313,9 +332,10 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
     }
 
     UE_LOG(LogPBStateTreeExec, Display,
-           TEXT("%s 어빌리티 발동 성공. AbilityTag: [%s], "
-                "트리거된 어빌리티 수: %d"),
-           ActionLabel, *CurrentAction.AbilityTag.ToString(), Triggered);
+           TEXT("%s 어빌리티 발동 성공. SpecHandle=%s, AbilityTag=[%s]"),
+           ActionLabel,
+           *ActiveSpecHandle.ToString(),
+           *CurrentAction.AbilityTag.ToString());
     break;
   }
   default:
@@ -338,23 +358,26 @@ UPBExecuteSequenceTask::Tick(FStateTreeExecutionContext &Context,
       return EStateTreeRunStatus::Running; // 계속 대기
     }
 
-    // EQS 완료 — 실행 시작
+    // EQS 완료 — 로컬 복사 후 실행 시작
     bWaitingForSequenceReady = false;
     UE_LOG(LogPBStateTreeExec, Display,
            TEXT("ExecuteSequenceTask: EQS 좌표 최적화 완료. "
                 "시퀀스 실행을 시작합니다."));
 
-    if (!SequenceToExecute.HasNextAction()) {
+    ExecutionSequence = SequenceToExecute;
+    ExecutionSequence.CurrentActionIndex = 0;
+
+    if (!ExecutionSequence.HasNextAction()) {
       return EStateTreeRunStatus::Succeeded;
     }
 
-    CurrentAction = SequenceToExecute.ConsumeNextAction();
+    CurrentAction = ExecutionSequence.ConsumeNextAction();
     EStateTreeRunStatus Status = ProcessSingleAction();
 
     // 동기적 완료 시 즉시 체인
     while (Status == EStateTreeRunStatus::Succeeded &&
-           SequenceToExecute.HasNextAction()) {
-      CurrentAction = SequenceToExecute.ConsumeNextAction();
+           ExecutionSequence.HasNextAction()) {
+      CurrentAction = ExecutionSequence.ConsumeNextAction();
       Status = ProcessSingleAction();
     }
 
@@ -386,20 +409,25 @@ void UPBExecuteSequenceTask::AdvanceToNextAction() {
   }
 
   // 다음 행동 확인
-  if (!SequenceToExecute.HasNextAction()) {
+  if (!ExecutionSequence.HasNextAction()) {
     bIsActionInProgress = false;
     UE_LOG(LogPBStateTreeExec, Display,
            TEXT("[시퀀스] 모든 행동 실행 완료. 총 %d개 행동 처리."),
-           SequenceToExecute.CurrentActionIndex);
+           ExecutionSequence.CurrentActionIndex);
+
+    // Visual Logger: 시퀀스 실행 완료
+    UE_VLOG(SelfActor, LogPBStateTreeExec, Log,
+      TEXT("[Execute] 시퀀스 완료: %d개 행동 처리"),
+      ExecutionSequence.CurrentActionIndex);
     return;
   }
 
   // 다음 행동 소비 및 실행
-  CurrentAction = SequenceToExecute.ConsumeNextAction();
+  CurrentAction = ExecutionSequence.ConsumeNextAction();
   UE_LOG(LogPBStateTreeExec, Display,
          TEXT("[시퀀스] 다음 행동으로 전진: [%d/%d]"),
-         SequenceToExecute.CurrentActionIndex,
-         SequenceToExecute.Actions.Num());
+         ExecutionSequence.CurrentActionIndex,
+         ExecutionSequence.Actions.Num());
 
   const EStateTreeRunStatus Status = ProcessSingleAction();
 

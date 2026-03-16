@@ -58,6 +58,14 @@ void UPBAbilityTask_MoveToLocation::Activate()
 	// 이동 요청 ID 획득 및 완료 델리게이트 바인딩
 	MoveRequestID = PFComp->GetCurrentRequestId();
 	PFComp->OnRequestFinished.AddUObject(this, &UPBAbilityTask_MoveToLocation::HandleRequestFinished);
+
+	// SimpleMoveToLocation이 동기적으로 완료된 경우 처리
+	// (목적지가 이미 도달 범위 내이거나 유효 경로가 없으면 바인딩 전에 OnRequestFinished가 발생함)
+	if (!MoveRequestID.IsValid() || PFComp->GetStatus() == EPathFollowingStatus::Idle)
+	{
+		OnMoveCompleted.Broadcast(EPathFollowingResult::Success);
+		EndTask();
+	}
 }
 
 void UPBAbilityTask_MoveToLocation::OnDestroy(bool bInOwnerFinished)

@@ -38,6 +38,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Equipment|Visual")
 	TSoftClassPtr<APBEquipmentActor> EquipmentActorClass;
 
+	// 장비 메시 부착 위치 Override
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
+	FGameplayTag AttachSlotOverride;
+	
 public:
 	// EquipmentType과 WeaponHandType으로부터 허용 슬롯 목록을 도출
 	static TArray<EPBEquipSlot> GetAllowedSlotsForType(EPBEquipmentType InEquipmentType, EPBWeaponHandType InHandType);

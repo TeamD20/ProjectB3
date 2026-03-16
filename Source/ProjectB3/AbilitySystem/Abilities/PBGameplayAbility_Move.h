@@ -6,6 +6,7 @@
 #include "PBGameplayAbility.h"
 #include "Navigation/PathFollowingComponent.h"
 class UPBAbilityTask_MoveToLocation;
+class UPBEnvironmentSubsystem;
 
 #include "PBGameplayAbility_Move.generated.h"
 
@@ -46,11 +47,8 @@ private:
 	UFUNCTION()
 	void HandleMoveCompleted(TEnumAsByte<EPathFollowingResult::Type> Result);
 
-	// NavPath 포인트에서 MaxMoveDistance 기준 최종 목적지 계산 및 경로 포인트 추출
-	FVector CalculateClampedDestination(const TArray<FVector>& PathPoints, float MaxDist, TArray<FVector>& OutClampedPath) const;
-
-	// 경로 포인트 기준으로 현재 위치까지 이동한 거리 계산
-	float CalculateDistanceAlongPath(const FVector& CurrentLocation) const;
+	// EnvironmentSubsystem 캐싱 참조 취득
+	UPBEnvironmentSubsystem* GetEnvironmentSubsystem() const;
 
 	// 현재 실행 중인 이동 Task
 	UPROPERTY()

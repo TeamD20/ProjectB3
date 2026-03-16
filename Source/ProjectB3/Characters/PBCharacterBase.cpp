@@ -1,6 +1,10 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBCharacterBase.h"
+
+#include "NavModifierComponent.h"
+#include "Components/CapsuleComponent.h"
+#include "NavAreas/NavArea_Obstacle.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemLibrary.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
@@ -33,6 +37,10 @@ APBCharacterBase::APBCharacterBase()
 	// 장비 컴포넌트 생성
 	EquipmentComponent = CreateDefaultSubobject<UPBEquipmentComponent>(TEXT("EquipmentComponent"));
 	
+	// NavModifier
+	NavModifierComponent = CreateDefaultSubobject<UNavModifierComponent>(TEXT("NavModifierComponent"));
+	NavModifierComponent->AreaClass = UNavArea_Obstacle::StaticClass();
+	
 	static ConstructorHelpers::FClassFinder<UAnimInstance> ABPFinder(TEXT("/Game/2_Characters/Manny/ABP_CharacterBase.ABP_CharacterBase_C"));
 	if (ABPFinder.Succeeded())
 	{
@@ -44,6 +52,9 @@ APBCharacterBase::APBCharacterBase()
 	{
 		DefaultAnimLayerClass = DefaultAnimLayerFinder.Class;
 	}
+	
+	GetCapsuleComponent()->SetCanEverAffectNavigation(true);
+	GetCapsuleComponent()->bDynamicObstacle = true;
 }
 
 UAbilitySystemComponent* APBCharacterBase::GetAbilitySystemComponent() const
@@ -138,6 +149,12 @@ bool APBCharacterBase::DetachEquipment(const FGameplayTag& InSlotTag)
 	return true;
 }
 
+APBEquipmentActor* APBCharacterBase::GetAttachedEquipment(const FGameplayTag& SlotTag) const
+{
+	APBEquipmentActor* const* Found = AttachedEquipments.Find(SlotTag);
+	return Found ? *Found : nullptr;
+}
+
 void APBCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
@@ -151,12 +168,27 @@ void APBCharacterBase::BeginPlay()
 	if (IsValid(AbilitySystemComponent))
 	{
 		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+		// 태그 변경 이벤트 구독
+		AbilitySystemComponent->OnGameplayTagUpdated.AddUObject(this, &ThisClass::HandleGameplayTagUpdated);
+		
+		// 기본 태그 부여
 		InitTags();
+		// 기본 어빌리티 부여
 		GrantInitialAbilities();
 	}
 
 	// 기본 아이템/장비 지급 (GAS 초기화 이후 장비 어빌리티 부여가 올바르게 동작하도록 순서 보장)
 	GrantDefaultItems();
+}
+
+void APBCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->OnGameplayTagUpdated.RemoveAll(this);
+	}
+	
+	Super::EndPlay(EndPlayReason);
 }
 
 void APBCharacterBase::GrantInitialAbilities()
@@ -200,6 +232,11 @@ void APBCharacterBase::GrantDefaultItems()
 			}
 		}
 	}
+}
+
+void APBCharacterBase::HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, bool TagExists)
+{
+	// TODO: 캐릭터 상태 태그 변경 처리 
 }
 
 void APBCharacterBase::InitTags()
@@ -251,6 +288,8 @@ void APBCharacterBase::OnTurnBegin()
 		AbilitySystemComponent->SetNumericAttributeBase(UPBTurnResourceAttributeSet::GetActionAttribute(), 1.0f);
 		AbilitySystemComponent->SetNumericAttributeBase(UPBTurnResourceAttributeSet::GetBonusActionAttribute(), 1.0f);
 		AbilitySystemComponent->ResetMovementResource();
+		// 이펙트 스택 차감
+		AbilitySystemComponent->OnProgressTurn();
 	}
 }
 

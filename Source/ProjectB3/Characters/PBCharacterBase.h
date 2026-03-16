@@ -10,6 +10,7 @@
 #include "ProjectB3/ItemSystem/PBItemTypes.h"
 #include "PBCharacterBase.generated.h"
 
+class UNavModifierComponent;
 class APBEquipmentActor;
 class UPBCharacterAttributeSet;
 class UPBAbilitySystemComponent;
@@ -111,6 +112,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	bool DetachEquipment(const FGameplayTag& InSlotTag);
 
+	// 슬롯 태그에 부착된 장비 액터 반환. 없으면 nullptr.
+	APBEquipmentActor* GetAttachedEquipment(const FGameplayTag& SlotTag) const;
+
 	// 인벤토리 컴포넌트 반환
 	UPBInventoryComponent* GetInventoryComponent() const { return InventoryComponent; }
 
@@ -125,6 +129,7 @@ public:
 protected:
 	/*~ AActor Interface ~*/
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/*~ APBCharacterBase Interface ~*/
 	// 어빌리티 초기 부여 (InitAbilityActorInfo 이후 호출)
@@ -133,6 +138,8 @@ protected:
 	virtual void InitTags();
 	// 기본 지급 아이템/장비를 인벤토리/장비 컴포넌트에 추가
 	virtual void GrantDefaultItems();
+	// ASC의 OwnedTags 스택 변경 이벤트 핸들러, TagExists가 true 면 태그 추가, false면 태그 제거
+	virtual void HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, bool TagExists);
 	
 protected:
 	// 기본 애니메이션 레이어
@@ -178,6 +185,10 @@ protected:
 	// 장비 컴포넌트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Equipment")
 	TObjectPtr<UPBEquipmentComponent> EquipmentComponent;
+	
+	// NavModifier (캐릭터 영역을 경로에서 제외)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Equipment")
+	TObjectPtr<UNavModifierComponent> NavModifierComponent;
 
 	// 전투 식별 정보 (진영, 표시 이름, 초상화)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")

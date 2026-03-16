@@ -4,6 +4,7 @@
 #include "PBCharacterBase.h"
 #include "PBPlayerCharacter.generated.h"
 
+class APBGameplayPlayerController;
 class USpringArmComponent;
 class UCameraComponent;
 class UPBCharacterPreviewComponent;
@@ -26,7 +27,16 @@ public:
 protected:
 	/*~ AActor Interface ~*/
 	virtual void BeginPlay() override;
+	
+	/*~ APawn Interface ~*/
+	virtual void PossessedBy(AController* NewController) override;
+	
+	/*~ IPBCombatParticipant Interface ~*/
+	virtual void OnCombatBegin() override;
+	virtual void OnCombatEnd() override;
+	virtual void OnTurnActivated() override;
 
+	void UpdatePathDisplayMovementRange(APBGameplayPlayerController* PC);
 private:
 	// 카메라 붐 (SpringArm)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))

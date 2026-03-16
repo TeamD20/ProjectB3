@@ -16,6 +16,18 @@ void UPBTurnResourceAttributeSet::PreAttributeChange(const FGameplayAttribute& A
 {
 	Super::PreAttributeChange(Attribute, NewValue);
 
+	if (Attribute == GetMovementAttribute())
+	{
+		const bool bIsDecreasing = NewValue < GetMovement();
+		const bool bIsSmall = NewValue <= 40.f;
+		
+		// 40(cm) 이하는 버림 (Navigation 샘플링 크기)
+		if (bIsDecreasing && bIsSmall)
+		{
+			NewValue = 0.f;
+		}
+	}
+	
 	// 모든 턴 자원은 0 미만으로 내려갈 수 없다
 	NewValue = FMath::Max(0.0f, NewValue);
 }

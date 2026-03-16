@@ -13,12 +13,23 @@ void UPBGameplayAbility_Targeted::ActivateAbility(
 	const FGameplayAbilityActivationInfo ActivationInfo,
 	const FGameplayEventData* TriggerEventData)
 {
+	UE_LOG(LogPBAbilityTargeted, Display, TEXT("[%s] ActivateAbility 진입. TriggerEventData=%s, IsActive=%s"),
+		*GetName(),
+		TriggerEventData ? TEXT("유효") : TEXT("null"),
+		IsActive() ? TEXT("true") : TEXT("false"));
+
 	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-	
+
+	UE_LOG(LogPBAbilityTargeted, Display, TEXT("[%s] Super::ActivateAbility 완료. IsActive=%s"),
+		*GetName(), IsActive() ? TEXT("true") : TEXT("false"));
+
 	// Payload 확인 — 존재하면 타겟 결정 완료 (AI 경로)
 	const UPBTargetPayload* Payload = TriggerEventData
 		? Cast<UPBTargetPayload>(TriggerEventData->OptionalObject)
 		: nullptr;
+
+	UE_LOG(LogPBAbilityTargeted, Display, TEXT("[%s] Payload=%s"),
+		*GetName(), IsValid(Payload) ? TEXT("유효") : TEXT("null/무효"));
 
 	if (IsValid(Payload))
 	{
@@ -40,6 +51,8 @@ void UPBGameplayAbility_Targeted::ActivateAbility(
 			return;
 		}
 
+		UE_LOG(LogPBAbilityTargeted, Display, TEXT("[%s] AI 경로: Commit 성공 → K2_ExecuteTargetLogic 호출"),
+			*GetName());
 		K2_ExecuteTargetLogic(TargetData);
 		TryAutoEndAbility(Handle, ActorInfo, ActivationInfo);
 		return;
