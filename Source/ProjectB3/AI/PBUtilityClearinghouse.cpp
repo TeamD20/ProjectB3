@@ -1011,29 +1011,32 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			: AbilityRange + RangeBuffer;
 		const bool bInRange = (DistToTarget <= EffectiveRange);
 
-		// --- Attack 후보: 사거리 내 + AP 충분 ---
-		if (bInRange && Context.RemainingAP >= 1.0f)
+		// --- Attack 후보: AP 충분하면 사거리 무관하게 후보 생성 ---
+		// Phase 3: Move는 별도 후보가 아니라, Attack에 MovementCost를 태워서
+		//          DFS 이후 InjectMoveActions에서 물리적 Move 노드를 삽입한다.
+		if (Context.RemainingAP >= 1.0f)
 		{
 			FPBSequenceAction AttackAction;
 			AttackAction.ActionType = EPBActionType::Attack;
 			AttackAction.TargetActor = Target;
 			AttackAction.AbilityTag = ScoreData.AbilityTag;
 			AttackAction.Cost.ActionCost = 1.0f;
-			Candidates.Add(AttackAction);
-		}
 
-		// --- Move 후보: 사거리 밖 + 이동력 충분 ---
-		if (!bInRange && !bUnlimitedRange)
-		{
-			const float NeededMovement = DistToTarget - EffectiveRange;
-			if (NeededMovement > 0.0f && Context.CanReachTarget(Target->GetActorLocation()))
+			if (!bInRange && !bUnlimitedRange)
 			{
-				FPBSequenceAction MoveAction;
-				MoveAction.ActionType = EPBActionType::Move;
-				MoveAction.TargetActor = Target;
-				MoveAction.Cost.MovementCost = NeededMovement;
-				Candidates.Add(MoveAction);
+				const float NeededMovement = DistToTarget - EffectiveRange;
+				if (NeededMovement > 0.0f
+					&& Context.CanReachTarget(Target->GetActorLocation()))
+				{
+					AttackAction.Cost.MovementCost = NeededMovement;
+				}
+				else
+				{
+					continue;  // 도달 불가 → 후보 제외
+				}
 			}
+
+			Candidates.Add(AttackAction);
 		}
 	}
 
@@ -1089,13 +1092,30 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			? TNumericLimits<float>::Max()
 			: HealRange + HealRangeBuffer;
 
-		if (DistToAlly <= EffectiveHealRange)
+		const bool bHealInRange = (DistToAlly <= EffectiveHealRange);
+
+		// Phase 3: Heal도 Attack과 동일하게 사거리 밖이면 MovementCost 부착
 		{
 			FPBSequenceAction HealAction;
 			HealAction.ActionType = EPBActionType::Heal;
 			HealAction.TargetActor = Ally;
 			HealAction.AbilityTag = HealData.AbilityTag;
 			HealAction.Cost.ActionCost = 1.0f;
+
+			if (!bHealInRange && !bHealUnlimited)
+			{
+				const float NeededMovement = DistToAlly - EffectiveHealRange;
+				if (NeededMovement > 0.0f
+					&& Context.CanReachTarget(Ally->GetActorLocation()))
+				{
+					HealAction.Cost.MovementCost = NeededMovement;
+				}
+				else
+				{
+					continue;  // 도달 불가
+				}
+			}
+
 			Candidates.Add(HealAction);
 		}
 	}
@@ -1183,15 +1203,17 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 			continue;
 		}
 
-		// Move 시 LastActionLocation 갱신 (후속 행동의 거리 계산 기준점)
-		if (Candidate.ActionType == EPBActionType::Move
+		// Phase 3: 이동이 수반되는 행동이면 타겟 사거리 안쪽으로
+		// 이동한다고 가정하고 LastActionLocation을 갱신한다.
+		// (실제 좌표는 InjectMoveActions → EQS에서 최종 결정)
+		if (Candidate.Cost.MovementCost > 0.0f
 			&& IsValid(Candidate.TargetActor))
 		{
 			BranchContext.LastActionLocation =
 				Candidate.TargetActor->GetActorLocation();
 		}
 
-		// 행동 점수 산출 (Attack/Heal은 점수 기여, Move는 0)
+		// 행동 점수 산출 (Attack/Heal만 점수 기여)
 		float ActionScore = 0.0f;
 		if (Candidate.ActionType == EPBActionType::Attack)
 		{
