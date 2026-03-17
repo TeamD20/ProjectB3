@@ -123,6 +123,7 @@ FPBTargetingRequest UPBGameplayAbility_Targeted::MakeTargetingRequest() const
 	Request.AoERadius          = AoERadius;
 	Request.MaxTargetCount     = MaxTargetCount;
 	Request.bAllowGroundTarget = bAllowGroundTarget;
+	Request.bCanTargetSelf	   = bCanTargetSelf;
 	return Request;
 }
 
@@ -193,6 +194,11 @@ bool UPBGameplayAbility_Targeted::IsTargetInRange(
 	default:
 		return false;
 	}
+}
+
+bool UPBGameplayAbility_Targeted::IsTargetSelf(const AActor* InTargetActor) const
+{
+	return InTargetActor == GetAvatarActorFromActorInfo();
 }
 
 

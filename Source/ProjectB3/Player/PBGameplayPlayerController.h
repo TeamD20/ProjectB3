@@ -135,7 +135,7 @@ public:
 
 	// 이동 명령 입력 액션 (좌클릭)
 	UPROPERTY(EditAnywhere, Category = "Input")
-	TObjectPtr<UInputAction> MoveCommandAction;
+	TObjectPtr<UInputAction> SelectCommandAction;
 
 	// 우클릭 입력 액션
 	UPROPERTY(EditAnywhere, Category = "Input")

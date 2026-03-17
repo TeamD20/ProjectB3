@@ -1,6 +1,8 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBTargetingComponent.h"
+
+#include "AbilitySystemComponent.h"
 #include "IPBCombatTarget.h"
 #include "ProjectB3/ProjectB3.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
@@ -17,12 +19,12 @@ void UPBTargetingComponent::EnterTargetingMode(const FPBTargetingRequest& Reques
 	SelectedTargets.Empty();
 	bIsHoverValid = false;
 	bIsTargetingActive = true;
-	
+
 	if (bShowingAoETelegraph && CurrentRequest.Mode != EPBTargetingMode::AoE)
 	{
 		HideAoETelegraph();
 	}
-	
+
 	if (!FMath::IsNearlyZero(CurrentRequest.Range))
 	{
 		ShowRangeTelegraph();
@@ -63,7 +65,21 @@ void UPBTargetingComponent::UpdateTargetingFromHit(const FHitResult& HitResult)
 	case EPBTargetingMode::MultiTarget:
 	{
 		AActor* HitActor = HitResult.GetActor();
+		bool bIsValidActor = false;
+		
 		if (IsValid(HitActor) && HitActor->Implements<UPBCombatTarget>())
+		{
+			 if (!CurrentRequest.bCanTargetSelf)
+			 {
+				bIsValidActor = CurrentRequest.RequestingAbility.IsValid() ? !CurrentRequest.RequestingAbility->IsTargetSelf(HitActor) : false;
+			 }
+			 else
+			 {
+				bIsValidActor = true;
+			 }
+		}
+		
+		if (bIsValidActor)
 		{
 			NewCandidate.TargetActors.Add(HitActor);
 
@@ -202,6 +218,15 @@ void UPBTargetingComponent::CancelTargeting()
 	{
 		return;
 	}
+	
+	// 어빌리티 취소
+	if (UPBGameplayAbility_Targeted* ActivatingAbility = CurrentRequest.RequestingAbility.Get())
+	{
+		if (UAbilitySystemComponent* ASC = ActivatingAbility->GetAbilitySystemComponentFromActorInfo())
+		{
+			ASC->CancelAbilityHandle(ActivatingAbility->GetCurrentAbilitySpecHandle());
+		}
+	}
 
 	ExitTargetingMode();
 	OnTargetCancelled.Broadcast();
@@ -226,7 +251,8 @@ void UPBTargetingComponent::EnsureAoETelegraphComponent()
 	{
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		TelegraphActor = World->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);	
+		TelegraphActor = World->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator,
+		                                           SpawnParams);
 	}
 	if (!IsValid(TelegraphActor))
 	{
@@ -238,7 +264,7 @@ void UPBTargetingComponent::EnsureAoETelegraphComponent()
 	AoETelegraphNiagaraComp->bAutoActivate = false;
 	TelegraphActor->SetRootComponent(AoETelegraphNiagaraComp);
 	AoETelegraphNiagaraComp->RegisterComponent();
-	AoETelegraphNiagaraComp->Deactivate();
+	AoETelegraphNiagaraComp->DeactivateImmediate();
 }
 
 void UPBTargetingComponent::EnsureRangeTelegraphComponent()
@@ -260,7 +286,8 @@ void UPBTargetingComponent::EnsureRangeTelegraphComponent()
 	{
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		TelegraphActor = World->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);	
+		TelegraphActor = World->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator,
+		                                           SpawnParams);
 	}
 	if (!IsValid(TelegraphActor))
 	{
@@ -272,7 +299,7 @@ void UPBTargetingComponent::EnsureRangeTelegraphComponent()
 	RangeTelegraphNiagaraComp->bAutoActivate = false;
 	TelegraphActor->SetRootComponent(RangeTelegraphNiagaraComp);
 	RangeTelegraphNiagaraComp->RegisterComponent();
-	RangeTelegraphNiagaraComp->Deactivate();
+	RangeTelegraphNiagaraComp->DeactivateImmediate();
 }
 
 void UPBTargetingComponent::ShowAoETelegraph(const FVector& Location)
@@ -290,7 +317,7 @@ void UPBTargetingComponent::ShowAoETelegraph(const FVector& Location)
 	{
 		AoETelegraphNiagaraComp->Activate(true);
 	}
-	
+
 	bShowingAoETelegraph = true;
 }
 
@@ -298,9 +325,9 @@ void UPBTargetingComponent::HideAoETelegraph()
 {
 	if (IsValid(AoETelegraphNiagaraComp) && AoETelegraphNiagaraComp->IsActive())
 	{
-		AoETelegraphNiagaraComp->Deactivate();
+		AoETelegraphNiagaraComp->DeactivateImmediate();
 	}
-	
+
 	bShowingAoETelegraph = false;
 }
 
@@ -345,7 +372,7 @@ void UPBTargetingComponent::HideRangeTelegraph()
 {
 	if (IsValid(RangeTelegraphNiagaraComp) && RangeTelegraphNiagaraComp->IsActive())
 	{
-		RangeTelegraphNiagaraComp->Deactivate();
+		RangeTelegraphNiagaraComp->DeactivateImmediate();
 	}
 }
 

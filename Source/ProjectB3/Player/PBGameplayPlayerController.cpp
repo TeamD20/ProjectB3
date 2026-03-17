@@ -123,9 +123,13 @@ void APBGameplayPlayerController::SetupInputComponent()
 		return;
 	}
 
-	if (IsValid(MoveCommandAction))
+	if (IsValid(SelectCommandAction))
 	{
-		EnhancedInput->BindAction(MoveCommandAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnSelectCommand);
+		EnhancedInput->BindAction(SelectCommandAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnSelectCommand);
+	}
+	if (IsValid(RightClickAction))
+	{
+		EnhancedInput->BindAction(RightClickAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnRightClick);
 	}
 	if (IsValid(CameraZoomAction))
 	{
