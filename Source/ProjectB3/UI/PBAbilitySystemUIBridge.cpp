@@ -4,10 +4,12 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
+#include "Abilities/GameplayAbilityTypes.h"
 #include "Engine/LocalPlayer.h"
 #include "GameFramework/PlayerController.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
+#include "ProjectB3/AbilitySystem/Payload/PBFloatingTextPayload.h"
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
 #include "ProjectB3/Player/PBGameplayPlayerState.h"
 #include "ProjectB3/UI/ViewModel/PBViewModelSubsystem.h"
@@ -40,10 +42,12 @@ void UPBAbilitySystemUIBridge::BeginPlay()
 	BindAttributeDelegates();
 	BindAbilityDelegates();
 	BindProgressTurnDelegate();
+	BindCombatResultDelegates();
 }
 
 void UPBAbilitySystemUIBridge::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	UnbindCombatResultDelegates();
 	UnbindProgressTurnDelegate();
 	UnbindAbilityDelegates();
 	ClearAttributeBindings();
@@ -434,4 +438,156 @@ void UPBAbilitySystemUIBridge::HandleProgressTurnCompleted()
 	}
 
 	SkillBarVM->RefreshAllCooldowns();
+}
+
+// === 전투 결과 바인딩 ===
+
+void UPBAbilitySystemUIBridge::BindCombatResultDelegates()
+{
+	UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(CachedASC.Get());
+	if (!IsValid(PBASC))
+	{
+		return;
+	}
+
+	GEExecutedHandle = PBASC->OnGEExecuted.AddUObject(this, &ThisClass::HandleGEExecuted);
+	TagUpdatedHandle = PBASC->OnGameplayTagUpdated.AddUObject(this, &ThisClass::HandleTagUpdated);
+}
+
+void UPBAbilitySystemUIBridge::UnbindCombatResultDelegates()
+{
+	UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(CachedASC.Get());
+	if (!IsValid(PBASC))
+	{
+		return;
+	}
+
+	if (GEExecutedHandle.IsValid())
+	{
+		PBASC->OnGEExecuted.Remove(GEExecutedHandle);
+		GEExecutedHandle.Reset();
+	}
+
+	if (TagUpdatedHandle.IsValid())
+	{
+		PBASC->OnGameplayTagUpdated.Remove(TagUpdatedHandle);
+		TagUpdatedHandle.Reset();
+	}
+}
+
+void UPBAbilitySystemUIBridge::HandleGEExecuted(const FGameplayEffectSpec& Spec, const FGameplayAttribute& Attribute, float EffectiveValue)
+{
+	FGameplayTagContainer AssetTags;
+	Spec.GetAllAssetTags(AssetTags);
+	const bool bMiss = AssetTags.HasTag(PBGameplayTags::Combat_Result_Miss);
+	const bool bSaveSuccess = AssetTags.HasTag(PBGameplayTags::Combat_Result_Save_Success);
+	const bool bSaveFailed = AssetTags.HasTag(PBGameplayTags::Combat_Result_Save_Failed);
+
+	bool bCritical = AssetTags.HasTag(PBGameplayTags::Combat_Hit_Critical);
+	if (!bCritical)
+	{
+		FGameplayTagContainer SourceTags = Spec.CapturedSourceTags.GetSpecTags();
+		bCritical = SourceTags.HasTag(PBGameplayTags::Combat_Hit_Critical);
+	}
+
+	if (Attribute == UPBCharacterAttributeSet::GetIncomingDamageAttribute())
+	{
+		if (bMiss)
+		{
+			SendFloatingTextEvent(EPBFloatingTextType::Miss, 0.f);
+			return;
+		}
+
+		if (bSaveSuccess)
+		{
+			SendFloatingTextEvent(EPBFloatingTextType::SaveSuccess, 0.f);
+		}
+		else if (bSaveFailed)
+		{
+			SendFloatingTextEvent(EPBFloatingTextType::SaveFailed, 0.f);
+		}
+
+		if (EffectiveValue > 0.f)
+		{
+			SendFloatingTextEvent(
+				EPBFloatingTextType::Damage,
+				-EffectiveValue,
+				bCritical ? PBGameplayTags::Combat_Hit_Critical : FGameplayTag());
+		}
+		return;
+	}
+
+	if (Attribute == UPBCharacterAttributeSet::GetIncomingHealAttribute() && EffectiveValue > 0.f)
+	{
+		SendFloatingTextEvent(EPBFloatingTextType::Heal, EffectiveValue);
+	}
+}
+
+void UPBAbilitySystemUIBridge::HandleTagUpdated(const FGameplayTag& Tag, bool bTagExists)
+{
+	if (!bTagExists)
+	{
+		return;
+	}
+
+	// TODO: 상태 태그 처리
+	SendFloatingTextEvent(EPBFloatingTextType::Status, 0.f, Tag);
+}
+
+void UPBAbilitySystemUIBridge::SendFloatingTextEvent(
+	EPBFloatingTextType Type,
+	float Magnitude,
+	const FGameplayTag& MetaTag,
+	const FText& TextOverride) const
+{
+	UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(CachedASC.Get());
+	if (!IsValid(PBASC))
+	{
+		return;
+	}
+
+	UPBFloatingTextPayload* Payload = NewObject<UPBFloatingTextPayload>(GetOwner());
+	if (!IsValid(Payload))
+	{
+		return;
+	}
+
+	Payload->FloatingTextType = Type;
+	Payload->Magnitude = Magnitude;
+	Payload->MetaTag = MetaTag;
+
+	switch (Type)
+	{
+	case EPBFloatingTextType::Damage:
+		break;
+	case EPBFloatingTextType::Heal:
+		break;
+	case EPBFloatingTextType::Miss:
+		Payload->Text = NSLOCTEXT("PBFloatingText", "Miss", "명중 실패");
+		break;
+	case EPBFloatingTextType::SaveSuccess:
+		Payload->Text = NSLOCTEXT("PBFloatingText", "SaveSuccess", "내성 굴림 성공");
+		break;
+	case EPBFloatingTextType::SaveFailed:
+		Payload->Text = NSLOCTEXT("PBFloatingText", "SaveFailed", "내성 굴림 실패");
+		break;
+	case EPBFloatingTextType::Status:
+		Payload->Text = TextOverride;
+		break;
+	default:
+		break;
+	}
+
+	if (!TextOverride.IsEmpty() && Type != EPBFloatingTextType::Status)
+	{
+		Payload->Text = TextOverride;
+	}
+
+	FGameplayEventData EventData;
+	EventData.EventTag = PBGameplayTags::Event_UI_FloatingText;
+	EventData.Instigator = GetOwner();
+	EventData.Target = GetOwner();
+	EventData.OptionalObject = Payload;
+
+	PBASC->HandleGameplayEvent(PBGameplayTags::Event_UI_FloatingText, &EventData);
 }

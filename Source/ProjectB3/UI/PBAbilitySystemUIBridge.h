@@ -5,12 +5,16 @@
 #include "CoreMinimal.h"
 #include "AttributeSet.h"
 #include "Components/ActorComponent.h"
+#include "GameplayEffectTypes.h"
 #include "GameplayAbilitySpecHandle.h"
+#include "GameplayTagContainer.h"
+#include "ProjectB3/AbilitySystem/Payload/PBFloatingTextPayload.h"
 #include "PBAbilitySystemUIBridge.generated.h"
 
 class UAbilitySystemComponent;
 class UGameplayAbility;
 class UPBViewModelSubsystem;
+class UPBAbilitySystemComponent;
 struct FAbilityEndedData;
 struct FOnAttributeChangeData;
 
@@ -90,6 +94,27 @@ private:
 	// 턴 진행 완료 시 SkillBarVM의 쿨다운 상태를 갱신
 	void HandleProgressTurnCompleted();
 
+	// === 전투 결과 바인딩 ===
+
+	// PBASC의 GE 실행/태그 업데이트 콜백을 구독
+	void BindCombatResultDelegates();
+
+	// PBASC의 GE 실행/태그 업데이트 콜백을 해제
+	void UnbindCombatResultDelegates();
+
+	// GE 실행 결과를 해석하여 플로팅 텍스트 이벤트 전송
+	void HandleGEExecuted(const FGameplayEffectSpec& Spec, const FGameplayAttribute& Attribute, float EffectiveValue);
+
+	// 태그 변경 이벤트를 상태 플로팅 텍스트로 전송
+	void HandleTagUpdated(const FGameplayTag& Tag, bool bTagExists);
+
+	// 플로팅 텍스트 GameplayEvent 전송 헬퍼
+	void SendFloatingTextEvent(
+		EPBFloatingTextType Type,
+		float Magnitude,
+		const FGameplayTag& MetaTag = FGameplayTag(),
+		const FText& TextOverride = FText::GetEmpty()) const;
+
 private:
 	// Attribute 바인딩 단위
 	struct FAttributeBinding
@@ -115,4 +140,8 @@ private:
 
 	// 턴 진행 콜백 핸들
 	FDelegateHandle ProgressTurnHandle;
+
+	// 전투 결과 콜백 핸들
+	FDelegateHandle GEExecutedHandle;
+	FDelegateHandle TagUpdatedHandle;
 };

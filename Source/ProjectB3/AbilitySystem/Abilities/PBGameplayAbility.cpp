@@ -245,7 +245,6 @@ FPBHitRollResult UPBGameplayAbility::RollHit(const UAbilitySystemComponent* InTa
 		HitRollResult.bHit ? TEXT("true") : TEXT("false"),
 		HitRollResult.bCritical ? TEXT("true") : TEXT("false"));
 
-	// TODO: UI 시스템 연동
 	return HitRollResult;
 }
 
@@ -265,7 +264,6 @@ FPBDamageRollResult UPBGameplayAbility::RollDamage(bool bCritical) const
 		DamageRollResult.DiceRoll,
 		DamageRollResult.AttackModifier);
 
-	// TODO: UI 시스템 연동
 	return DamageRollResult;
 }
 
@@ -289,7 +287,6 @@ FPBSavingThrowResult UPBGameplayAbility::RollSavingThrow(const UAbilitySystemCom
 		SpellSaveDC,
 		SavingThrowResult.bSucceeded ? TEXT("true") : TEXT("false"));
 
-	// TODO: UI 시스템 연동
 	return SavingThrowResult;
 }
 
@@ -320,16 +317,24 @@ FGameplayEffectSpecHandle UPBGameplayAbility::MakeDamageEffectSpecFromHitDamageR
 	OutHitRollResult = RollHit(InTargetASC);
 	if (!OutHitRollResult.bHit)
 	{
-		return FGameplayEffectSpecHandle();
+		// Miss: 0 데미지 + Combat.Result.Miss 태그로 스펙 반환
+		SpecHandle.Data->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Damage_DiceRoll,      0.f);
+		SpecHandle.Data->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Damage_AttackModifier, 0.f);
+		SpecHandle.Data->AddDynamicAssetTag(PBGameplayTags::Combat_Result_Miss);
+		return SpecHandle;
 	}
-	
+
 	// 데미지 굴림
 	OutDamageRollResult = RollDamage(OutHitRollResult.bCritical);
-	
+	if (OutHitRollResult.bCritical)
+	{
+		SpecHandle.Data->AddDynamicAssetTag(PBGameplayTags::Combat_Hit_Critical);
+	}
+
 	// 스펙에 반영
 	SpecHandle.Data->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Damage_DiceRoll,      OutDamageRollResult.DiceRoll);
 	SpecHandle.Data->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Damage_AttackModifier, OutDamageRollResult.AttackModifier);
-	
+
 	return SpecHandle;
 }
 
@@ -363,12 +368,17 @@ FGameplayEffectSpecHandle UPBGameplayAbility::MakeDamageEffectSpecFromSavingThro
 	if (OutSavingThrowResult.bSucceeded)
 	{
 		OutDamageRollResult.DiceRoll *= 0.5f;
+		SpecHandle.Data->AddDynamicAssetTag(PBGameplayTags::Combat_Result_Save_Success);
 	}
-	
+	else
+	{
+		SpecHandle.Data->AddDynamicAssetTag(PBGameplayTags::Combat_Result_Save_Failed);
+	}
+
 	// 스펙에 반영
 	SpecHandle.Data->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Damage_DiceRoll,      OutDamageRollResult.DiceRoll);
 	SpecHandle.Data->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Damage_AttackModifier, OutDamageRollResult.AttackModifier);
-	
+
 	return SpecHandle;
 }
 
@@ -490,6 +500,7 @@ void UPBGameplayAbility::TryAutoAttachEquipment(
 		}
 	}
 }
+
 
 FPBAbilityTargetData UPBGameplayAbility::ExtractTargetDataFromEvent(
 	const FGameplayEventData& EventData) const
