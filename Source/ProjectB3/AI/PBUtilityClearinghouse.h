@@ -167,20 +167,28 @@ public:
 	// 0 이하면 사거리 무제한 (필터 스킵)
 	float GetEQSAbilityMaxRange() const { return EQSAbilityMaxRange; }
 
+	// EQS IdealDistance 테스트에서 참조할 이상적 교전 거리
+	// 근접: ~100cm, 원거리: MaxRange × 0.85, 무한: 현재 거리 유지
+	// 0 이하면 선호도 없음 (모든 포인트 동일 점수)
+	float GetEQSIdealDistance() const { return EQSIdealDistance; }
+
 	// 적 무리 중심 위치 반환 (EQS Context + Fallback 공용)
 	// CachedTargets의 평균 위치를 계산한다.
 	FVector GetEnemyCentroid() const;
 
 	// 공격 위치 EQS 쿼리 비동기 실행
 	// EQS_FindAttackPosition 에셋을 통해 타겟에 대한 최적 공격 위치를 탐색.
-	// Context_Target에 TargetActor를, AbilityMaxRange에 사거리를 세팅한 뒤
-	// 쿼리를 실행하고, 완료 시 OnFinished 콜백으로 결과를 전달한다.
-	// AbilityMaxRange <= 0이면 사거리 무제한 (PBEnvQueryTest_AbilityRange 필터 스킵).
+	// Context_Target에 TargetActor를, AbilityMaxRange에 사거리를,
+	// IdealDistance에 이상적 교전 거리를 세팅한 뒤 쿼리를 실행하고,
+	// 완료 시 OnFinished 콜백으로 결과를 전달한다.
+	// AbilityMaxRange <= 0이면 사거리 무제한 (필터 스킵).
+	// IdealDistance <= 0이면 거리 선호도 없음 (스코어링 스킵).
 	void RunAttackPositionQuery(
 		UEnvQuery* QueryAsset,
 		AActor* Querier,
 		AActor* TargetActor,
 		float AbilityMaxRange,
+		float IdealDistance,
 		FPBEQSQueryFinished OnFinished);
 
 	// 후퇴 위치 EQS 쿼리 비동기 실행
@@ -286,6 +294,11 @@ protected:
 	// RunAttackPositionQuery 호출 시 세팅, 쿼리 완료 시 초기화
 	// 0 이하 = 사거리 무제한 (필터 스킵)
 	float EQSAbilityMaxRange = 0.f;
+
+	// PBEnvQueryTest_IdealDistance에서 참조할 이상적 교전 거리
+	// RunAttackPositionQuery 호출 시 세팅, 쿼리 완료 시 초기화
+	// 0 이하 = 선호도 없음 (모든 포인트 동일 점수)
+	float EQSIdealDistance = 0.f;
 
 	// 진행 중인 EQS 쿼리의 완료 콜백 저장소 (Attack / Fallback 각각)
 	FPBEQSQueryFinished PendingAttackQueryDelegate;

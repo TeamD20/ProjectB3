@@ -93,8 +93,13 @@ void UPBGenerateSequenceTask::LaunchEQSQueries()
 			AttackMoveActionIndex = i;
 			++PendingEQSQueryCount;
 
-			// Move 다음 행동의 어빌리티 CDO에서 사거리 추출
+			// Move 다음 행동의 어빌리티 CDO에서 사거리 + 이상적 교전 거리 추출
 			float AbilityMaxRange = 0.f;
+			float IdealDistance = 0.f;
+			static constexpr float MeleeRangeThreshold = 300.f;
+			static constexpr float MeleeIdealDistance = 100.f;
+			static constexpr float RangedIdealRatio = 0.85f;
+
 			const int32 NextIdx = i + 1;
 			if (NextIdx < GeneratedSequence.Actions.Num())
 			{
@@ -115,6 +120,23 @@ void UPBGenerateSequenceTask::LaunchEQSQueries()
 						if (TargetedCDO)
 						{
 							AbilityMaxRange = TargetedCDO->GetRange();
+
+							// 이상적 교전 거리 계산
+							if (AbilityMaxRange <= 0.f)
+							{
+								// 무한 사거리 → 선호도 없음
+								IdealDistance = 0.f;
+							}
+							else if (AbilityMaxRange <= MeleeRangeThreshold)
+							{
+								// 근접 → 타겟 바로 앞
+								IdealDistance = MeleeIdealDistance;
+							}
+							else
+							{
+								// 원거리 → 사거리 85% 지점
+								IdealDistance = AbilityMaxRange * RangedIdealRatio;
+							}
 						}
 					}
 				}
@@ -123,6 +145,7 @@ void UPBGenerateSequenceTask::LaunchEQSQueries()
 			CachedClearinghouse->RunAttackPositionQuery(
 				AttackPositionQuery, SelfActor, Action.TargetActor,
 				AbilityMaxRange,
+				IdealDistance,
 				FPBEQSQueryFinished::CreateUObject(
 					this,
 					&UPBGenerateSequenceTask::OnAttackPositionQueryFinished));
