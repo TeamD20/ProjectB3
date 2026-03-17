@@ -7,6 +7,9 @@
 
 UPBEnvQueryTest_IdealDistance::UPBEnvQueryTest_IdealDistance()
 {
+	// SimpleGrid(Point) 아이템 호환 명시 — 미설정 시 "can't use test" 제거됨
+	ValidItemType = UEnvQueryItemType_VectorBase::StaticClass();
+
 	// Score 전용 — 필터링은 AbilityRange 테스트가 담당
 	Cost = EEnvTestCost::Low;
 
@@ -55,6 +58,11 @@ void UPBEnvQueryTest_IdealDistance::RunTest(FEnvQueryInstance& QueryInstance) co
 	// 타겟 Context에서 대상 위치 수집
 	if (!TargetContext)
 	{
+		UE_LOG(LogTemp, Error,
+			TEXT("[EQS] PBEnvQueryTest_IdealDistance: TargetContext가 설정되지 "
+			     "않았습니다! EQS 에셋에서 TargetContext를 "
+			     "PBEnvQueryContext_Target으로 설정하세요. "
+			     "(미설정 시 스코어링이 동작하지 않습니다)"));
 		return;
 	}
 

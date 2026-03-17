@@ -34,11 +34,12 @@ protected:
 	virtual FText GetDescriptionDetails() const override;
 
 	// 거리 판정 대상 Context (기본: Context_Target)
-	UPROPERTY(EditDefaultsOnly, Category = "IdealDistance")
+	// EditAnywhere: EQS 에셋 인스턴스에 직렬화 보장
+	UPROPERTY(EditAnywhere, Category = "IdealDistance")
 	TSubclassOf<UEnvQueryContext> TargetContext;
 
 	// 점수 정규화 범위 — |실제거리 - 이상거리|가 이 값 이상이면 점수 0
 	// 기본 1500cm: 이상 거리에서 1500cm 이상 벗어나면 최저 점수
-	UPROPERTY(EditDefaultsOnly, Category = "IdealDistance", meta = (ClampMin = "100.0"))
+	UPROPERTY(EditAnywhere, Category = "IdealDistance", meta = (ClampMin = "100.0"))
 	float NormalizationRange = 1500.f;
 };

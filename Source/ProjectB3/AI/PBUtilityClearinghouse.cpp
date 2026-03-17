@@ -2379,8 +2379,13 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 					{
 						// 사거리 내지만 LoS 차단 → 벽 우회 재배치 비용 (휴리스틱)
 						// 실제 위치는 EQS가 LoS + 사거리 기준으로 결정
+						const float AvailableMPForLoS = Context.RemainingMP - Context.AccumulatedMP;
+						if (AvailableMPForLoS <= 0.f)
+						{
+							continue;  // MP 없어서 LoS 확보 위치로 이동 불가
+						}
 						static constexpr float LoSRepositionEstimate = 100.0f;
-						AttackAction.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMP);
+						AttackAction.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMPForLoS);
 					}
 				}
 
@@ -2488,9 +2493,13 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 					}
 					else
 					{
+						const float AvailableMPForLoS = Context.RemainingMP - Context.AccumulatedMP;
+						if (AvailableMPForLoS <= 0.f)
+						{
+							continue;  // MP 없어서 LoS 확보 위치로 이동 불가
+						}
 						static constexpr float LoSRepositionEstimate = 100.0f;
-						const float AvailableMP = Context.RemainingMP - Context.AccumulatedMP;
-						HealAction.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMP);
+						HealAction.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMPForLoS);
 					}
 				}
 
@@ -2590,9 +2599,13 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 				}
 				else
 				{
+					const float AvailableMPForLoS = Context.RemainingMP - Context.AccumulatedMP;
+					if (AvailableMPForLoS <= 0.f)
+					{
+						continue;  // MP 없어서 LoS 확보 위치로 이동 불가
+					}
 					static constexpr float LoSRepositionEstimate = 100.0f;
-					const float AvailableMP = Context.RemainingMP - Context.AccumulatedMP;
-					Action.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMP);
+					Action.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMPForLoS);
 				}
 			}
 
@@ -2665,9 +2678,13 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			else
 			{
 				// 사거리 내지만 LoS 차단 → 벽 우회 재배치 비용 (휴리스틱)
+				const float AvailableMPForLoS = Context.RemainingMP - Context.AccumulatedMP;
+				if (AvailableMPForLoS <= 0.f)
+				{
+					continue;  // MP 없어서 LoS 확보 위치로 이동 불가
+				}
 				static constexpr float LoSRepositionEstimate = 100.0f;
-				const float AvailableMP = Context.RemainingMP - Context.AccumulatedMP;
-				AoEAction.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMP);
+				AoEAction.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMPForLoS);
 			}
 		}
 
@@ -2781,9 +2798,13 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			else
 			{
 				// 사거리 내지만 LoS 차단 → 벽 우회 재배치 비용
+				const float AvailableMPForLoS = Context.RemainingMP - Context.AccumulatedMP;
+				if (AvailableMPForLoS <= 0.f)
+				{
+					continue;  // MP 없어서 LoS 확보 위치로 이동 불가
+				}
 				static constexpr float LoSRepositionEstimate = 100.0f;
-				const float AvailableMP = Context.RemainingMP - Context.AccumulatedMP;
-				MTAction.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMP);
+				MTAction.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMPForLoS);
 			}
 		}
 
@@ -3023,8 +3044,12 @@ FVector UPBUtilityClearinghouse::CalculateFallbackPosition(
 	}
 	else if (bHasUnlimitedRange)
 	{
-		// 무한 사거리 전용 → 어디서든 공격 가능하므로 안전 거리 기반
-		DesiredDistFromEnemy = NearestEnemyDistXY + RemainingMP * UnlimitedRangeSafetyRatio;
+		// 무한 사거리 전용 → 어디서든 공격 가능하지만 무한 후퇴 방지
+		// 현재 거리가 이미 충분하면 유지, 아니면 최대 1500cm까지만 후퇴
+		static constexpr float UnlimitedMaxKiteDistance = 1500.0f;
+		DesiredDistFromEnemy = FMath::Min(
+			NearestEnemyDistXY + RemainingMP * UnlimitedRangeSafetyRatio,
+			UnlimitedMaxKiteDistance);
 	}
 	else
 	{

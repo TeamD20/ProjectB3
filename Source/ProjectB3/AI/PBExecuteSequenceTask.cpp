@@ -12,6 +12,7 @@
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
 #include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
+#include "ProjectB3/Environment/PBEnvironmentSubsystem.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "StateTreeExecutionContext.h"
 #include "VisualLogger/VisualLogger.h"
@@ -131,8 +132,28 @@ void UPBExecuteSequenceTask::ExitState(
 
 EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
   if (CurrentAction.ActionType == EPBActionType::None) {
-    UE_LOG(LogPBStateTreeExec, Warning,
-           TEXT("실행 가능한 행동이 없습니다. 실행기 종료."));
+    // 무효화된 행동이라도 원래 예약된 자원(AP/BA)을 소비해야
+    // StateTree가 동일 시퀀스를 무한 재생성하는 것을 방지한다.
+    UAbilitySystemComponent* NoneASC =
+        UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(SelfActor);
+    if (IsValid(NoneASC)) {
+      if (CurrentAction.Cost.ActionCost > 0.f) {
+        NoneASC->ApplyModToAttributeUnsafe(
+            UPBTurnResourceAttributeSet::GetActionAttribute(),
+            EGameplayModOp::Additive, -CurrentAction.Cost.ActionCost);
+      }
+      if (CurrentAction.Cost.BonusActionCost > 0.f) {
+        NoneASC->ApplyModToAttributeUnsafe(
+            UPBTurnResourceAttributeSet::GetBonusActionAttribute(),
+            EGameplayModOp::Additive, -CurrentAction.Cost.BonusActionCost);
+      }
+      UE_LOG(LogPBStateTreeExec, Warning,
+             TEXT("[Execute] 무효화된 행동(None) 스킵 — AP=%.0f, BA=%.0f 소비 후 전진."),
+             CurrentAction.Cost.ActionCost, CurrentAction.Cost.BonusActionCost);
+    } else {
+      UE_LOG(LogPBStateTreeExec, Error,
+             TEXT("[Execute] 무효화된 행동(None) — ASC 무효, 자원 소비 불가! 무한 루프 위험."));
+    }
     return EStateTreeRunStatus::Succeeded;
   }
 
@@ -321,6 +342,71 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
     bool bPreBAFound = false;
     const float PreActivationBA = CachedASC->GetGameplayAttributeValue(
         UPBTurnResourceAttributeSet::GetBonusActionAttribute(), bPreBAFound);
+
+    // LoS 안전장치: 이동 완료 후 실제 위치에서 타겟까지 LoS 재검증
+    // (EQS 실패로 LoS 없는 위치에서 시전하는 엣지 케이스 방어)
+    if (IsValid(CurrentAction.TargetActor))
+    {
+      if (const UGameInstance* GI = SelfActor->GetWorld()->GetGameInstance())
+      {
+        if (const UPBEnvironmentSubsystem* EnvSub =
+                GI->GetSubsystem<UPBEnvironmentSubsystem>())
+        {
+          const FVector SourcePos = SelfActor->GetActorLocation();
+          const FPBLoSResult LoS = EnvSub->CheckLineOfSight(
+              SourcePos, CurrentAction.TargetActor);
+
+          // 진단 로그: LoS 검사 결과를 항상 출력 (AoE 벽 관통 디버깅)
+          UE_LOG(LogPBStateTreeExec, Display,
+                 TEXT("[Execute] %s LoS 검사: Source(%s) → "
+                      "Target(%s at %s) = %s | "
+                      "AbilityTag=%s, TargetLoc=(%s)"),
+                 ActionLabel,
+                 *SourcePos.ToCompactString(),
+                 *CurrentAction.TargetActor->GetName(),
+                 *CurrentAction.TargetActor->GetActorLocation()
+                      .ToCompactString(),
+                 LoS.bHasLineOfSight ? TEXT("PASS") : TEXT("FAIL"),
+                 *CurrentAction.AbilityTag.ToString(),
+                 *CurrentAction.TargetLocation.ToCompactString());
+
+          if (!LoS.bHasLineOfSight)
+          {
+            UE_LOG(LogPBStateTreeExec, Warning,
+                   TEXT("[Execute] %s: LoS 재검증 실패 — 타겟(%s)이 "
+                        "보이지 않습니다. 행동 스킵 + 자원 소비."),
+                   ActionLabel, *CurrentAction.TargetActor->GetName());
+
+            // AP/BA 강제 소비 — 미소비 시 StateTree가 동일 시퀀스 무한 재생성
+            if (ActionCostToConsume > 0.0f)
+            {
+              CachedASC->ApplyModToAttributeUnsafe(
+                  UPBTurnResourceAttributeSet::GetActionAttribute(),
+                  EGameplayModOp::Additive, -ActionCostToConsume);
+            }
+            if (BonusActionCostToConsume > 0.0f)
+            {
+              CachedASC->ApplyModToAttributeUnsafe(
+                  UPBTurnResourceAttributeSet::GetBonusActionAttribute(),
+                  EGameplayModOp::Additive, -BonusActionCostToConsume);
+            }
+
+            bIsActionInProgress = false;
+            return EStateTreeRunStatus::Succeeded;
+          }
+        }
+      }
+    }
+    else
+    {
+      // TargetActor가 null인 경우 (발생하면 안 됨 — 진단용)
+      UE_LOG(LogPBStateTreeExec, Warning,
+             TEXT("[Execute] %s: TargetActor가 null — LoS 검사 스킵됨. "
+                  "AbilityTag=%s, TargetLoc=(%s)"),
+             ActionLabel,
+             *CurrentAction.AbilityTag.ToString(),
+             *CurrentAction.TargetLocation.ToCompactString());
+    }
 
     // 어빌리티 종료 시 다음 행동으로 전진 (비동기 체인)
     DelegateHandle = CachedASC->OnAbilityEnded.AddLambda(

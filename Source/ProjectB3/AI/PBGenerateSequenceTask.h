@@ -70,8 +70,15 @@ private:
 	// EQS 타임아웃 잔여 시간 (초)
 	float EQSTimeoutRemaining = 0.0f;
 
-	// EQS 결과로 좌표를 교체할 시퀀스 행동 인덱스
-	int32 AttackMoveActionIndex = INDEX_NONE;
+	// EQS Attack 쿼리 직렬 실행 큐.
+	// LaunchEQSQueries에서 모든 Attack-Move 인덱스를 적재하고,
+	// 첫 번째만 발사. 콜백 완료 시 다음을 발사하여
+	// Clearinghouse의 EQS 파라미터(TargetActor/MaxRange/IdealDist) 오염을 방지.
+	TArray<int32> PendingAttackMoveIndices;
+
+	// 현재 처리 중인 Attack-Move 인덱스 (콜백에서 사용)
+	int32 CurrentAttackMoveIndex = INDEX_NONE;
+
 	int32 FallbackMoveActionIndex = INDEX_NONE;
 
 	// 캐싱된 Clearinghouse (EnterState에서 획득)
@@ -93,6 +100,10 @@ private:
 	// EnterState의 여러 분기(타겟 없음, DFS 후, DFS 실패)에서 공통 호출.
 	void LaunchEQSQueries();
 
+	// PendingAttackMoveIndices 큐에서 다음 Attack-Move EQS 쿼리를 발사한다.
+	// Clearinghouse EQS 파라미터 오염 방지를 위해 한 번에 하나씩 직렬 실행.
+	void LaunchNextAttackQuery();
+
 	/*~ Move 분리 헬퍼 (Phase 3) ~*/
 
 	// DFS 결과 시퀀스에서 MovementCost > 0인 행동 앞에
@@ -111,4 +122,11 @@ private:
 	// 현재 위치가 이미 전술적으로 유리하면 Fallback 이동 불필요 판정.
 	// 사거리 내 적이 있고 + 잔여 이동력이 적으면 true 반환.
 	bool ShouldSkipFallback(float RemainingMP) const;
+
+	// EQS 후검증에서 Move+Attack이 무효화되었을 때,
+	// 캐시된 스코어 맵에서 현재 위치 기준 대안 행동을 탐색하여
+	// None 처리된 Attack 슬롯을 교체한다.
+	// 대안이 없으면 None 유지 (기존 동작과 동일).
+	void TryReplaceInvalidatedActions(
+		int32 InvalidatedMoveIdx, int32 InvalidatedAttackIdx);
 };
