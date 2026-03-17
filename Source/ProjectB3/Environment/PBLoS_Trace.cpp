@@ -4,6 +4,7 @@
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
 #include "GameFramework/Actor.h"
+#include "GameFramework/Pawn.h"
 #include "DrawDebugHelpers.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPBLoS, Log, All);
@@ -33,14 +34,37 @@ FPBLoSResult UPBLoS_Trace::Execute(
 	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(LoSTrace), /*bTraceComplex=*/false);
 	QueryParams.AddIgnoredActor(Target);
 
+	// D&D 5e 규칙: 캐릭터(Pawn)는 LoS를 차단하지 않음 (커버만 제공)
+	// Pawn에 맞으면 무시하고 재트레이스 (최대 10회 반복 — 무한 루프 방지)
 	FHitResult HitResult;
-	const bool bHit = World->LineTraceSingleByChannel(
-		HitResult,
-		TraceStart,
-		TraceEnd,
-		ECC_Visibility,
-		QueryParams
-	);
+	bool bHit = false;
+	static constexpr int32 MaxPawnSkips = 10;
+
+	for (int32 Attempt = 0; Attempt <= MaxPawnSkips; ++Attempt)
+	{
+		bHit = World->LineTraceSingleByChannel(
+			HitResult,
+			TraceStart,
+			TraceEnd,
+			ECC_Visibility,
+			QueryParams
+		);
+
+		if (!bHit)
+		{
+			break; // 장애물 없음 → 시야 확보
+		}
+
+		const AActor* HitActor = HitResult.GetActor();
+		if (IsValid(HitActor) && HitActor->IsA<APawn>())
+		{
+			// Pawn에 맞음 → 무시 목록에 추가하고 재트레이스
+			QueryParams.AddIgnoredActor(HitActor);
+			continue;
+		}
+
+		break; // 벽/지형에 맞음 → 차단 확정
+	}
 
 	// 장애물에 막히지 않았으면 시야 확보
 	Result.bHasLineOfSight = !bHit;

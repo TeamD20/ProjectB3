@@ -32,6 +32,7 @@ protected:
 	virtual FText GetDescriptionDetails() const override;
 
 	// 사거리 판정 대상 Context (기본: Context_Target)
-	UPROPERTY(EditDefaultsOnly, Category = "AbilityRange")
+	// EditAnywhere: EQS 에셋 인스턴스에 직렬화 보장 (EditDefaultsOnly는 인스턴스 저장 실패 가능)
+	UPROPERTY(EditAnywhere, Category = "AbilityRange")
 	TSubclassOf<UEnvQueryContext> TargetContext;
 };
