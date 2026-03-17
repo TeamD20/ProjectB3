@@ -15,6 +15,7 @@
 #include "ProjectB3/UI/TurnInfoHUD/PBTurnPortraitViewModel.h"
 #include "ProjectB3/UI/SkillBar/PBSkillBarViewModel.h"
 #include "ProjectB3/UI/Common/PBCombatStatsViewModel.h"
+#include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 
 UPBAbilitySystemUIBridge::UPBAbilitySystemUIBridge()
@@ -38,10 +39,12 @@ void UPBAbilitySystemUIBridge::BeginPlay()
 
 	BindAttributeDelegates();
 	BindAbilityDelegates();
+	BindProgressTurnDelegate();
 }
 
 void UPBAbilitySystemUIBridge::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	UnbindProgressTurnDelegate();
 	UnbindAbilityDelegates();
 	ClearAttributeBindings();
 
@@ -331,6 +334,9 @@ void UPBAbilitySystemUIBridge::HandleAbilityEnded(const FAbilityEndedData& Abili
 
 	FGameplayAbilitySpecHandle Handle = AbilityEndedData.AbilityThatEnded->GetCurrentAbilitySpecHandle();
 	UpdateSkillSlotActiveState(Handle, false);
+
+	// 어빌리티 종료 시 쿨다운이 적용되므로 스킬바 쿨다운 갱신
+	HandleProgressTurnCompleted();
 }
 
 void UPBAbilitySystemUIBridge::UpdateSkillSlotActiveState(FGameplayAbilitySpecHandle Handle, bool bActive)
@@ -375,4 +381,57 @@ void UPBAbilitySystemUIBridge::UpdateSkillSlotActiveState(FGameplayAbilitySpecHa
 	UpdateCategory(SkillBarVM->SecondaryActions, 1);
 	UpdateCategory(SkillBarVM->SpellActions, 2);
 	UpdateCategory(SkillBarVM->ResponseActions, 3);
+}
+
+// === 턴 진행 바인딩 ===
+
+void UPBAbilitySystemUIBridge::BindProgressTurnDelegate()
+{
+	UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(CachedASC.Get());
+	if (!IsValid(PBASC))
+	{
+		return;
+	}
+
+	ProgressTurnHandle = PBASC->OnProgressTurnCompleted.AddUObject(
+		this, &ThisClass::HandleProgressTurnCompleted);
+}
+
+void UPBAbilitySystemUIBridge::UnbindProgressTurnDelegate()
+{
+	UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(CachedASC.Get());
+	if (!IsValid(PBASC))
+	{
+		return;
+	}
+
+	if (ProgressTurnHandle.IsValid())
+	{
+		PBASC->OnProgressTurnCompleted.Remove(ProgressTurnHandle);
+		ProgressTurnHandle.Reset();
+	}
+}
+
+void UPBAbilitySystemUIBridge::HandleProgressTurnCompleted()
+{
+	UPBViewModelSubsystem* VMSubsystem = GetViewModelSubsystem();
+	if (!IsValid(VMSubsystem))
+	{
+		return;
+	}
+
+	UPBSkillBarViewModel* SkillBarVM = VMSubsystem->GetOrCreateGlobalViewModel<UPBSkillBarViewModel>();
+	if (!IsValid(SkillBarVM))
+	{
+		return;
+	}
+
+	// 현재 선택된 파티원이 아니면 갱신 불필요
+	APBGameplayPlayerState* PS = SkillBarVM->GetPlayerState();
+	if (IsValid(PS) && PS->GetSelectedPartyMember() != GetOwner())
+	{
+		return;
+	}
+
+	SkillBarVM->RefreshAllCooldowns();
 }

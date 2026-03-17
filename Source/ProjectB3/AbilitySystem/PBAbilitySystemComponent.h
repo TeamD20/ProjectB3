@@ -12,6 +12,7 @@ class UPBAbilitySetData;
 DECLARE_LOG_CATEGORY_EXTERN(LogPBAbilitySystem, Log, All);
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnGameplayTagUpdatedSignature, const FGameplayTag& /**Tag*/, bool /**TagExists*/)
+DECLARE_MULTICAST_DELEGATE(FOnProgressTurnSignature);
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PROJECTB3_API UPBAbilitySystemComponent : public UAbilitySystemComponent
@@ -53,8 +54,17 @@ public:
 	// 이동 자원 최대치로 초기화
 	void ResetMovementResource();
 	
-	// 한 턴 진행 후 호출, 적용된 이펙트들의 턴 스택 차감
+	// 한 턴 진행 후 호출, 적용된 이펙트들의 턴 스택 차감 및 쿨다운 감소
 	void OnProgressTurn();
+
+	// 해당 어빌리티가 쿨다운 중인지 확인
+	bool HasCooldown(const FGameplayAbilitySpecHandle& Handle) const;
+
+	// 어빌리티에 턴 기반 쿨다운 적용
+	void ApplyCooldown(const FGameplayAbilitySpecHandle& Handle, int32 CooldownTurns);
+
+	// 해당 어빌리티의 잔여 쿨다운 턴 수 반환 (없으면 0)
+	int32 GetRemainingCooldown(const FGameplayAbilitySpecHandle& Handle) const;
 	
 protected:
 	/*~ UActorComponent Interface ~*/
@@ -69,6 +79,9 @@ private:
 	
 public:
 	FOnGameplayTagUpdatedSignature OnGameplayTagUpdated;
+
+	// 턴 진행 완료 시 브로드캐스트 (쿨다운·이펙트 차감 후)
+	FOnProgressTurnSignature OnProgressTurnCompleted;
 	
 protected:
 	// 출처별 핸들 캐시
@@ -77,4 +90,7 @@ protected:
 private:
 	// 턴 기반 어빌리티(EPBAbilityType != None) 실행 중 플래그
 	bool bIsTurnAbilityActive = false;
+
+	// 어빌리티별 잔여 쿨다운 턴 수
+	TMap<FGameplayAbilitySpecHandle, int32> CooldownMap;
 };

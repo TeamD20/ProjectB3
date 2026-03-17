@@ -145,6 +145,7 @@ void UPBAbilitySystemComponent::ResetMovementResource()
 
 void UPBAbilitySystemComponent::OnProgressTurn()
 {
+	// 이펙트 스택 차감
 	for (const FActiveGameplayEffectHandle& ActiveGEHandle : ActiveGameplayEffects.GetAllActiveEffectHandles())
 	{
 		if (const UGameplayEffect* EffectCDO = GetGameplayEffectCDO(ActiveGEHandle))
@@ -153,10 +154,48 @@ void UPBAbilitySystemComponent::OnProgressTurn()
 			{
 				continue;
 			}
-			
+
 			RemoveActiveGameplayEffect(ActiveGEHandle, 1); // 1스택 차감
 		}
 	}
+
+	// 쿨다운 1턴씩 차감, 0 이하이면 제거
+	TArray<FGameplayAbilitySpecHandle> ExpiredHandles;
+	for (auto& Pair : CooldownMap)
+	{
+		Pair.Value -= 1;
+		if (Pair.Value <= 0)
+		{
+			ExpiredHandles.Add(Pair.Key);
+		}
+	}
+	for (const FGameplayAbilitySpecHandle& Handle : ExpiredHandles)
+	{
+		CooldownMap.Remove(Handle);
+	}
+
+	OnProgressTurnCompleted.Broadcast();
+}
+
+bool UPBAbilitySystemComponent::HasCooldown(const FGameplayAbilitySpecHandle& Handle) const
+{
+	const int32* Remaining = CooldownMap.Find(Handle);
+	return Remaining != nullptr && *Remaining > 0;
+}
+
+void UPBAbilitySystemComponent::ApplyCooldown(const FGameplayAbilitySpecHandle& Handle, int32 CooldownTurns)
+{
+	if (CooldownTurns <= 0)
+	{
+		return;
+	}
+	CooldownMap.Add(Handle, CooldownTurns);
+}
+
+int32 UPBAbilitySystemComponent::GetRemainingCooldown(const FGameplayAbilitySpecHandle& Handle) const
+{
+	const int32* Remaining = CooldownMap.Find(Handle);
+	return Remaining ? *Remaining : 0;
 }
 
 void UPBAbilitySystemComponent::BeginPlay()

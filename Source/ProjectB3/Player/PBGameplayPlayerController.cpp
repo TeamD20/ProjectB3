@@ -175,6 +175,12 @@ void APBGameplayPlayerController::OnPossess(APawn* InPawn)
 	{
 		InteractorComponent->SetIgnoreActors({ InPawn });
 	}
+	
+	// 다른 캐릭터가 타겟팅 중이었던 경우 타겟팅 취소
+	if (TargetingComponent->IsTargetingActive())
+	{
+		TargetingComponent->CancelTargeting();
+	}
 }
 
 void APBGameplayPlayerController::OnCameraZoom(const FInputActionValue& Value)
