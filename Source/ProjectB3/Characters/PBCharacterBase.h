@@ -116,12 +116,18 @@ public:
 
 	// 슬롯 태그에 부착된 장비 액터 반환. 없으면 nullptr.
 	APBEquipmentActor* GetAttachedEquipment(const FGameplayTag& SlotTag) const;
+	
+	// VisualMesh 설정
+	void SetupVisualMesh();
 
 	// 인벤토리 컴포넌트 반환
 	UPBInventoryComponent* GetInventoryComponent() const { return InventoryComponent; }
 
 	// 장비 컴포넌트 반환
 	UPBEquipmentComponent* GetEquipmentComponent() const { return EquipmentComponent; }
+
+	// 장비 부착 대상 메시 반환 (VisualMesh 우선, 없으면 GetMesh)
+	USkeletalMeshComponent* GetVisualMesh() const { return CachedVisualMesh; }
 
 	// 상호작용 컴포넌트 반환
 	virtual UPBInteractableComponent* GetInteractableComponent() const override { return InteractableComponent; }
@@ -200,6 +206,10 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Equipment")
 	TObjectPtr<UNavModifierComponent> NavModifierComponent;
 	*/
+
+	// 장비 부착 대상 메시 (자식 중 VisualMesh가 있으면 해당 메시, 없으면 GetMesh)
+	UPROPERTY()
+	TObjectPtr<USkeletalMeshComponent> CachedVisualMesh;
 
 	// 전투 식별 정보 (진영, 표시 이름, 초상화)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")

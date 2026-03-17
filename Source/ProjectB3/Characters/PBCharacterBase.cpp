@@ -103,9 +103,9 @@ APBEquipmentActor* APBCharacterBase::AttachEquipment(const FGameplayTag& InSlotT
 
 		AttachedEquipments.Remove(InSlotTag);
 	}
-	
+
 	FName SlotName = EquipmentSlotTagNameMap[InSlotTag];
-	if (!IsValid(GetMesh()) || !IsValid(GetWorld()))
+	if (!IsValid(CachedVisualMesh) || !IsValid(GetWorld()))
 	{
 		return nullptr;
 	}
@@ -120,12 +120,12 @@ APBEquipmentActor* APBCharacterBase::AttachEquipment(const FGameplayTag& InSlotT
 		return nullptr;
 	}
 
-	if (!SpawnedEquipment->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, SlotName))
+	if (!SpawnedEquipment->AttachToComponent(CachedVisualMesh, FAttachmentTransformRules::SnapToTargetNotIncludingScale, SlotName))
 	{
 		SpawnedEquipment->Destroy();
 		return nullptr;
 	}
-	
+
 	SpawnedEquipment->LinkAnimLayer(GetMesh());
 	AttachedEquipments.Add(InSlotTag, SpawnedEquipment);
 	OnCharacterEquipmentChanged.Broadcast(InSlotTag);
@@ -163,9 +163,37 @@ APBEquipmentActor* APBCharacterBase::GetAttachedEquipment(const FGameplayTag& Sl
 	return Found ? *Found : nullptr;
 }
 
+void APBCharacterBase::SetupVisualMesh()
+{
+	CachedVisualMesh = nullptr;
+	if (IsValid(GetMesh()))
+	{
+		TArray<USceneComponent*> ChildMeshes;
+		GetMesh()->GetChildrenComponents(true, ChildMeshes);
+		for (USceneComponent* ChildMesh : ChildMeshes)
+		{
+			USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(ChildMesh);
+			if (IsValid(SkelComp) && SkelComp->GetName() == TEXT("VisualMesh"))
+			{
+				CachedVisualMesh = SkelComp;
+				break;
+			}
+		}
+
+		// VisualMesh를 찾지 못한 경우 기본 메시 사용
+		if (!IsValid(CachedVisualMesh))
+		{
+			CachedVisualMesh = GetMesh();
+		}
+	}
+}
+
 void APBCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// GetMesh의 자식 중 이름이 VisualMesh인 SkeletalMeshComponent를 탐색
+	SetupVisualMesh();
 
 	if (IsValid(GetMesh()))
 	{

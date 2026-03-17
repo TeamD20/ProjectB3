@@ -1,6 +1,8 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBCharacterPreviewActor.h"
+
+#include "PBCharacterBase.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Components/SceneComponent.h"
@@ -95,16 +97,18 @@ void APBCharacterPreviewActor::SyncMeshesFrom(AActor* SourceActor)
 
 	// Character의 주 SkeletalMesh는 SetBaseMesh()로 별도 처리하므로 제외
 	USkeletalMeshComponent* OwnerMainMesh = nullptr;
-	if (ACharacter* OwnerChar = Cast<ACharacter>(SourceActor))
+	USkeletalMeshComponent* OwnerVisualMesh = nullptr;
+	if (APBCharacterBase* OwnerChar = Cast<APBCharacterBase>(SourceActor))
 	{
 		OwnerMainMesh = OwnerChar->GetMesh();
+		OwnerVisualMesh = OwnerChar->GetVisualMesh();
 	}
 
 	for (UMeshComponent* SrcMesh : SourceMeshes)
 	{
 		// 주 캐릭터 메시는 SetBaseMesh()로 별도 처리
 		// bHiddenInGame인 컴포넌트는 게임에서 보이지 않아야 하는 것 (카메라 시각화, 디버그 메시 등)이므로 제외
-		if (!IsValid(SrcMesh) || SrcMesh == OwnerMainMesh || SrcMesh->bHiddenInGame)
+		if (!IsValid(SrcMesh) || !SrcMesh->IsVisible() || SrcMesh == OwnerMainMesh || SrcMesh == OwnerVisualMesh)
 		{
 			continue;
 		}

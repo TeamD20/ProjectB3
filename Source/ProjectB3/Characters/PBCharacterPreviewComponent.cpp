@@ -87,9 +87,10 @@ void UPBCharacterPreviewComponent::SpawnPreviewActor()
 	PreviewActor->ApplyConfig(ActorConfig);
 
 	// 기본 메시 설정
-	if (ACharacter* OwnerChar = Cast<ACharacter>(Owner))
+	if (APBCharacterBase* OwnerChar = Cast<APBCharacterBase>(Owner))
 	{
-		if (USkeletalMeshComponent* OwnerMesh = OwnerChar->GetMesh())
+		OwnerChar->SetupVisualMesh();
+		if (USkeletalMeshComponent* OwnerMesh = OwnerChar->GetVisualMesh())
 		{
 			PreviewActor->SetBaseMesh(OwnerMesh->GetSkeletalMeshAsset());
 		}
