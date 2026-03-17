@@ -1,10 +1,7 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBCharacterBase.h"
-
-#include "NavModifierComponent.h"
 #include "Components/CapsuleComponent.h"
-#include "NavAreas/NavArea_Obstacle.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemLibrary.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
@@ -18,6 +15,8 @@
 #include "ProjectB3/ItemSystem/Components/PBInventoryComponent.h"
 #include "ProjectB3/ItemSystem/Data/PBItemDataAsset.h"
 #include "ProjectB3/UI/PBAbilitySystemUIBridge.h"
+#include "ProjectB3/Interaction/PBInteractableComponent.h"
+#include "ProjectB3/Interaction/Actions/PBInteraction_LootAction.h"
 
 APBCharacterBase::APBCharacterBase()
 {
@@ -38,6 +37,13 @@ APBCharacterBase::APBCharacterBase()
 
 	// 장비 컴포넌트 생성
 	EquipmentComponent = CreateDefaultSubobject<UPBEquipmentComponent>(TEXT("EquipmentComponent"));
+
+	// 상호작용 컴포넌트 생성
+	InteractableComponent = CreateDefaultSubobject<UPBInteractableComponent>(TEXT("InteractableComponent"));
+
+	// 기본 루팅 상호작용 행동 추가
+	UPBInteraction_LootAction* LootAction = CreateDefaultSubobject<UPBInteraction_LootAction>(TEXT("LootAction"));
+	InteractableComponent->InteractionActions.Add(LootAction);
 	
 	// NavModifier
 	//NavModifierComponent = CreateDefaultSubobject<UNavModifierComponent>(TEXT("NavModifierComponent"));

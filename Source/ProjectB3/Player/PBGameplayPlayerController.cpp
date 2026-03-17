@@ -20,6 +20,7 @@
 #include "ProjectB3/NavigationSystem/PBPathDisplayComponent.h"
 #include "ProjectB3/UI/PBUIManagerSubsystem.h"
 #include "ProjectB3/UI/PBWidgetBase.h"
+#include "ProjectB3/Interaction/PBInteractorComponent.h"
 
 APBGameplayPlayerController::APBGameplayPlayerController()
 {
@@ -29,6 +30,7 @@ APBGameplayPlayerController::APBGameplayPlayerController()
 	CameraControlComponent = CreateDefaultSubobject<UPBCameraControlComponent>(TEXT("CameraControlComponent"));
 	PathDisplayComponent = CreateDefaultSubobject<UPBPathDisplayComponent>(TEXT("PathDisplayComponent"));
 	TargetingComponent = CreateDefaultSubobject<UPBTargetingComponent>(TEXT("TargetingComponent"));
+	InteractorComponent = CreateDefaultSubobject<UPBInteractorComponent>(TEXT("InteractorComponent"));
 }
 
 void APBGameplayPlayerController::BeginPlay()
@@ -89,11 +91,17 @@ void APBGameplayPlayerController::Tick(float DeltaTime)
 		if (CurrentMode == EPBPlayerControllerMode::TurnMovement || CurrentMode == EPBPlayerControllerMode::FreeMovement)
 		{
 			UpdateHoverPathDisplay(CursorHit);
+			InteractorComponent->TryFocus(CursorHit.GetActor());
 		}
 		if (CurrentMode == EPBPlayerControllerMode::Targeting)
 		{
 			TargetingComponent->UpdateTargetingFromHit(CursorHit);
 		}
+	}
+	else if (CurrentMode == EPBPlayerControllerMode::TurnMovement || CurrentMode == EPBPlayerControllerMode::FreeMovement)
+	{
+		// 커서 히트 없으면 포커스 해제
+		InteractorComponent->ClearFocus();
 	}
 
 	if (CurrentMode == EPBPlayerControllerMode::Moving)
@@ -115,9 +123,13 @@ void APBGameplayPlayerController::SetupInputComponent()
 		return;
 	}
 
-	if (IsValid(MoveCommandAction))
+	if (IsValid(SelectCommandAction))
 	{
-		EnhancedInput->BindAction(MoveCommandAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnSelectCommand);
+		EnhancedInput->BindAction(SelectCommandAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnSelectCommand);
+	}
+	if (IsValid(RightClickAction))
+	{
+		EnhancedInput->BindAction(RightClickAction, ETriggerEvent::Started, this, &APBGameplayPlayerController::OnRightClick);
 	}
 	if (IsValid(CameraZoomAction))
 	{
@@ -157,6 +169,18 @@ void APBGameplayPlayerController::OnPossess(APawn* InPawn)
 
 	// 캐릭터 전환 시 카메라 오프셋을 새 캐릭터 중심으로 리셋
 	CameraControlComponent->ResetOffset();
+
+	// 빙의 폰은 포커스 대상에서 제외
+	if (IsValid(InPawn))
+	{
+		InteractorComponent->SetIgnoreActors({ InPawn });
+	}
+	
+	// 다른 캐릭터가 타겟팅 중이었던 경우 타겟팅 취소
+	if (TargetingComponent->IsTargetingActive())
+	{
+		TargetingComponent->CancelTargeting();
+	}
 }
 
 void APBGameplayPlayerController::OnCameraZoom(const FInputActionValue& Value)
@@ -317,6 +341,13 @@ void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value
 
 	case EPBPlayerControllerMode::TurnMovement:
 	{
+		// 포커스 대상이 있으면 상호작용 위임 후 이동하지 않음
+		if (InteractorComponent->HasFocus())
+		{
+			InteractorComponent->Interact();
+			return;
+		}
+
 		FHitResult HitResult;
 		if (!GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
 		{
@@ -351,6 +382,13 @@ void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value
 	}
 	case EPBPlayerControllerMode::FreeMovement:
 	{
+		// 포커스 대상이 있으면 상호작용 위임 후 이동하지 않음
+		if (InteractorComponent->HasFocus())
+		{
+			InteractorComponent->Interact();
+			return;
+		}
+
 		FHitResult HitResult;
 		if (!GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
 		{

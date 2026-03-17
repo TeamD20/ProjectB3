@@ -120,6 +120,7 @@ void UPBSkillBarViewModel::RefreshAllCooldowns()
 		{
 			FPBSkillSlotData& Slot = Slots[SlotIndex];
 			Slot.bCanActivate = IsValid(PBASC) && PBASC->CanActivateAbilityByHandle(Slot.AbilityHandle);
+			Slot.CooldownRemaining = IsValid(PBASC) ? PBASC->GetRemainingCooldown(Slot.AbilityHandle) : 0;
 			OnSlotUpdated.Broadcast(CategoryIndex, SlotIndex);
 		}
 	};
@@ -200,8 +201,8 @@ void UPBSkillBarViewModel::BuildSlotsFromFilter(
 			: PBAbilityCDO->GetAbilityDisplayName();
 		SlotData.Icon = PBAbilityCDO->GetAbilityIcon();
 		SlotData.AbilityType = PBAbilityCDO->GetAbilityType(AbilityHandle, PBASC->AbilityActorInfo.Get());
-		SlotData.CooldownRemaining = 0;
-		SlotData.bCanActivate = IsValid(PBASC) && PBASC->CanActivateAbilityByHandle(AbilityHandle);
+		SlotData.CooldownRemaining = PBASC->GetRemainingCooldown(AbilityHandle);
+		SlotData.bCanActivate = PBASC->CanActivateAbilityByHandle(AbilityHandle);
 		OutSlots.Add(SlotData);
 	}
 }

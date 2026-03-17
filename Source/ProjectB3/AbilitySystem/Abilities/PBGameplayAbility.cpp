@@ -88,10 +88,16 @@ bool UPBGameplayAbility::CanActivateAbility(
 		return true;
 	}
 
-	// 턴 기반 어빌리티가 이미 실행 중이면 활성화 거부
 	if (const UPBAbilitySystemComponent* PBASC = GetPBAbilitySystemComponentFromActorInfo(ActorInfo))
 	{
+		// 턴 기반 어빌리티가 이미 실행 중이면 활성화 거부
 		if (PBASC->IsTurnAbilityActive())
+		{
+			return false;
+		}
+
+		// 쿨다운 중이면 활성화 거부
+		if (PBASC->HasCooldown(Handle))
 		{
 			return false;
 		}
@@ -137,7 +143,8 @@ void UPBGameplayAbility::EndAbility(
 			// ASC 플래그 해제
 			PBASC->SetTurnAbilityActive(false);
 			
-			if (UPBCombatSystemLibrary::IsInCombat(PBASC))
+			// 전투 중이고 어빌리티가 성공적으로 종료된 경우
+			if (UPBCombatSystemLibrary::IsInCombat(PBASC) && !bWasCancelled)
 			{
 				// 행동 타입별 자원 차감
 				if (AbilityType == EPBAbilityType::Action)
@@ -147,6 +154,12 @@ void UPBGameplayAbility::EndAbility(
 				if (AbilityType == EPBAbilityType::BonusAction)
 				{
 					PBASC->ApplyModToAttribute(UPBTurnResourceAttributeSet::GetBonusActionAttribute(), EGameplayModOp::Additive, -1.f);
+				}
+
+				// 쿨다운 적용
+				if (CooldownTurns > 0)
+				{
+					PBASC->ApplyCooldown(Handle, CooldownTurns);
 				}
 			}
 		}

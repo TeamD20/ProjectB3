@@ -12,3 +12,9 @@ namespace PBTraceChannel
 {
 	constexpr ECollisionChannel Ground = ECollisionChannel::ECC_GameTraceChannel1;
 }
+
+namespace PBStencilValues
+{
+	constexpr int32 INTERACTION = 10;
+	constexpr int32 TARGETING = 20;
+}

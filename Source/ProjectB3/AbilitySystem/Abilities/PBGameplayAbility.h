@@ -71,6 +71,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Ability|AI")
 	EPBAbilityCategory GetAbilityCategory() const { return AbilityCategory; }
 
+	// 턴 기반 쿨다운 턴 수 조회 (0이면 쿨다운 없음)
+	UFUNCTION(BlueprintPure, Category = "Ability|Definition")
+	int32 GetCooldownTurns() const { return CooldownTurns; }
+
 	// AI 스코어링용: Buff/Debuff/CC의 HP 환산 기대값 (디자이너 설정)
 	// 동적 계산이 어려운 효과에 대한 고정 추정값
 	UFUNCTION(BlueprintPure, Category = "Ability|AI")
@@ -187,6 +191,11 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|AI",
 		meta = (ClampMin = "1", ClampMax = "10", EditCondition = "AbilityCategory != EPBAbilityCategory::Attack && AbilityCategory != EPBAbilityCategory::Heal"))
 	int32 EffectDuration = 1;
+
+	// 턴 기반 쿨다운 턴 수 (0이면 쿨다운 없음)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Definition",
+		meta = (ClampMin = "0", ClampMax = "20"))
+	int32 CooldownTurns = 0;
 
 	// 주사위 설정 (주사위 수, 면 수, 판정 유형, 핵심 능력치).
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Definition")

@@ -1,10 +1,14 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBTargetingComponent.h"
+
+#include "AbilitySystemComponent.h"
 #include "IPBCombatTarget.h"
 #include "ProjectB3/ProjectB3.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
+#include "ProjectB3/Utils/PBGameplayStatics.h"
+#include "Components/MeshComponent.h"
 #include "NiagaraComponent.h"
 #include "NiagaraSystem.h"
 
@@ -15,12 +19,12 @@ void UPBTargetingComponent::EnterTargetingMode(const FPBTargetingRequest& Reques
 	SelectedTargets.Empty();
 	bIsHoverValid = false;
 	bIsTargetingActive = true;
-	
+
 	if (bShowingAoETelegraph && CurrentRequest.Mode != EPBTargetingMode::AoE)
 	{
 		HideAoETelegraph();
 	}
-	
+
 	if (!FMath::IsNearlyZero(CurrentRequest.Range))
 	{
 		ShowRangeTelegraph();
@@ -33,6 +37,7 @@ void UPBTargetingComponent::EnterTargetingMode(const FPBTargetingRequest& Reques
 
 void UPBTargetingComponent::ExitTargetingMode()
 {
+	ClearTargetHighlight();
 	bIsTargetingActive = false;
 	CurrentRequest = FPBTargetingRequest();
 	HoverPreviewData = FPBAbilityTargetData();
@@ -58,16 +63,43 @@ void UPBTargetingComponent::UpdateTargetingFromHit(const FHitResult& HitResult)
 	{
 	case EPBTargetingMode::SingleTarget:
 	case EPBTargetingMode::MultiTarget:
-		if (IsValid(HitResult.GetActor()) && HitResult.GetActor()->Implements<UPBCombatTarget>())
+	{
+		AActor* HitActor = HitResult.GetActor();
+		bool bIsValidActor = false;
+		
+		if (IsValid(HitActor) && HitActor->Implements<UPBCombatTarget>())
 		{
-			NewCandidate.TargetActors.Add(HitResult.GetActor());
+			 if (!CurrentRequest.bCanTargetSelf)
+			 {
+				bIsValidActor = CurrentRequest.RequestingAbility.IsValid() ? !CurrentRequest.RequestingAbility->IsTargetSelf(HitActor) : false;
+			 }
+			 else
+			 {
+				bIsValidActor = true;
+			 }
 		}
-		else if (CurrentRequest.bAllowGroundTarget)
+		
+		if (bIsValidActor)
 		{
-			// 액터 미히트 시 지면 위치로 폴백
-			NewCandidate.TargetLocations.Add(HitResult.ImpactPoint);
+			NewCandidate.TargetActors.Add(HitActor);
+
+			// 호버 타겟이 바뀐 경우에만 하이라이트 갱신
+			if (HighlightedTargetActor.Get() != HitActor)
+			{
+				ApplyTargetHighlight(HitActor);
+			}
+		}
+		else
+		{
+			ClearTargetHighlight();
+			if (CurrentRequest.bAllowGroundTarget)
+			{
+				// 액터 미히트 시 지면 위치로 폴백
+				NewCandidate.TargetLocations.Add(HitResult.ImpactPoint);
+			}
 		}
 		break;
+	}
 
 	case EPBTargetingMode::Location:
 	case EPBTargetingMode::AoE:
@@ -186,6 +218,15 @@ void UPBTargetingComponent::CancelTargeting()
 	{
 		return;
 	}
+	
+	// 어빌리티 취소
+	if (UPBGameplayAbility_Targeted* ActivatingAbility = CurrentRequest.RequestingAbility.Get())
+	{
+		if (UAbilitySystemComponent* ASC = ActivatingAbility->GetAbilitySystemComponentFromActorInfo())
+		{
+			ASC->CancelAbilityHandle(ActivatingAbility->GetCurrentAbilitySpecHandle());
+		}
+	}
 
 	ExitTargetingMode();
 	OnTargetCancelled.Broadcast();
@@ -210,7 +251,8 @@ void UPBTargetingComponent::EnsureAoETelegraphComponent()
 	{
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		TelegraphActor = World->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);	
+		TelegraphActor = World->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator,
+		                                           SpawnParams);
 	}
 	if (!IsValid(TelegraphActor))
 	{
@@ -222,7 +264,7 @@ void UPBTargetingComponent::EnsureAoETelegraphComponent()
 	AoETelegraphNiagaraComp->bAutoActivate = false;
 	TelegraphActor->SetRootComponent(AoETelegraphNiagaraComp);
 	AoETelegraphNiagaraComp->RegisterComponent();
-	AoETelegraphNiagaraComp->Deactivate();
+	AoETelegraphNiagaraComp->DeactivateImmediate();
 }
 
 void UPBTargetingComponent::EnsureRangeTelegraphComponent()
@@ -244,7 +286,8 @@ void UPBTargetingComponent::EnsureRangeTelegraphComponent()
 	{
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		TelegraphActor = World->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);	
+		TelegraphActor = World->SpawnActor<AActor>(AActor::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator,
+		                                           SpawnParams);
 	}
 	if (!IsValid(TelegraphActor))
 	{
@@ -256,7 +299,7 @@ void UPBTargetingComponent::EnsureRangeTelegraphComponent()
 	RangeTelegraphNiagaraComp->bAutoActivate = false;
 	TelegraphActor->SetRootComponent(RangeTelegraphNiagaraComp);
 	RangeTelegraphNiagaraComp->RegisterComponent();
-	RangeTelegraphNiagaraComp->Deactivate();
+	RangeTelegraphNiagaraComp->DeactivateImmediate();
 }
 
 void UPBTargetingComponent::ShowAoETelegraph(const FVector& Location)
@@ -274,7 +317,7 @@ void UPBTargetingComponent::ShowAoETelegraph(const FVector& Location)
 	{
 		AoETelegraphNiagaraComp->Activate(true);
 	}
-	
+
 	bShowingAoETelegraph = true;
 }
 
@@ -282,9 +325,9 @@ void UPBTargetingComponent::HideAoETelegraph()
 {
 	if (IsValid(AoETelegraphNiagaraComp) && AoETelegraphNiagaraComp->IsActive())
 	{
-		AoETelegraphNiagaraComp->Deactivate();
+		AoETelegraphNiagaraComp->DeactivateImmediate();
 	}
-	
+
 	bShowingAoETelegraph = false;
 }
 
@@ -329,8 +372,61 @@ void UPBTargetingComponent::HideRangeTelegraph()
 {
 	if (IsValid(RangeTelegraphNiagaraComp) && RangeTelegraphNiagaraComp->IsActive())
 	{
-		RangeTelegraphNiagaraComp->Deactivate();
+		RangeTelegraphNiagaraComp->DeactivateImmediate();
 	}
+}
+
+void UPBTargetingComponent::ApplyTargetHighlight(AActor* Actor)
+{
+	ClearTargetHighlight();
+
+	if (!IsValid(Actor))
+	{
+		return;
+	}
+
+	TArray<UMeshComponent*> Meshes;
+	UPBGameplayStatics::GetAllMeshComponents(Actor, Meshes);
+
+	SavedTargetCustomDepthStates.Reset();
+	for (UMeshComponent* Mesh : Meshes)
+	{
+		if (IsValid(Mesh))
+		{
+			SavedTargetCustomDepthStates.Add(TObjectPtr<UMeshComponent>(Mesh), Mesh->bRenderCustomDepth);
+			Mesh->SetRenderCustomDepth(true);
+			Mesh->SetCustomDepthStencilValue(PBStencilValues::TARGETING);
+		}
+	}
+
+	HighlightedTargetActor = Actor;
+}
+
+void UPBTargetingComponent::ClearTargetHighlight()
+{
+	if (!HighlightedTargetActor.IsValid())
+	{
+		return;
+	}
+
+	TArray<UMeshComponent*> Meshes;
+	UPBGameplayStatics::GetAllMeshComponents(HighlightedTargetActor.Get(), Meshes);
+
+	for (UMeshComponent* Mesh : Meshes)
+	{
+		if (!IsValid(Mesh))
+		{
+			continue;
+		}
+
+		Mesh->SetCustomDepthStencilValue(0);
+
+		const bool* bWasEnabled = SavedTargetCustomDepthStates.Find(TObjectPtr<UMeshComponent>(Mesh));
+		Mesh->SetRenderCustomDepth(bWasEnabled ? *bWasEnabled : false);
+	}
+
+	SavedTargetCustomDepthStates.Reset();
+	HighlightedTargetActor.Reset();
 }
 
 FPBAbilityTargetData UPBTargetingComponent::MakeMultiTargetData() const

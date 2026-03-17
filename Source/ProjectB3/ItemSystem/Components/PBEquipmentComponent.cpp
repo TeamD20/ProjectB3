@@ -149,10 +149,10 @@ bool UPBEquipmentComponent::UnequipItem(EPBEquipSlot Slot, UPBInventoryComponent
 	// GAS에서 이펙트/어빌리티 제거
 	RevokeEquipmentAbilities(Slot);
 
-	// 인벤토리에 복귀
-	UPBItemDataAsset* ItemData = EquippedItem->ItemDataAsset;
+	// 인벤토리에 복귀 (InstanceID 보존)
+	const FPBItemInstance ItemToReturn = *EquippedItem;
 	EquippedItems.Remove(Slot);
-	Inventory->AddItem(ItemData, 1);
+	Inventory->AddItemInstance(ItemToReturn);
 
 	OnEquipmentSlotChanged.Broadcast(Slot);
 
