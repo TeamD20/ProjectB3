@@ -76,9 +76,15 @@ private:
 
 	// AoE텔레그래프 나이아가라 컴포넌트 생성 (최초 1회)
 	void EnsureAoETelegraphComponent();
-	
+
 	// 사거리 나이아가라 컴포넌트 생성 (최초 1회)
 	void EnsureRangeTelegraphComponent();
+
+	// 대상 액터의 모든 메시에 커스텀 뎁스 스텐실 10 적용 (원래 상태 저장)
+	void ApplyTargetHighlight(AActor* Actor);
+
+	// 저장된 상태로 커스텀 뎁스 복원
+	void ClearTargetHighlight();
 	
 public:
 	// AoE 텔레그래프에 사용할 나이아가라 시스템 에셋
@@ -129,4 +135,10 @@ private:
 	TObjectPtr<UNiagaraComponent> RangeTelegraphNiagaraComp;
 	
 	bool bShowingAoETelegraph = false;
+
+	// 현재 하이라이트 중인 호버 타겟
+	TWeakObjectPtr<AActor> HighlightedTargetActor;
+
+	// 하이라이트 진입 전 메시별 RenderCustomDepth 원래 값 (복원용)
+	TMap<TObjectPtr<UMeshComponent>, bool> SavedTargetCustomDepthStates;
 };

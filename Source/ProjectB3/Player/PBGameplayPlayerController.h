@@ -12,6 +12,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnViewDataPropertyChangedSiganture);
 class UPBPathDisplayComponent;
 class UPBCameraControlComponent;
 class UPBTargetingComponent;
+class UPBInteractorComponent;
 class UPBWidgetBase;
 class UInputMappingContext;
 class UInputAction;
@@ -56,6 +57,9 @@ public:
 
 	// 타겟팅 컴포넌트 반환
 	UPBTargetingComponent* GetTargetingComponent() const { return TargetingComponent; }
+
+	// 상호작용 컴포넌트 반환
+	UPBInteractorComponent* GetInteractorComponent() const { return InteractorComponent; }
 
 	// 현재 컨트롤러 모드 조회
 	EPBPlayerControllerMode GetControllerMode() const { return CurrentMode; }
@@ -189,6 +193,10 @@ private:
 	// 타겟팅 세션 수명 관리 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UPBTargetingComponent> TargetingComponent;
+
+	// 상호작용 포커스 및 위임 컴포넌트
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UPBInteractorComponent> InteractorComponent;
 
 	// 현재 PC 입력 모드
 	EPBPlayerControllerMode CurrentMode = EPBPlayerControllerMode::None;

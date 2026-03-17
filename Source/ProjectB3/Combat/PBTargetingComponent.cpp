@@ -5,6 +5,8 @@
 #include "ProjectB3/ProjectB3.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
+#include "ProjectB3/Utils/PBGameplayStatics.h"
+#include "Components/MeshComponent.h"
 #include "NiagaraComponent.h"
 #include "NiagaraSystem.h"
 
@@ -33,6 +35,7 @@ void UPBTargetingComponent::EnterTargetingMode(const FPBTargetingRequest& Reques
 
 void UPBTargetingComponent::ExitTargetingMode()
 {
+	ClearTargetHighlight();
 	bIsTargetingActive = false;
 	CurrentRequest = FPBTargetingRequest();
 	HoverPreviewData = FPBAbilityTargetData();
@@ -58,16 +61,29 @@ void UPBTargetingComponent::UpdateTargetingFromHit(const FHitResult& HitResult)
 	{
 	case EPBTargetingMode::SingleTarget:
 	case EPBTargetingMode::MultiTarget:
-		if (IsValid(HitResult.GetActor()) && HitResult.GetActor()->Implements<UPBCombatTarget>())
+	{
+		AActor* HitActor = HitResult.GetActor();
+		if (IsValid(HitActor) && HitActor->Implements<UPBCombatTarget>())
 		{
-			NewCandidate.TargetActors.Add(HitResult.GetActor());
+			NewCandidate.TargetActors.Add(HitActor);
+
+			// 호버 타겟이 바뀐 경우에만 하이라이트 갱신
+			if (HighlightedTargetActor.Get() != HitActor)
+			{
+				ApplyTargetHighlight(HitActor);
+			}
 		}
-		else if (CurrentRequest.bAllowGroundTarget)
+		else
 		{
-			// 액터 미히트 시 지면 위치로 폴백
-			NewCandidate.TargetLocations.Add(HitResult.ImpactPoint);
+			ClearTargetHighlight();
+			if (CurrentRequest.bAllowGroundTarget)
+			{
+				// 액터 미히트 시 지면 위치로 폴백
+				NewCandidate.TargetLocations.Add(HitResult.ImpactPoint);
+			}
 		}
 		break;
+	}
 
 	case EPBTargetingMode::Location:
 	case EPBTargetingMode::AoE:
@@ -331,6 +347,59 @@ void UPBTargetingComponent::HideRangeTelegraph()
 	{
 		RangeTelegraphNiagaraComp->Deactivate();
 	}
+}
+
+void UPBTargetingComponent::ApplyTargetHighlight(AActor* Actor)
+{
+	ClearTargetHighlight();
+
+	if (!IsValid(Actor))
+	{
+		return;
+	}
+
+	TArray<UMeshComponent*> Meshes;
+	UPBGameplayStatics::GetAllMeshComponents(Actor, Meshes);
+
+	SavedTargetCustomDepthStates.Reset();
+	for (UMeshComponent* Mesh : Meshes)
+	{
+		if (IsValid(Mesh))
+		{
+			SavedTargetCustomDepthStates.Add(TObjectPtr<UMeshComponent>(Mesh), Mesh->bRenderCustomDepth);
+			Mesh->SetRenderCustomDepth(true);
+			Mesh->SetCustomDepthStencilValue(PBStencilValues::TARGETING);
+		}
+	}
+
+	HighlightedTargetActor = Actor;
+}
+
+void UPBTargetingComponent::ClearTargetHighlight()
+{
+	if (!HighlightedTargetActor.IsValid())
+	{
+		return;
+	}
+
+	TArray<UMeshComponent*> Meshes;
+	UPBGameplayStatics::GetAllMeshComponents(HighlightedTargetActor.Get(), Meshes);
+
+	for (UMeshComponent* Mesh : Meshes)
+	{
+		if (!IsValid(Mesh))
+		{
+			continue;
+		}
+
+		Mesh->SetCustomDepthStencilValue(0);
+
+		const bool* bWasEnabled = SavedTargetCustomDepthStates.Find(TObjectPtr<UMeshComponent>(Mesh));
+		Mesh->SetRenderCustomDepth(bWasEnabled ? *bWasEnabled : false);
+	}
+
+	SavedTargetCustomDepthStates.Reset();
+	HighlightedTargetActor.Reset();
 }
 
 FPBAbilityTargetData UPBTargetingComponent::MakeMultiTargetData() const

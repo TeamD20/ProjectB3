@@ -16,6 +16,7 @@
 #include "ProjectB3/ItemSystem/Components/PBInventoryComponent.h"
 #include "ProjectB3/ItemSystem/Data/PBItemDataAsset.h"
 #include "ProjectB3/UI/PBAbilitySystemUIBridge.h"
+#include "ProjectB3/Interaction/PBInteractableComponent.h"
 
 APBCharacterBase::APBCharacterBase()
 {
@@ -36,6 +37,9 @@ APBCharacterBase::APBCharacterBase()
 
 	// 장비 컴포넌트 생성
 	EquipmentComponent = CreateDefaultSubobject<UPBEquipmentComponent>(TEXT("EquipmentComponent"));
+
+	// 상호작용 컴포넌트 생성
+	InteractableComponent = CreateDefaultSubobject<UPBInteractableComponent>(TEXT("InteractableComponent"));
 	
 	// NavModifier
 	//NavModifierComponent = CreateDefaultSubobject<UNavModifierComponent>(TEXT("NavModifierComponent"));
