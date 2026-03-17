@@ -61,11 +61,13 @@ void UPBEnvQueryTest_LineOfSight::RunTest(FEnvQueryInstance& QueryInstance) cons
 		return;
 	}
 
-	// 각 후보 포인트에서 모든 타겟에 대해 LoS 판정
+	// 각 후보 포인트에서 타겟에 대해 LoS 판정
+	// bRequireAllTargets=true: 모든 타겟에 LoS 필요 (Attack용)
+	// bRequireAllTargets=false: 1명이라도 LoS 있으면 통과 (Fallback용)
 	for (FEnvQueryInstance::ItemIterator It(this, QueryInstance); It; ++It)
 	{
 		const FVector CandidatePos = GetItemLocation(QueryInstance, It.GetIndex());
-		bool bHasLoS = true;
+		bool bResult = bRequireAllTargets; // All: true에서 시작, Any: false에서 시작
 
 		for (const AActor* Target : TargetActors)
 		{
@@ -75,14 +77,28 @@ void UPBEnvQueryTest_LineOfSight::RunTest(FEnvQueryInstance& QueryInstance) cons
 			}
 
 			const FPBLoSResult LoSResult = EnvSubsystem->CheckLineOfSight(CandidatePos, Target);
-			if (!LoSResult.bHasLineOfSight)
+
+			if (bRequireAllTargets)
 			{
-				bHasLoS = false;
-				break;
+				// All 모드: 하나라도 실패하면 false
+				if (!LoSResult.bHasLineOfSight)
+				{
+					bResult = false;
+					break;
+				}
+			}
+			else
+			{
+				// Any 모드: 하나라도 성공하면 true
+				if (LoSResult.bHasLineOfSight)
+				{
+					bResult = true;
+					break;
+				}
 			}
 		}
 
-		It.SetScore(TestPurpose, FilterType, bHasLoS, true);
+		It.SetScore(TestPurpose, FilterType, bResult, true);
 	}
 }
 

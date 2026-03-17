@@ -28,4 +28,9 @@ protected:
 	// 시야 판정 대상 Context (기본: Context_Target)
 	UPROPERTY(EditDefaultsOnly, Category = "LineOfSight")
 	TSubclassOf<UEnvQueryContext> TargetContext;
+
+	// true: 모든 타겟에 LoS 필요 (Attack Position — 특정 타겟 공격용)
+	// false: 타겟 중 1명이라도 LoS 있으면 통과 (Fallback Position — 적이 보이기만 하면 됨)
+	UPROPERTY(EditDefaultsOnly, Category = "LineOfSight")
+	bool bRequireAllTargets = true;
 };

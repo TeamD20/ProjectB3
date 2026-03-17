@@ -9,6 +9,7 @@
 #include "ProjectB3/AbilitySystem/Data/PBAbilitySetData.h"
 #include "ProjectB3/AbilitySystem/Data/PBAbilitySystemRegistry.h"
 #include "ProjectB3/Combat/PBCombatManagerSubsystem.h"
+#include "ProjectB3/Combat/PBCombatSystemLibrary.h"
 #include "ProjectB3/ItemSystem/PBEquipmentActor.h"
 #include "ProjectB3/ItemSystem/Components/PBEquipmentComponent.h"
 #include "ProjectB3/ItemSystem/Components/PBInventoryComponent.h"
@@ -244,6 +245,16 @@ void APBCharacterBase::GrantDefaultItems()
 void APBCharacterBase::HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, bool TagExists)
 {
 	// TODO: 캐릭터 상태 태그 변경 처리 
+	if (ChangedTag == PBGameplayTags::Character_State_Dead && TagExists)
+	{
+		if (UPBCombatManagerSubsystem* CombatManager = UPBCombatSystemLibrary::GetCombatManager(this))
+		{
+			if (CombatManager->IsInCombat())
+			{
+				CombatManager->NotifyCombatantIncapacitated(this);
+			}
+		}
+	}
 }
 
 void APBCharacterBase::InitTags()
@@ -338,6 +349,11 @@ void APBCharacterBase::OnActionInterrupted()
 bool APBCharacterBase::IsIncapacitated() const
 {
 	// 기본 구현: 하위 클래스에서 상태이상 시스템 기반으로 override
+	
+	if (AbilitySystemComponent->HasMatchingGameplayTag(PBGameplayTags::Character_State_Dead))
+	{
+		return true;
+	}
 	return false;
 }
 
