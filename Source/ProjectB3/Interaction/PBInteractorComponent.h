@@ -7,8 +7,8 @@
 #include "PBInteractorComponent.generated.h"
 
 class IPBInteractionInterface;
-
 class UPBInteractableComponent;
+class UPBInteractionAction;
 
 /**
  * 상호작용 주체(플레이어)에 부착하는 컴포넌트.
@@ -22,6 +22,9 @@ class PROJECTB3_API UPBInteractorComponent : public UActorComponent
 
 public:
 	UPBInteractorComponent();
+
+	/*~ UActorComponent Interface ~*/
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	/**
 	 * 액터로부터 포커스 대상을 설정한다.
@@ -50,6 +53,12 @@ public:
 	/** 포커스 대상에서 제외할 액터 목록 설정 */
 	void SetIgnoreActors(const TArray<AActor*>& Actors);
 
+	/** 활성 유지형 상호작용을 종료한다 */
+	void EndActiveInteraction();
+
+	/** 활성 유지형 상호작용 추적을 시작한다 */
+	void SetActiveInteraction(UPBInteractionAction* Action, UPBInteractableComponent* Interactable);
+
 public:
 	// 상호작용 최대 거리 (cm)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Interaction", meta = (ClampMin = "0.0"))
@@ -62,4 +71,10 @@ private:
 
 	// 포커스에서 제외할 액터 목록
 	TArray<TWeakObjectPtr<AActor>> IgnoreActors;
+
+	// 현재 유지 중인 상호작용 Action
+	TWeakObjectPtr<UPBInteractionAction> ActiveAction;
+
+	// 현재 유지 중인 InteractableComponent
+	TWeakObjectPtr<UPBInteractableComponent> ActiveInteractable;
 };

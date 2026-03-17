@@ -4,32 +4,39 @@
 #include "GameFramework/Controller.h"
 #include "GameFramework/Pawn.h"
 
-APawn* UPBInteractionAction::GetPawn(const AActor* Interactor) const
+
+AActor* UPBInteractionAction::GetOwner() const
 {
-	// Interactor가 컨트롤러인 경우 빙의 폰 반환
-	if (const AController* Controller = Cast<AController>(Interactor))
+	return GetTypedOuter<AActor>();
+}
+
+APawn* UPBInteractionAction::GetPawn(AActor* Interactor) const
+{
+	APawn* Pawn = Cast<APawn>(Interactor);
+	if (IsValid(Pawn))
+	{
+		return Pawn;
+	}
+	AController* Controller = Cast<AController>(Interactor);
+	if (IsValid(Controller))
 	{
 		return Controller->GetPawn();
 	}
-
-	// Interactor가 폰인 경우 직접 반환
-	return const_cast<APawn*>(Cast<APawn>(Interactor));
+	return nullptr;
 }
 
-AController* UPBInteractionAction::GetController(const AActor* Interactor) const
+AController* UPBInteractionAction::GetController(AActor* Interactor) const
 {
-	// Interactor가 컨트롤러인 경우 직접 반환
-	if (AController* Controller = const_cast<AController*>(Cast<AController>(Interactor)))
+	AController* Controller = Cast<AController>(Interactor);
+	if (IsValid(Controller))
 	{
 		return Controller;
 	}
-
-	// Interactor가 폰인 경우 컨트롤러 반환
-	if (const APawn* Pawn = Cast<APawn>(Interactor))
+	APawn* Pawn = Cast<APawn>(Interactor);
+	if (IsValid(Pawn))
 	{
 		return Pawn->GetController();
 	}
-
 	return nullptr;
 }
 
@@ -42,6 +49,17 @@ bool UPBInteractionAction::CanInteract_Implementation(AActor* Interactor) const
 void UPBInteractionAction::Execute_Implementation(AActor* Interactor)
 {
 	// 기본 구현: 없음. 하위 클래스에서 실제 행동을 구현한다.
+	// 유지형인 경우 활성 상태로 전환
+	if (IsSustained())
+	{
+		bIsActive = true;
+	}
+}
+
+void UPBInteractionAction::EndInteraction_Implementation()
+{
+	// 기본 구현: 활성 상태 해제만 수행. 하위 클래스에서 정리 로직 추가
+	bIsActive = false;
 }
 
 int32 UPBInteractionAction::GetPriority_Implementation() const

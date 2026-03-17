@@ -88,6 +88,21 @@ void UPBInteractableComponent::OnInteract(AActor* Interactor)
 	if (IsValid(BestAction))
 	{
 		BestAction->Execute(Interactor);
+
+		// 유지형 Action이면 활성 Action으로 추적
+		if (BestAction->IsSustained())
+		{
+			ActiveAction = BestAction;
+		}
+	}
+}
+
+void UPBInteractableComponent::EndActiveInteraction()
+{
+	if (IsValid(ActiveAction))
+	{
+		ActiveAction->EndInteraction();
+		ActiveAction = nullptr;
 	}
 }
 

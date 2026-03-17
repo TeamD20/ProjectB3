@@ -11,6 +11,7 @@ namespace PBGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_Class_Magician, "Character.Class.Magician", "마법 전투원");  // 임시
 	// 상태 태그
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Dead, "Character.State.Dead", "캐릭터 사망 상태");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Lootable, "Character.State.Lootable", "루팅 가능 상태. 사망/기절 등 조건 달성 시 부여");
 	
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_State_InCombat, "Combat.State.InCombat", "전투 중 상태 표시");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Hit_Critical, "Combat.Hit.Critical", "치명타 명중 — GE SourceTags로 전달해 ExecCalc/UI에서 참조");

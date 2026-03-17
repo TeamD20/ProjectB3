@@ -7,6 +7,7 @@
 #include "PBInteractableComponent.generated.h"
 
 class UPBInteractionAction;
+class UPBInteractorComponent;
 class UMeshComponent;
 
 /**
@@ -35,11 +36,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Interaction")
 	bool HasAvailableAction(AActor* Interactor) const;
 
+	/** 활성 유지형 상호작용을 종료한다 */
+	void EndActiveInteraction();
+
+	/** 현재 활성 Action 반환 (nullptr이면 비활성) */
+	UPBInteractionAction* GetActiveAction() const { return ActiveAction; }
+
 public:
 	// 이 컴포넌트에 등록된 상호작용 행동 목록
 	UPROPERTY(EditDefaultsOnly, Instanced, BlueprintReadOnly, Category = "Interaction")
 	TArray<TObjectPtr<UPBInteractionAction>> InteractionActions;
-
 
 private:
 	// 현재 포커스 상태 여부
@@ -48,4 +54,8 @@ private:
 	// 포커스 진입 전 메시별 RenderCustomDepth 원래 값 (복원용)
 	UPROPERTY()
 	TMap<TObjectPtr<UMeshComponent>, bool> SavedCustomDepthStates;
+
+	// 현재 활성 유지형 Action
+	UPROPERTY()
+	TObjectPtr<UPBInteractionAction> ActiveAction;
 };
