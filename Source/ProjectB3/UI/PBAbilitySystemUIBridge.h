@@ -79,6 +79,17 @@ private:
 	// SkillBarVM에서 AbilityHandle에 해당하는 슬롯을 찾아 bIsActive를 갱신
 	void UpdateSkillSlotActiveState(FGameplayAbilitySpecHandle Handle, bool bIsActive);
 
+	// === 턴 진행 바인딩 ===
+
+	// ASC의 OnProgressTurnCompleted 콜백을 구독
+	void BindProgressTurnDelegate();
+
+	// OnProgressTurnCompleted 콜백을 해제
+	void UnbindProgressTurnDelegate();
+
+	// 턴 진행 완료 시 SkillBarVM의 쿨다운 상태를 갱신
+	void HandleProgressTurnCompleted();
+
 private:
 	// Attribute 바인딩 단위
 	struct FAttributeBinding
@@ -101,4 +112,7 @@ private:
 	// 어빌리티 콜백 핸들
 	FDelegateHandle AbilityActivatedHandle;
 	FDelegateHandle AbilityEndedHandle;
+
+	// 턴 진행 콜백 핸들
+	FDelegateHandle ProgressTurnHandle;
 };
