@@ -106,6 +106,11 @@ struct FPBSequenceAction
 	// DFS 스코어링에서 사용할 행동 점수 (GetCandidateActions에서 캐싱)
 	// AP/BA 혼합 시퀀스에서 어빌리티별 개별 점수를 보존
 	float CachedActionScore = 0.0f;
+
+	// MultiTarget 분배 시 사용할 타겟 목록 (중복 허용, 예: [A, A, B])
+	// 비어있으면 단일 TargetActor 사용 (SingleTarget/AoE 등)
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Sequence")
+	TArray<TObjectPtr<AActor>> MultiTargetActors;
 };
 
 // DFS 탐색 시 각 분기에서 잔여 자원 상태를 추적하는 컨텍스트.
@@ -209,6 +214,64 @@ struct PROJECTB3_API FPBActionSequence
 	{
 		return Actions.Num() == 0;
 	}
+};
+
+// AoE 어빌리티의 최적 배치 후보 (EvaluateAoEPlacements에서 산출)
+// AI_System.md §FindAoEPlacements 설계 기반:
+//   적 위치 + 클러스터 센트로이드 → 후보 중심점 생성
+//   NetScore = Σ(적 전술 가치) - Σ(아군 패널티) - 자기 패널티
+USTRUCT()
+struct FPBAoECandidate
+{
+	GENERATED_BODY()
+
+	// AoE 중심 좌표 (적 위치 or 클러스터 센트로이드)
+	FVector Center = FVector::ZeroVector;
+
+	// 순수 점수 (적 개별 전술 가치 합산 - 아군 패널티 - 자기 패널티)
+	float NetScore = 0.0f;
+
+	// 어빌리티 정보
+	FGameplayAbilitySpecHandle AbilitySpecHandle;
+	FGameplayTag AbilityTag;
+	float AoERadius = 0.0f;
+	float CastRange = 0.0f;
+
+	// 비용 정보
+	FPBCostData Cost;
+
+	// 주타겟 (사망 검증용 — AoE 범위 내 가장 높은 개별 점수를 받은 적)
+	TObjectPtr<AActor> PrimaryTarget = nullptr;
+
+	// 행동 유형 (Attack, Debuff, Control)
+	EPBActionType ActionType = EPBActionType::Attack;
+};
+
+// MultiTarget 어빌리티의 최적 발사체 분배 후보 (EvaluateMultiTargetPlacements에서 산출)
+// 매직 미사일(3발), 엘드리치 블라스트 등 — 적 최대 4명 기준 전수 열거(H(4,3)=20)
+// NetScore = Σ(타겟별 AdjustedDamage × ThreatMult × RoleMult × ArchetypeWeight)
+// AdjustedDamage는 발사체 N발 누적 데미지에 KillBonus/OverhealPenalty 적용
+USTRUCT()
+struct FPBMultiTargetCandidate
+{
+	GENERATED_BODY()
+
+	// 타겟별 발사체 분배 (중복 허용, 예: [A, A, B] = A에 2발, B에 1발)
+	// ExecuteSequenceTask에서 그대로 Payload.TargetActors로 전달
+	TArray<TObjectPtr<AActor>> TargetDistribution;
+
+	// 순수 점수 (KillBonus/OverhealPenalty 반영, 전술 배수 적용)
+	float NetScore = 0.0f;
+
+	// 어빌리티 정보
+	FGameplayAbilitySpecHandle AbilitySpecHandle;
+	FGameplayTag AbilityTag;
+
+	// 비용 정보
+	FPBCostData Cost;
+
+	// 행동 유형 (Attack, Debuff, Control)
+	EPBActionType ActionType = EPBActionType::Attack;
 };
 
 // 타겟 1명에 대한 ActionScore 평가 결과

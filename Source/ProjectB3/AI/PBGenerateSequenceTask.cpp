@@ -6,6 +6,7 @@
 #include "Engine/World.h"
 #include "EnvironmentQuery/EnvQuery.h"
 #include "PBUtilityClearinghouse.h"
+#include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "StateTreeExecutionContext.h"
 #include "VisualLogger/VisualLogger.h"
@@ -92,8 +93,36 @@ void UPBGenerateSequenceTask::LaunchEQSQueries()
 			AttackMoveActionIndex = i;
 			++PendingEQSQueryCount;
 
+			// Move 다음 행동의 어빌리티 CDO에서 사거리 추출
+			float AbilityMaxRange = 0.f;
+			const int32 NextIdx = i + 1;
+			if (NextIdx < GeneratedSequence.Actions.Num())
+			{
+				const FPBSequenceAction& NextAction =
+					GeneratedSequence.Actions[NextIdx];
+				UAbilitySystemComponent* ASC =
+					UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(
+						SelfActor);
+				if (IsValid(ASC))
+				{
+					const FGameplayAbilitySpec* Spec =
+						ASC->FindAbilitySpecFromHandle(
+							NextAction.AbilitySpecHandle);
+					if (Spec)
+					{
+						const UPBGameplayAbility_Targeted* TargetedCDO =
+							Cast<UPBGameplayAbility_Targeted>(Spec->Ability);
+						if (TargetedCDO)
+						{
+							AbilityMaxRange = TargetedCDO->GetRange();
+						}
+					}
+				}
+			}
+
 			CachedClearinghouse->RunAttackPositionQuery(
 				AttackPositionQuery, SelfActor, Action.TargetActor,
+				AbilityMaxRange,
 				FPBEQSQueryFinished::CreateUObject(
 					this,
 					&UPBGenerateSequenceTask::OnAttackPositionQueryFinished));
@@ -196,32 +225,49 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	const TArray<FPBTargetScore> TopTargets =
 		CachedClearinghouse->GetTopKTargets(3);
 
-	// 5-1. CachedHealScoreMap 채우기 (아군 Heal 평가)
-	// DFS의 GetCandidateActions가 Heal 후보 생성 시 참조.
+	// 5-0.5. AoE 최적 배치 평가 (CachedAoECandidates 채우기)
+	// AoE 어빌리티가 있으면 후보 중심점(적 위치 + 센트로이드)별 NetScore를 산출.
+	// DFS의 GetCandidateActions에서 AoE 후보로 참조.
+	CachedClearinghouse->EvaluateAoEPlacements();
+
+	// 5-0.6. MultiTarget 최적 분배 평가 (CachedMultiTargetCandidates 채우기)
+	// 매직 미사일 등 MultiTarget 어빌리티의 전수 열거(Stars & Bars) + Top-K 필터링.
+	// DFS의 GetCandidateActions에서 MultiTarget 후보로 참조.
+	CachedClearinghouse->EvaluateMultiTargetPlacements();
+
+	// 5-1. CachedHealScoreMap + CachedBuffScoreMap 채우기 (아군 Heal/Buff 평가)
+	// DFS의 GetCandidateActions가 Heal/Buff 후보 생성 시 참조.
 	for (const TWeakObjectPtr<AActor>& WeakAlly :
 	     CachedClearinghouse->GetCachedAllies())
 	{
 		if (WeakAlly.IsValid())
 		{
 			CachedClearinghouse->EvaluateHealScore(WeakAlly.Get());
+			CachedClearinghouse->EvaluateBuffScore(WeakAlly.Get());
 		}
 	}
 
-	// Heal 후보 존재 여부 확인 (적이 없어도 힐할 아군이 있으면 DFS 실행)
-	bool bHasHealCandidates = false;
-	for (const auto& HealPair : CachedClearinghouse->GetCachedHealScores())
+	// Heal/Buff 후보 존재 여부 확인 (적이 없어도 아군 지원이 있으면 DFS 실행)
+	bool bHasAllySupportCandidates = false;
+	auto CheckMapForCandidates = [](const TMap<AActor*, FPBTargetScore>& Map) -> bool
 	{
-		if (HealPair.Value.GetActionScore() > 0.0f)
+		for (const auto& Pair : Map)
 		{
-			bHasHealCandidates = true;
-			break;
+			if (Pair.Value.GetActionScore() > 0.0f)
+			{
+				return true;
+			}
 		}
-	}
+		return false;
+	};
+	bHasAllySupportCandidates =
+		CheckMapForCandidates(CachedClearinghouse->GetCachedHealScores())
+		|| CheckMapForCandidates(CachedClearinghouse->GetCachedBuffScores());
 
-	if (TopTargets.IsEmpty() && !bHasHealCandidates)
+	if (TopTargets.IsEmpty() && !bHasAllySupportCandidates)
 	{
 		UE_LOG(LogPBStateTree, Warning,
-		       TEXT("GenerateSequenceTask: 유효한 타겟도 힐 대상도 없습니다."));
+		       TEXT("GenerateSequenceTask: 유효한 타겟도 아군 지원 대상도 없습니다."));
 
 		// 타겟 없지만 이동력 남아있으면 방어적 후퇴
 		// 단, 현재 위치가 이미 유리하면 Fallback 생략
@@ -272,9 +318,12 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	TArray<FPBSequenceAction> BestPath;
 	float BestScore = 0.0f; // 기준선: "아무것도 안 하기"의 점수
 
+	// B&B 가지치기용 단일 행동 최대 점수 사전 계산 (DFS 내 반복 순회 방지)
+	const float MaxSingleScore = CachedClearinghouse->CalcMaxSingleScore();
+
 	CachedClearinghouse->SearchBestSequence(
 		InitialContext, CurrentPath, 0.0f,
-		BestScore, BestPath, 0);
+		BestScore, BestPath, 0, MaxSingleScore);
 
 	UE_LOG(LogPBStateTree, Display,
 	       TEXT("[DFS] 탐색 완료: BestScore=%.2f, 행동 수=%d"),
@@ -608,6 +657,29 @@ void UPBGenerateSequenceTask::TryAppendActionAfterFallback(
 					CachedClearinghouse->GetCachedHealScores().Find(Candidate.TargetActor))
 			{
 				CandidateScore = HealData->GetActionScore();
+			}
+		}
+		else if (Candidate.ActionType == EPBActionType::Buff && IsValid(Candidate.TargetActor))
+		{
+			if (const FPBTargetScore* BuffData =
+					CachedClearinghouse->GetCachedBuffScores().Find(Candidate.TargetActor))
+			{
+				CandidateScore = BuffData->GetActionScore();
+			}
+		}
+		else if ((Candidate.ActionType == EPBActionType::Debuff
+				|| Candidate.ActionType == EPBActionType::Control)
+			&& IsValid(Candidate.TargetActor))
+		{
+			if (const FPBTargetScore* DebuffData =
+					CachedClearinghouse->GetCachedDebuffScores().Find(Candidate.TargetActor))
+			{
+				CandidateScore = DebuffData->GetActionScore();
+			}
+			if (const FPBTargetScore* ControlData =
+					CachedClearinghouse->GetCachedControlScores().Find(Candidate.TargetActor))
+			{
+				CandidateScore = FMath::Max(CandidateScore, ControlData->GetActionScore());
 			}
 		}
 

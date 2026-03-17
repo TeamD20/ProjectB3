@@ -10,6 +10,7 @@
 #include "GameFramework/Pawn.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
+#include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
 #include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "StateTreeExecutionContext.h"
@@ -273,10 +274,21 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
     break;
   }
   case EPBActionType::Attack:
-  case EPBActionType::Heal: {
-    const bool bIsHeal =
-        CurrentAction.ActionType == EPBActionType::Heal;
-    const TCHAR *ActionLabel = bIsHeal ? TEXT("Heal") : TEXT("Attack");
+  case EPBActionType::Heal:
+  case EPBActionType::Buff:
+  case EPBActionType::Debuff:
+  case EPBActionType::Control: {
+    const TCHAR* ActionLabel = [&]() -> const TCHAR* {
+        switch (CurrentAction.ActionType)
+        {
+        case EPBActionType::Attack:  return TEXT("Attack");
+        case EPBActionType::Heal:    return TEXT("Heal");
+        case EPBActionType::Buff:    return TEXT("Buff");
+        case EPBActionType::Debuff:  return TEXT("Debuff");
+        case EPBActionType::Control: return TEXT("Control");
+        default:                     return TEXT("Unknown");
+        }
+    }();
 
     UE_LOG(LogPBStateTreeExec, Display,
            TEXT("Executing %s on [%s]."), ActionLabel, *TargetName);
@@ -368,11 +380,64 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
     // 어빌리티 실행 타임아웃 시작 (EndMode=Manual에서 EndAbility 미호출 방지)
     AbilityTimeoutRemaining = AbilityTimeoutSeconds;
 
-    // Payload 구성: SingleTarget + 타겟 액터 (Attack=적, Heal=아군)
+    // Payload 구성: 어빌리티의 TargetingMode에 따라 분기
     UPBTargetPayload *ActionPayload = NewObject<UPBTargetPayload>(this);
-    ActionPayload->TargetData.TargetingMode = EPBTargetingMode::SingleTarget;
-    ActionPayload->TargetData.TargetActors.Add(
-        TWeakObjectPtr<AActor>(CurrentAction.TargetActor));
+
+    // AoE 어빌리티 감지: SpecHandle → Spec → CDO의 TargetingMode 확인
+    EPBTargetingMode AbilityTargetingMode = EPBTargetingMode::SingleTarget;
+    float AbilityAoERadius = 0.f;
+    if (const FGameplayAbilitySpec* Spec =
+            CachedASC->FindAbilitySpecFromHandle(ActiveSpecHandle))
+    {
+      if (const UPBGameplayAbility_Targeted* TargetedCDO =
+              Cast<UPBGameplayAbility_Targeted>(Spec->Ability))
+      {
+        AbilityTargetingMode = TargetedCDO->GetTargetingMode();
+        AbilityAoERadius = TargetedCDO->GetAoERadius();
+      }
+    }
+
+    if (AbilityTargetingMode == EPBTargetingMode::AoE)
+    {
+      // AoE: TargetLocation 우선 (센트로이드 배치), 미설정 시 TargetActor 위치 사용
+      const FVector AoECenter = !CurrentAction.TargetLocation.IsZero()
+          ? CurrentAction.TargetLocation
+          : (IsValid(CurrentAction.TargetActor)
+              ? CurrentAction.TargetActor->GetActorLocation()
+              : FVector::ZeroVector);
+      ActionPayload->TargetData.TargetingMode = EPBTargetingMode::AoE;
+      ActionPayload->TargetData.TargetLocations.Add(AoECenter);
+      ActionPayload->TargetData.AoERadius = AbilityAoERadius;
+
+      UE_LOG(LogPBStateTreeExec, Display,
+             TEXT("  AoE Payload: Center=(%s), Radius=%.0f"),
+             *AoECenter.ToCompactString(), AbilityAoERadius);
+    }
+    else if (AbilityTargetingMode == EPBTargetingMode::MultiTarget
+             && !CurrentAction.MultiTargetActors.IsEmpty())
+    {
+      // MultiTarget: 분배 리스트(중복 허용)를 그대로 Payload에 전달
+      ActionPayload->TargetData.TargetingMode = EPBTargetingMode::MultiTarget;
+      for (const TObjectPtr<AActor>& Target : CurrentAction.MultiTargetActors)
+      {
+        if (IsValid(Target))
+        {
+          ActionPayload->TargetData.TargetActors.Add(
+              TWeakObjectPtr<AActor>(Target.Get()));
+        }
+      }
+
+      UE_LOG(LogPBStateTreeExec, Display,
+             TEXT("  MultiTarget Payload: %d명 타겟 (중복 포함)"),
+             ActionPayload->TargetData.TargetActors.Num());
+    }
+    else
+    {
+      // SingleTarget: 기존 패턴 (타겟 액터 전달)
+      ActionPayload->TargetData.TargetingMode = EPBTargetingMode::SingleTarget;
+      ActionPayload->TargetData.TargetActors.Add(
+          TWeakObjectPtr<AActor>(CurrentAction.TargetActor));
+    }
 
     // InternalTryActivateAbility로 어빌리티 직접 발동
     // HandleGameplayEvent 대신 사용 — Blueprint Triggers 설정 불필요
