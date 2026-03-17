@@ -279,5 +279,8 @@ struct PROJECTB3_API FPBTargetingRequest
 	// 액터 미지정 시 지면 위치 타겟 허용 (SingleTarget / MultiTarget 모드에서 유효)
 	UPROPERTY(BlueprintReadWrite, Category = "Ability|Targeting")
 	bool bAllowGroundTarget = false;
+	
+	UPROPERTY(BlueprintReadWrite, Category = "Ability|Targeting")
+	bool bCanTargetSelf = false;
 };
 

@@ -39,6 +39,9 @@ public:
 	// 타겟이 사거리 내에 있는지 검증
 	bool IsTargetInRange(const FVector& SourceLocation, const FPBAbilityTargetData& TargetData) const;
 
+	// 타겟이 어빌리티를 시전한 주체인지 여부
+	bool IsTargetSelf(const AActor* InTargetActor) const;
+	
 	// AoE 반경 조회
 	float GetAoERadius() const { return AoERadius; }
 
@@ -95,6 +98,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Targeting")
 	EPBTargetingMode TargetingMode = EPBTargetingMode::None;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Targeting")
+	bool bCanTargetSelf = false;
+	
 	// 사거리 (0이면 무제한)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability", meta = (ClampMin = "0.0"))
 	float Range = 0.f;

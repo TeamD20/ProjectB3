@@ -137,7 +137,8 @@ void UPBGameplayAbility::EndAbility(
 			// ASC 플래그 해제
 			PBASC->SetTurnAbilityActive(false);
 			
-			if (UPBCombatSystemLibrary::IsInCombat(PBASC))
+			// 전투 중이고 어빌리티가 성공적으로 종료된 경우
+			if (UPBCombatSystemLibrary::IsInCombat(PBASC) && !bWasCancelled)
 			{
 				// 행동 타입별 자원 차감
 				if (AbilityType == EPBAbilityType::Action)
