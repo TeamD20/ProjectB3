@@ -3,6 +3,7 @@
 #include "PBAbilitySystemComponent.h"
 
 #include "Attributes/PBTurnResourceAttributeSet.h"
+#include "Components/PBTurnEffectComponent.h"
 #include "Data/PBAbilitySetData.h"
 #include "ProjectB3/Combat/PBCombatManagerSubsystem.h"
 #include "ProjectB3/Combat/PBCombatSystemLibrary.h"
@@ -145,18 +146,48 @@ void UPBAbilitySystemComponent::ResetMovementResource()
 
 void UPBAbilitySystemComponent::OnProgressTurn()
 {
-	// 이펙트 스택 차감
+	// 스택 차감 대상 핸들을 먼저 수집 (순회 중 컨테이너 변경 방지)
+	TArray<FActiveGameplayEffectHandle> StackedHandles;
 	for (const FActiveGameplayEffectHandle& ActiveGEHandle : ActiveGameplayEffects.GetAllActiveEffectHandles())
 	{
 		if (const UGameplayEffect* EffectCDO = GetGameplayEffectCDO(ActiveGEHandle))
 		{
-			if (EffectCDO->StackingType == EGameplayEffectStackingType::None)
+			if (EffectCDO->StackingType != EGameplayEffectStackingType::None)
 			{
-				continue;
+				StackedHandles.Add(ActiveGEHandle);
 			}
-
-			RemoveActiveGameplayEffect(ActiveGEHandle, 1); // 1스택 차감
 		}
+	}
+
+	// 턴 기반 효과 적용 후 스택 차감
+	for (const FActiveGameplayEffectHandle& ActiveGEHandle : StackedHandles)
+	{
+		const UGameplayEffect* EffectCDO = GetGameplayEffectCDO(ActiveGEHandle);
+		if (!EffectCDO)
+		{
+			continue;
+		}
+		
+		// PBTurnEffectComponent가 있으면 등록된 GE들을 적용 (원본 Spec의 SetByCaller 등 데이터 유지)
+		if (const UPBTurnEffectComponent* TurnEffectComp = EffectCDO->FindComponent<UPBTurnEffectComponent>())
+		{
+			const FActiveGameplayEffect* ActiveGE = ActiveGameplayEffects.GetActiveGameplayEffect(ActiveGEHandle);
+			if (ActiveGE)
+			{
+				for (const TSubclassOf<UGameplayEffect>& EffectClass : TurnEffectComp->GetTurnEffects())
+				{
+					if (const UGameplayEffect* TurnEffectCDO = EffectClass.GetDefaultObject())
+					{
+						FGameplayEffectSpec NewSpec;
+						NewSpec.InitializeFromLinkedSpec(TurnEffectCDO, ActiveGE->Spec);
+						ApplyGameplayEffectSpecToSelf(NewSpec);
+					}
+				}
+			}
+		}
+
+		// 이펙트 스택 차감 (잔여 지속 턴 차감)
+		RemoveActiveGameplayEffect(ActiveGEHandle, 1);
 	}
 
 	// 쿨다운 1턴씩 차감, 0 이하이면 제거
