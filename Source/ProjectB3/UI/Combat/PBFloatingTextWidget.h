@@ -51,11 +51,11 @@ protected:
 	TObjectPtr<UTextBlock> LabelText;
 
 	// 일반 팝업 + 페이드아웃 애니메이션 (BP에서 설정)
-	UPROPERTY(Transient, meta = (BindWidgetAnim))
+	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
 	TObjectPtr<UWidgetAnimation> DefaultAnim;
 
 	// 크리티컬 강조 애니메이션 (BP에서 설정)
-	UPROPERTY(Transient, meta = (BindWidgetAnim))
+	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
 	TObjectPtr<UWidgetAnimation> CriticalAnim;
 
 private:

@@ -15,6 +15,7 @@
 #include "ProjectB3/UI/PartyMemeber/PBPartyMemberListViewModel.h"
 #include "ProjectB3/UI/PartyMemeber/PBPartyMemberViewmodel.h"
 #include "ProjectB3/UI/TurnInfoHUD/PBTurnOrderViewModel.h"
+#include "ProjectB3/UI/CombatLog/PBCombatLogViewModel.h"
 
 void APBGameplayHUD::BeginPlay()
 {
@@ -196,20 +197,34 @@ void APBGameplayHUD::HandleCombatStarted()
 	{
 		VM->SetTurnOrder(UITurnOrder);
 		VM->SetTurnIndex(0);
-		
+
 		CombatManager->OnActiveTurnChanged.RemoveAll(this);
 		CombatManager->OnActiveTurnChanged.AddUObject(this, &ThisClass::HandleActiveTurnChanged);
-		
+
 		CombatManager->OnCombatStateChanged.RemoveAll(this);
-		CombatManager->OnCombatStateChanged.AddWeakLambda(this,[VM](EPBCombatState CombatState)
+		CombatManager->OnCombatStateChanged.AddWeakLambda(this,[VM, this](EPBCombatState CombatState)
 		{
 			if (CombatState == EPBCombatState::CombatEnding)
 			{
 				TArray<FPBTurnOrderEntry> EmptyTurn;
 				VM->SetTurnOrder(EmptyTurn);
 				// TODO: EmptyTurn 전달 대신 Visibilty제어.
+
+				// 전투 종료 로그 메시지 (로그는 유지하여 플레이어가 결과 확인 가능)
+				if (UPBCombatLogViewModel* LogVM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBCombatLogViewModel>(GetOwningPlayerController()))
+				{
+					LogVM->AddSystemMessage(NSLOCTEXT("PBCombatLog", "CombatEnd", "[전투 종료]"));
+				}
 			}
 		});
+	}
+
+	// 전투 시작 로그
+	if (UPBCombatLogViewModel* LogVM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBCombatLogViewModel>(GetOwningPlayerController()))
+	{
+		LogVM->ClearLog();
+		LogVM->SetCurrentRound(1);
+		LogVM->AddSystemMessage(NSLOCTEXT("PBCombatLog", "CombatStart", "[전투 시작]"));
 	}
 }
 
@@ -220,13 +235,13 @@ void APBGameplayHUD::HandleActiveTurnChanged(AActor* Combatant, int32 TurnIndex)
 	{
 		return;
 	}
-	
+
 	// VM TurnIndex 갱신
 	if (UPBTurnOrderViewModel* VM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBTurnOrderViewModel>(PC))
 	{
 		VM->SetTurnIndex(TurnIndex);
 	}
-	
+
 	// 플레이어 턴이 되었을 때 해당 캐릭터로 자동 선택
 	if (APBGameplayPlayerState* PS = PC->GetPlayerState<APBGameplayPlayerState>())
 	{
@@ -235,6 +250,35 @@ void APBGameplayHUD::HandleActiveTurnChanged(AActor* Combatant, int32 TurnIndex)
 		{
 			PS->SelectPartyMember(Combatant);
 		}
+	}
+
+	// 턴 시작 로그
+	if (UPBCombatLogViewModel* LogVM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBCombatLogViewModel>(PC))
+	{
+		// 라운드 순환 감지: TurnIndex가 0으로 돌아오면 다음 라운드
+		if (TurnIndex == 0 && LogVM->GetCurrentRound() > 0)
+		{
+			const int32 NextRound = LogVM->GetCurrentRound() + 1;
+			LogVM->SetCurrentRound(NextRound);
+			LogVM->AddSystemMessage(FText::Format(
+				NSLOCTEXT("PBCombatLog", "RoundStart", "=== 라운드 {0} ==="),
+				FText::AsNumber(NextRound)));
+		}
+
+		LogVM->SetCurrentTurnIndex(TurnIndex);
+
+		FText TurnActorName = NSLOCTEXT("PBCombatLog", "UnknownCombatant", "알 수 없는 전투원");
+		if (IsValid(Combatant))
+		{
+			if (IPBCombatParticipant* CPI = Cast<IPBCombatParticipant>(Combatant))
+			{
+				TurnActorName = CPI->GetCombatDisplayName();
+			}
+		}
+
+		LogVM->AddSystemMessage(FText::Format(
+			NSLOCTEXT("PBCombatLog", "TurnStart", "[{0}의 턴]"),
+			TurnActorName));
 	}
 }
 

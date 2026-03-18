@@ -9,12 +9,14 @@
 #include "GameplayAbilitySpecHandle.h"
 #include "GameplayTagContainer.h"
 #include "ProjectB3/AbilitySystem/Payload/PBFloatingTextPayload.h"
+#include "ProjectB3/UI/CombatLog/PBCombatLogTypes.h"
 #include "PBAbilitySystemUIBridge.generated.h"
 
 class UAbilitySystemComponent;
 class UGameplayAbility;
 class UPBViewModelSubsystem;
 class UPBAbilitySystemComponent;
+class UPBCombatLogViewModel;
 struct FAbilityEndedData;
 struct FOnAttributeChangeData;
 
@@ -114,6 +116,15 @@ private:
 		float Magnitude,
 		const FGameplayTag& MetaTag = FGameplayTag(),
 		const FText& TextOverride = FText::GetEmpty()) const;
+
+	// 컴뱃 로그 엔트리 생성 및 ViewModel에 전달
+	void SendCombatLogEntry(EPBCombatLogType InLogType, const FText& LogText) const;
+
+	// Owner 액터의 전투 표시 이름 반환
+	FText GetTargetDisplayName() const;
+
+	// GESpec의 EffectCauser에서 전투 표시 이름 반환
+	FText GetSourceDisplayName(const FGameplayEffectSpec& Spec) const;
 
 private:
 	// Attribute 바인딩 단위
