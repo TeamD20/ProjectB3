@@ -104,6 +104,12 @@ private:
 	// Clearinghouse EQS 파라미터 오염 방지를 위해 한 번에 하나씩 직렬 실행.
 	void LaunchNextAttackQuery();
 
+	/*~ 행동 순서 최적화 (Phase 2.5) ~*/
+
+	// AoE/원거리 행동을 이동 없이 시전 가능하면 시퀀스 앞쪽으로 재배치.
+	// 이동 후 AoE 자기 피격 방지. DFS 스코어링은 변경하지 않는다.
+	void ReorderActionsForSafety(FPBActionSequence& Sequence) const;
+
 	/*~ Move 분리 헬퍼 (Phase 3) ~*/
 
 	// DFS 결과 시퀀스에서 MovementCost > 0인 행동 앞에

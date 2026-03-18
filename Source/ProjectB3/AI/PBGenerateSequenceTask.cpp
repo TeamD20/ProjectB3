@@ -36,6 +36,107 @@ void UPBGenerateSequenceTask::ResetEQSState()
 	FallbackMoveActionIndex = INDEX_NONE;
 }
 
+/*~ 행동 순서 최적화 (Phase 2.5) ~*/
+
+void UPBGenerateSequenceTask::ReorderActionsForSafety(FPBActionSequence& Sequence) const
+{
+	if (Sequence.Actions.Num() < 2)
+	{
+		return;
+	}
+
+	// AI 현재 위치 (턴 시작 위치)
+	if (!IsValid(SelfActor))
+	{
+		return;
+	}
+	const FVector AILocation = SelfActor->GetActorLocation();
+
+	// AoE 행동이 이동 행동 뒤에 있으면, 이동 후 위치가 AoE 범위 안인지 체크.
+	// 자기 피격 위험이 있고 이동 없이 AoE 시전 가능하면 앞으로 재배치.
+	UAbilitySystemComponent* ASC =
+		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(SelfActor);
+	if (!IsValid(ASC))
+	{
+		return;
+	}
+
+	for (int32 i = 1; i < Sequence.Actions.Num(); ++i)
+	{
+		FPBSequenceAction& Action = Sequence.Actions[i];
+
+		// 이동 비용이 있으면 AoE가 아니라 이동 필요 행동 → 스킵
+		if (Action.Cost.MovementCost > 0.0f)
+		{
+			continue;
+		}
+
+		if (!Action.AbilitySpecHandle.IsValid())
+		{
+			continue;
+		}
+
+		const FGameplayAbilitySpec* Spec = ASC->FindAbilitySpecFromHandle(Action.AbilitySpecHandle);
+		if (!Spec || !Spec->Ability)
+		{
+			continue;
+		}
+
+		const UPBGameplayAbility_Targeted* TargetedCDO =
+			Cast<UPBGameplayAbility_Targeted>(Spec->Ability);
+		if (!TargetedCDO || TargetedCDO->GetTargetingMode() != EPBTargetingMode::AoE)
+		{
+			continue;
+		}
+
+		const float AoERadius = TargetedCDO->GetAoERadius();
+
+		// 앞에 이동이 필요한 행동이 있는지 확인하고,
+		// 이동 후 위치가 AoE 범위 안에 들어가는지 체크
+		for (int32 j = 0; j < i; ++j)
+		{
+			if (Sequence.Actions[j].Cost.MovementCost <= 0.0f)
+			{
+				continue;
+			}
+
+			if (!IsValid(Sequence.Actions[j].TargetActor))
+			{
+				continue;
+			}
+
+			// 이동 후 예상 위치 = 이동 타겟의 위치 (사거리 내로 접근)
+			const FVector PostMoveLocation = Sequence.Actions[j].TargetActor->GetActorLocation();
+			const float PostMoveDistToAoE = FVector::DistXY(PostMoveLocation, Action.TargetLocation);
+
+			if (PostMoveDistToAoE <= AoERadius)
+			{
+				// 이동 후 AoE 자기 피격 위험!
+				// 현재 위치에서 AoE를 시전할 수 있는지 확인
+				const float CastRange = TargetedCDO->GetRange();
+				const float CurrentDistToAoE = FVector::DistXY(AILocation, Action.TargetLocation);
+				const bool bCanCastFromHere =
+					(CastRange <= 0.0f) || (CurrentDistToAoE <= CastRange);
+
+				if (bCanCastFromHere)
+				{
+					UE_LOG(LogPBStateTree, Display,
+						TEXT("[ReorderSafety] AoE 행동 [%d] → [%d] 앞으로 재배치 "
+							"(이동 후 자기 피격 위험: PostMoveDist=%.0f, AoERadius=%.0f, "
+							"현재 위치에서 시전 가능: Dist=%.0f, Range=%.0f)"),
+						i, j, PostMoveDistToAoE, AoERadius,
+						CurrentDistToAoE, CastRange);
+
+					FPBSequenceAction Temp = MoveTemp(Sequence.Actions[i]);
+					Sequence.Actions.RemoveAt(i);
+					Sequence.Actions.Insert(MoveTemp(Temp), j);
+					break;
+				}
+			}
+		}
+	}
+}
+
 /*~ Move 분리 헬퍼 (Phase 3) ~*/
 
 void UPBGenerateSequenceTask::InjectMoveActions(FPBActionSequence& Sequence)
@@ -390,6 +491,9 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	{
 		GeneratedSequence.Actions = BestPath;
 		GeneratedSequence.TotalUtilityScore = BestScore;
+
+		// Phase 2.5: AoE 자기 피격 방지를 위한 행동 순서 최적화
+		ReorderActionsForSafety(GeneratedSequence);
 
 		// Phase 3: DFS 결과에서 MovementCost > 0인 행동 앞에 Move 노드 삽입
 		InjectMoveActions(GeneratedSequence);

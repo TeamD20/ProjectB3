@@ -5,7 +5,6 @@
 #include "CollisionQueryParams.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
-#include "DrawDebugHelpers.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPBLoS, Log, All);
 
@@ -68,23 +67,6 @@ FPBLoSResult UPBLoS_Trace::Execute(
 
 	// 장애물에 막히지 않았으면 시야 확보
 	Result.bHasLineOfSight = !bHit;
-
-	// 디버그 시각화: 녹색 = 시야 확보, 빨간색 = 차단
-#if ENABLE_DRAW_DEBUG
-	if (const UWorld* MutableWorld = const_cast<UWorld*>(World))
-	{
-		const FColor LineColor = Result.bHasLineOfSight ? FColor::Green : FColor::Red;
-		DrawDebugLine(MutableWorld, TraceStart, TraceEnd, LineColor,
-			/*bPersistentLines=*/false, /*LifeTime=*/3.0f, /*DepthPriority=*/0, /*Thickness=*/2.0f);
-
-		// 차단된 경우: 히트 지점에 구체 표시
-		if (bHit)
-		{
-			DrawDebugSphere(MutableWorld, HitResult.ImpactPoint, 15.0f, 8,
-				FColor::Red, false, 3.0f);
-		}
-	}
-#endif
 
 	// 로그: 차단 시 장애물 액터 이름 출력
 	if (bHit)
