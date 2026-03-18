@@ -229,6 +229,11 @@ int32 UPBAbilitySystemComponent::GetRemainingCooldown(const FGameplayAbilitySpec
 	return Remaining ? *Remaining : 0;
 }
 
+void UPBAbilitySystemComponent::NotifyGEExecuted(const FGameplayEffectSpec& Spec, const FGameplayAttribute& Attribute, float EffectiveValue)
+{
+	OnGEExecuted.Broadcast(Spec, Attribute, EffectiveValue);
+}
+
 void UPBAbilitySystemComponent::BeginPlay()
 {
 	Super::BeginPlay();

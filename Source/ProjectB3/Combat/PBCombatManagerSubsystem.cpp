@@ -307,7 +307,14 @@ void UPBCombatManagerSubsystem::SwitchToGroupMember(AActor* TargetMember)
 	int32 FoundIndex = Group.IndexOfByKey(TargetMember);
 	if (FoundIndex != INDEX_NONE)
 	{
+		// 이미 활성 멤버이면 무시
+		if (SharedTurnActiveIndex == FoundIndex)
+		{
+			return;
+		}
+
 		SharedTurnActiveIndex = FoundIndex;
+		
 		// 새로 활성화된 멤버에게 행동 차례 통지
 		if (IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(TargetMember))
 		{

@@ -9,7 +9,7 @@
 #include "Abilities/PBGameplayAbility.h"
 #include "PBAbilityGrantTypes.generated.h"
 
-class UPBGameplayAbility;
+class UGameplayAbility;
 class UGameplayEffect;
 
 // 부여할 어빌리티 1개 정의
@@ -20,7 +20,7 @@ struct FPBAbilityGrantEntry
 
 	// 부여할 어빌리티 클래스
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-	TSubclassOf<UPBGameplayAbility> AbilityClass;
+	TSubclassOf<UGameplayAbility> AbilityClass;
 
 	// 런타임에 Spec에 추가할 동적 태그 (출처 식별, UI 필터링 등)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)

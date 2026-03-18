@@ -134,7 +134,6 @@ public:
 	float GetExpectedDirectDamage(
 		UPARAM(ref) const FGameplayTagContainer& SourceTags,
 		UPARAM(ref) const FGameplayTagContainer& TargetTags) const;
-	
 
 protected:
 	/*~ UGameplayAbility Interface ~*/
