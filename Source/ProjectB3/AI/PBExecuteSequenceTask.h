@@ -85,4 +85,8 @@ protected:
   // CurrentActionIndex가 0으로 초기화된다. 실행 로직에서는 이 로컬 복사본을 사용하여
   // 바인딩 갱신으로부터 실행 상태를 격리한다.
   FPBActionSequence ExecutionSequence;
+
+  // 사망한 타겟을 참조하는 잔여 행동을 일괄 무효화한다.
+  // ActionType=None + Cost=0으로 교체하여 자원을 보존한다.
+  void InvalidateActionsForDeadTarget(const AActor* DeadTarget);
 };

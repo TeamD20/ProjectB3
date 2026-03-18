@@ -120,7 +120,8 @@ private:
 		const FVector& FallbackPos, float RemainingAP, float RemainingBA);
 
 	// 현재 위치가 이미 전술적으로 유리하면 Fallback 이동 불필요 판정.
-	// 사거리 내 적이 있고 + 잔여 이동력이 적으면 true 반환.
+	// ASC 어빌리티 사거리 + 2D 거리 + LoS 확인.
+	// 교전 가능한 적이 있으면 true 반환.
 	bool ShouldSkipFallback(float RemainingMP) const;
 
 	// EQS 후검증에서 Move+Attack이 무효화되었을 때,
