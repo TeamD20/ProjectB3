@@ -4,6 +4,7 @@
 #include "AbilitySystemComponent.h"
 #include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
 #include "ProjectB3/AbilitySystem/Tasks/PBAbilityTask_WaitTargeting.h"
+#include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPBAbilityTargeted, Log, All);
 
@@ -53,7 +54,7 @@ void UPBGameplayAbility_Targeted::ActivateAbility(
 
 		UE_LOG(LogPBAbilityTargeted, Display, TEXT("[%s] AI 경로: Commit 성공 → K2_ExecuteTargetLogic 호출"),
 			*GetName());
-		K2_ExecuteTargetLogic(TargetData);
+		InternalExecuteTargetLogic(TargetData);
 		TryAutoEndAbility(Handle, ActorInfo, ActivationInfo);
 		return;
 	}
@@ -73,7 +74,7 @@ void UPBGameplayAbility_Targeted::ActivateAbility(
 				return;
 			}
 
-			K2_ExecuteTargetLogic(TargetData);
+			InternalExecuteTargetLogic(TargetData);
 			TryAutoEndAbility(Handle, ActorInfo, ActivationInfo);
 			break;
 		}
@@ -91,7 +92,7 @@ void UPBGameplayAbility_Targeted::ActivateAbility(
 				return;
 			}
 
-			K2_ExecuteTargetLogic(TargetData);
+			InternalExecuteTargetLogic(TargetData);
 			TryAutoEndAbility(Handle, ActorInfo, ActivationInfo);
 			break;
 		}
@@ -134,6 +135,17 @@ void UPBGameplayAbility_Targeted::K2_ExecuteTargetLogic_Implementation(const FPB
 
 void UPBGameplayAbility_Targeted::ExecuteTargetLogic(const FPBAbilityTargetData& TargetData)
 {
+}
+
+void UPBGameplayAbility_Targeted::InternalExecuteTargetLogic(const FPBAbilityTargetData& TargetData)
+{
+	// 전술 카메라에 스킬 시전 시작 통지 (AI/플레이어 양쪽 경로 모두 이 함수를 거침)
+	if (UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(GetAbilitySystemComponentFromActorInfo()))
+	{
+		PBASC->NotifyAbilityExecution(this, TargetData);
+	}
+	
+	K2_ExecuteTargetLogic(TargetData);
 }
 
 bool UPBGameplayAbility_Targeted::IsTargetInRange(

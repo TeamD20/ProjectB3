@@ -92,6 +92,6 @@ void UPBTurnPortraitWidget::HandleHPPercentChanged(float InHealthPercent)
 {
 	if (DamageProgressBar)
 	{
-		DamageProgressBar->SetPercent(InHealthPercent);
+		DamageProgressBar->SetPercent(1.0f -InHealthPercent);
 	}
 }
