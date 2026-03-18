@@ -4,10 +4,12 @@
 
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
+#include "Abilities/GameplayAbilityTypes.h"
 #include "Engine/LocalPlayer.h"
 #include "GameFramework/PlayerController.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
+#include "ProjectB3/AbilitySystem/Payload/PBFloatingTextPayload.h"
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
 #include "ProjectB3/Player/PBGameplayPlayerState.h"
 #include "ProjectB3/UI/ViewModel/PBViewModelSubsystem.h"
@@ -15,8 +17,12 @@
 #include "ProjectB3/UI/TurnInfoHUD/PBTurnPortraitViewModel.h"
 #include "ProjectB3/UI/SkillBar/PBSkillBarViewModel.h"
 #include "ProjectB3/UI/Common/PBCombatStatsViewModel.h"
+#include "ProjectB3/UI/CombatLog/PBCombatLogViewModel.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
+#include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
+#include "ProjectB3/AbilitySystem/Data/PBAbilitySystemRegistry.h"
+#include "ProjectB3/Game/PBGameInstance.h"
 
 UPBAbilitySystemUIBridge::UPBAbilitySystemUIBridge()
 {
@@ -40,10 +46,12 @@ void UPBAbilitySystemUIBridge::BeginPlay()
 	BindAttributeDelegates();
 	BindAbilityDelegates();
 	BindProgressTurnDelegate();
+	BindCombatResultDelegates();
 }
 
 void UPBAbilitySystemUIBridge::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	UnbindCombatResultDelegates();
 	UnbindProgressTurnDelegate();
 	UnbindAbilityDelegates();
 	ClearAttributeBindings();
@@ -176,6 +184,14 @@ void UPBAbilitySystemUIBridge::HandleHPChanged(const FOnAttributeChangeData& Dat
 	{
 		float Percent = (CurMaxHP > 0) ? static_cast<float>(CurHP) / static_cast<float>(CurMaxHP) : 0.f;
 		TurnVM->SetHealthPercent(Percent);
+	}
+
+	// HP가 0 이하로 내려가면 사망 로그 전송
+	if (CurHP <= 0)
+	{
+		FText Name = GetTargetDisplayName();
+		SendCombatLogEntry(EPBCombatLogType::Death,
+			FText::Format(NSLOCTEXT("PBCombatLog", "Death", "{0}이(가) 쓰러졌습니다."), Name));
 	}
 }
 
@@ -316,27 +332,59 @@ void UPBAbilitySystemUIBridge::UnbindAbilityDelegates()
 
 void UPBAbilitySystemUIBridge::HandleAbilityActivated(UGameplayAbility* Ability)
 {
-	if (!IsValid(Ability))
+	const UPBGameplayAbility* PBAbility = Cast<UPBGameplayAbility>(Ability);
+	if (!IsValid(PBAbility))
 	{
 		return;
 	}
 
-	FGameplayAbilitySpecHandle Handle = Ability->GetCurrentAbilitySpecHandle();
+	FGameplayAbilitySpecHandle Handle = PBAbility->GetCurrentAbilitySpecHandle();
+	const FGameplayAbilityActorInfo* ActorInfo = PBAbility->GetCurrentActorInfo();
 	UpdateSkillSlotActiveState(Handle, true);
+
+	// 어빌리티 사용 로그
+	if (PBAbility->GetAbilityType(Handle, ActorInfo) != EPBAbilityType::None)
+	{
+		const FText AbilityName = PBAbility->GetAbilityDisplayName();
+		if (!AbilityName.IsEmpty())
+		{
+			SendCombatLogEntry(EPBCombatLogType::System,
+				FText::Format(NSLOCTEXT("PBCombatLog", "AbilityActivated", "{0}이(가) {1}을(를) 사용했습니다."),
+					GetTargetDisplayName(), AbilityName));
+		}
+	}
 }
 
 void UPBAbilitySystemUIBridge::HandleAbilityEnded(const FAbilityEndedData& AbilityEndedData)
 {
-	if (!IsValid(AbilityEndedData.AbilityThatEnded))
+	const UPBGameplayAbility* PBAbility = Cast<UPBGameplayAbility>(AbilityEndedData.AbilityThatEnded);
+	if (!IsValid(PBAbility))
 	{
 		return;
 	}
+	
 
-	FGameplayAbilitySpecHandle Handle = AbilityEndedData.AbilityThatEnded->GetCurrentAbilitySpecHandle();
+	FGameplayAbilitySpecHandle Handle = PBAbility->GetCurrentAbilitySpecHandle();
+	const FGameplayAbilityActorInfo* ActorInfo = PBAbility->GetCurrentActorInfo();
 	UpdateSkillSlotActiveState(Handle, false);
 
 	// 어빌리티 종료 시 쿨다운이 적용되므로 스킬바 쿨다운 갱신
 	HandleProgressTurnCompleted();
+
+	// 취소된 경우에만 로그 출력
+	if (AbilityEndedData.bWasCancelled)
+	{
+		if (PBAbility->GetAbilityType(Handle, ActorInfo) != EPBAbilityType::None)
+		{
+			const FText AbilityName = PBAbility->GetAbilityDisplayName();
+			if (!AbilityName.IsEmpty())
+			{
+				SendCombatLogEntry(EPBCombatLogType::System,
+					FText::Format(NSLOCTEXT("PBCombatLog", "AbilityCancelled", "{0}의 {1}이(가) 취소되었습니다."),
+						GetTargetDisplayName(), AbilityName));
+			}
+		}
+	}
 }
 
 void UPBAbilitySystemUIBridge::UpdateSkillSlotActiveState(FGameplayAbilitySpecHandle Handle, bool bActive)
@@ -434,4 +482,244 @@ void UPBAbilitySystemUIBridge::HandleProgressTurnCompleted()
 	}
 
 	SkillBarVM->RefreshAllCooldowns();
+}
+
+// === 전투 결과 바인딩 ===
+
+void UPBAbilitySystemUIBridge::BindCombatResultDelegates()
+{
+	UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(CachedASC.Get());
+	if (!IsValid(PBASC))
+	{
+		return;
+	}
+
+	GEExecutedHandle = PBASC->OnGEExecuted.AddUObject(this, &ThisClass::HandleGEExecuted);
+	TagUpdatedHandle = PBASC->OnGameplayTagUpdated.AddUObject(this, &ThisClass::HandleTagUpdated);
+}
+
+void UPBAbilitySystemUIBridge::UnbindCombatResultDelegates()
+{
+	UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(CachedASC.Get());
+	if (!IsValid(PBASC))
+	{
+		return;
+	}
+
+	if (GEExecutedHandle.IsValid())
+	{
+		PBASC->OnGEExecuted.Remove(GEExecutedHandle);
+		GEExecutedHandle.Reset();
+	}
+
+	if (TagUpdatedHandle.IsValid())
+	{
+		PBASC->OnGameplayTagUpdated.Remove(TagUpdatedHandle);
+		TagUpdatedHandle.Reset();
+	}
+}
+
+void UPBAbilitySystemUIBridge::HandleGEExecuted(const FGameplayEffectSpec& Spec, const FGameplayAttribute& Attribute, float EffectiveValue)
+{
+	FGameplayTagContainer AssetTags;
+	Spec.GetAllAssetTags(AssetTags);
+	const bool bMiss = AssetTags.HasTag(PBGameplayTags::Combat_Result_Miss);
+	const bool bSaveSuccess = AssetTags.HasTag(PBGameplayTags::Combat_Result_Save_Success);
+	const bool bSaveFailed = AssetTags.HasTag(PBGameplayTags::Combat_Result_Save_Failed);
+
+	bool bCritical = AssetTags.HasTag(PBGameplayTags::Combat_Hit_Critical);
+	if (!bCritical)
+	{
+		FGameplayTagContainer SourceTags = Spec.CapturedSourceTags.GetSpecTags();
+		bCritical = SourceTags.HasTag(PBGameplayTags::Combat_Hit_Critical);
+	}
+
+	if (Attribute == UPBCharacterAttributeSet::GetIncomingDamageAttribute())
+	{
+		if (bMiss)
+		{
+			SendFloatingTextEvent(EPBFloatingTextType::Miss, 0.f);
+			SendCombatLogEntry(EPBCombatLogType::Miss,
+				FText::Format(NSLOCTEXT("PBCombatLog", "Miss", "{0}이(가) 공격을 회피했습니다."), GetTargetDisplayName()));
+			return;
+		}
+
+		if (bSaveSuccess)
+		{
+			SendFloatingTextEvent(EPBFloatingTextType::SaveSuccess, 0.f);
+			SendCombatLogEntry(EPBCombatLogType::SaveSuccess,
+				FText::Format(NSLOCTEXT("PBCombatLog", "SaveSuccess", "{0}이(가) 내성에 성공했습니다."), GetTargetDisplayName()));
+		}
+		else if (bSaveFailed)
+		{
+			SendFloatingTextEvent(EPBFloatingTextType::SaveFailed, 0.f);
+			SendCombatLogEntry(EPBCombatLogType::SaveFailed,
+				FText::Format(NSLOCTEXT("PBCombatLog", "SaveFailed", "{0}이(가) 내성에 실패했습니다."), GetTargetDisplayName()));
+		}
+
+		if (EffectiveValue > 0.f)
+		{
+			SendFloatingTextEvent(
+				EPBFloatingTextType::Damage,
+				-EffectiveValue,
+				bCritical ? PBGameplayTags::Combat_Hit_Critical : FGameplayTag());
+
+			const FText SourceName = GetSourceDisplayName(Spec);
+			const FText TargetName = GetTargetDisplayName();
+			const FText DamageValue = FText::AsNumber(FMath::FloorToInt(EffectiveValue));
+
+			if (bCritical)
+			{
+				SendCombatLogEntry(EPBCombatLogType::CritDamage,
+					FText::Format(NSLOCTEXT("PBCombatLog", "CritDamage", "{0}이(가) {1}에게 치명타! {2}의 피해."),
+						SourceName, TargetName, DamageValue));
+			}
+			else
+			{
+				SendCombatLogEntry(EPBCombatLogType::Damage,
+					FText::Format(NSLOCTEXT("PBCombatLog", "Damage", "{0}이(가) {1}에게 {2}의 피해를 입혔습니다."),
+						SourceName, TargetName, DamageValue));
+			}
+		}
+		return;
+	}
+
+	if (Attribute == UPBCharacterAttributeSet::GetIncomingHealAttribute() && EffectiveValue > 0.f)
+	{
+		SendFloatingTextEvent(EPBFloatingTextType::Heal, EffectiveValue);
+		SendCombatLogEntry(EPBCombatLogType::Heal,
+			FText::Format(NSLOCTEXT("PBCombatLog", "Heal", "{0}이(가) {1} HP를 회복했습니다."),
+				GetTargetDisplayName(), FText::AsNumber(FMath::FloorToInt(EffectiveValue))));
+	}
+}
+
+void UPBAbilitySystemUIBridge::HandleTagUpdated(const FGameplayTag& Tag, bool bTagExists)
+{
+	SendFloatingTextEvent(EPBFloatingTextType::Status, 0.f, Tag);
+
+	// Registry에서 태그의 표시 이름 조회 — 없으면 로그 전송 생략
+	const UPBAbilitySystemRegistry* Registry = UPBGameInstance::GetAbilitySystemRegistry(this);
+	if (!IsValid(Registry))
+	{
+		return;
+	}
+
+	const FText StatusName = Registry->GetTagDisplayName(Tag);
+	if (StatusName.IsEmpty())
+	{
+		return;
+	}
+
+	const FText TargetName = GetTargetDisplayName();
+	if (bTagExists)
+	{
+		SendCombatLogEntry(EPBCombatLogType::Status,
+			FText::Format(NSLOCTEXT("PBCombatLog", "StatusAdded", "{0}에게 {1}이(가) 부여되었습니다."),
+				TargetName, StatusName));
+	}
+	else
+	{
+		SendCombatLogEntry(EPBCombatLogType::Status,
+			FText::Format(NSLOCTEXT("PBCombatLog", "StatusRemoved", "{0}의 {1}이(가) 해제되었습니다."),
+				TargetName, StatusName));
+	}
+}
+
+void UPBAbilitySystemUIBridge::SendFloatingTextEvent(
+	EPBFloatingTextType Type,
+	float Magnitude,
+	const FGameplayTag& MetaTag,
+	const FText& TextOverride) const
+{
+	UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(CachedASC.Get());
+	if (!IsValid(PBASC))
+	{
+		return;
+	}
+
+	UPBFloatingTextPayload* Payload = NewObject<UPBFloatingTextPayload>(GetOwner());
+	if (!IsValid(Payload))
+	{
+		return;
+	}
+
+	Payload->FloatingTextType = Type;
+	Payload->Magnitude = Magnitude;
+	Payload->MetaTag = MetaTag;
+
+	switch (Type)
+	{
+	case EPBFloatingTextType::Damage:
+		break;
+	case EPBFloatingTextType::Heal:
+		break;
+	case EPBFloatingTextType::Miss:
+		Payload->Text = NSLOCTEXT("PBFloatingText", "Miss", "명중 실패");
+		break;
+	case EPBFloatingTextType::SaveSuccess:
+		Payload->Text = NSLOCTEXT("PBFloatingText", "SaveSuccess", "내성 굴림 성공");
+		break;
+	case EPBFloatingTextType::SaveFailed:
+		Payload->Text = NSLOCTEXT("PBFloatingText", "SaveFailed", "내성 굴림 실패");
+		break;
+	case EPBFloatingTextType::Status:
+		Payload->Text = TextOverride;
+		break;
+	default:
+		break;
+	}
+
+	if (!TextOverride.IsEmpty() && Type != EPBFloatingTextType::Status)
+	{
+		Payload->Text = TextOverride;
+	}
+
+	FGameplayEventData EventData;
+	EventData.EventTag = PBGameplayTags::Event_UI_FloatingText;
+	EventData.Instigator = GetOwner();
+	EventData.Target = GetOwner();
+	EventData.OptionalObject = Payload;
+
+	PBASC->HandleGameplayEvent(PBGameplayTags::Event_UI_FloatingText, &EventData);
+}
+
+void UPBAbilitySystemUIBridge::SendCombatLogEntry(EPBCombatLogType InLogType, const FText& LogText) const
+{
+	UPBViewModelSubsystem* VMSubsystem = GetViewModelSubsystem();
+	if (!IsValid(VMSubsystem))
+	{
+		return;
+	}
+
+	UPBCombatLogViewModel* LogVM = VMSubsystem->GetOrCreateGlobalViewModel<UPBCombatLogViewModel>();
+	if (!IsValid(LogVM))
+	{
+		return;
+	}
+
+	LogVM->AddEntry(InLogType, LogText);
+}
+
+FText UPBAbilitySystemUIBridge::GetTargetDisplayName() const
+{
+	if (IPBCombatParticipant* CPI = Cast<IPBCombatParticipant>(GetOwner()))
+	{
+		return CPI->GetCombatDisplayName();
+	}
+
+	return NSLOCTEXT("PBCombatLog", "UnknownTarget", "알 수 없는 대상");
+}
+
+FText UPBAbilitySystemUIBridge::GetSourceDisplayName(const FGameplayEffectSpec& Spec) const
+{
+	AActor* EffectCauser = Spec.GetContext().GetEffectCauser();
+	if (IsValid(EffectCauser))
+	{
+		if (IPBCombatParticipant* CPI = Cast<IPBCombatParticipant>(EffectCauser))
+		{
+			return CPI->GetCombatDisplayName();
+		}
+	}
+
+	return NSLOCTEXT("PBCombatLog", "UnknownSource", "알 수 없는 출처");
 }

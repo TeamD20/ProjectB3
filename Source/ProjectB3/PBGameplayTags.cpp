@@ -15,6 +15,11 @@ namespace PBGameplayTags
 	
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_State_InCombat, "Combat.State.InCombat", "전투 중 상태 표시");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Hit_Critical, "Combat.Hit.Critical", "치명타 명중 — GE SourceTags로 전달해 ExecCalc/UI에서 참조");
+
+	// 전투 결과 태그
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Result_Miss,         "Combat.Result.Miss",         "명중 실패");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Result_Save_Success, "Combat.Result.Save.Success", "내성 성공");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Result_Save_Failed,  "Combat.Result.Save.Failed",  "내성 실패");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Faction_Player, "Combat.Faction.Player", "플레이어 진영");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Faction_Enemy, "Combat.Faction.Enemy", "적 진영");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Faction_Neutral, "Combat.Faction.Neutral", "중립 진영");
@@ -71,4 +76,7 @@ namespace PBGameplayTags
 
 	// SetByCaller 회복 태그
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Heal_Amount, "SetByCaller.Heal.Amount", "회복량");
+
+	// UI 이벤트 태그
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_UI_FloatingText, "Event.UI.FloatingText", "플로팅 텍스트 위젯 표시 이벤트");
 }

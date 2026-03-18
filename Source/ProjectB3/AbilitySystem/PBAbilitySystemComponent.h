@@ -14,6 +14,13 @@ DECLARE_LOG_CATEGORY_EXTERN(LogPBAbilitySystem, Log, All);
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnGameplayTagUpdatedSignature, const FGameplayTag& /**Tag*/, bool /**TagExists*/)
 DECLARE_MULTICAST_DELEGATE(FOnProgressTurnSignature);
 
+// AttributeSet PostGameplayEffectExecute 결과 중계 델리게이트
+// Spec: 태그(Miss/Save/Critical 등) 판별용, Attribute: 어트리뷰트 종류 식별, EffectiveValue: 실제 적용된 수치
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnGEExecutedNotifySignature,
+	const FGameplayEffectSpec& /*Spec*/,
+	const FGameplayAttribute& /*Attribute*/,
+	float /*EffectiveValue*/)
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PROJECTB3_API UPBAbilitySystemComponent : public UAbilitySystemComponent
 {
@@ -65,6 +72,9 @@ public:
 
 	// 해당 어빌리티의 잔여 쿨다운 턴 수 반환 (없으면 0)
 	int32 GetRemainingCooldown(const FGameplayAbilitySpecHandle& Handle) const;
+
+	// AttributeSet::PostGameplayEffectExecute에서 호출
+	void NotifyGEExecuted(const FGameplayEffectSpec& Spec, const FGameplayAttribute& Attribute, float EffectiveValue);
 	
 protected:
 	/*~ UActorComponent Interface ~*/
@@ -82,6 +92,9 @@ public:
 
 	// 턴 진행 완료 시 브로드캐스트 (쿨다운·이펙트 차감 후)
 	FOnProgressTurnSignature OnProgressTurnCompleted;
+
+	// GE 실행 결과 알림 (AttributeSet의 PostGameplayEffectExecuted 처리 결과)
+	FOnGEExecutedNotifySignature OnGEExecuted;
 	
 protected:
 	// 출처별 핸들 캐시

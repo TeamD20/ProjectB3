@@ -3,6 +3,7 @@
 #include "PBCharacterAttributeSet.h"
 #include "GameplayEffectExtension.h"
 #include "ProjectB3/PBGameplayTags.h"
+#include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
 
 UPBCharacterAttributeSet::UPBCharacterAttributeSet()
 {
@@ -47,15 +48,27 @@ void UPBCharacterAttributeSet::PostGameplayEffectExecute(const FGameplayEffectMo
 {
 	Super::PostGameplayEffectExecute(Data);
 
+	UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(GetOwningAbilitySystemComponent());
+
 	if (Data.EvaluatedData.Attribute == GetIncomingDamageAttribute())
 	{
-		// 메타 어트리뷰트 소비 후 HP에 반영
+		// 메타 어트리뷰트 소비
 		const float Damage = GetIncomingDamage();
 		SetIncomingDamage(0.f);
 
-		if (Damage > 0.f)
+		FGameplayTagContainer AssetTags;
+		Data.EffectSpec.GetAllAssetTags(AssetTags);
+		const bool bMiss = AssetTags.HasTag(PBGameplayTags::Combat_Result_Miss);
+
+		if (!bMiss && Damage > 0.f)
 		{
 			SetHP(FMath::Max(0.f, GetHP() - Damage));
+		}
+
+		//GE 실행 결과 중계 (Miss이면 EffectiveValue = 0)
+		if (IsValid(PBASC))
+		{
+			PBASC->NotifyGEExecuted(Data.EffectSpec, Data.EvaluatedData.Attribute, bMiss ? 0.f : Damage);
 		}
 	}
 	else if (Data.EvaluatedData.Attribute == GetIncomingHealAttribute())
@@ -67,12 +80,19 @@ void UPBCharacterAttributeSet::PostGameplayEffectExecute(const FGameplayEffectMo
 		{
 			SetHP(FMath::Min(GetMaxHP(), GetHP() + Heal));
 		}
+
+		// GE 실행 결과 중계
+		if (IsValid(PBASC))
+		{
+			PBASC->NotifyGEExecuted(Data.EffectSpec, Data.EvaluatedData.Attribute, Heal);
+		}
 	}
 	else if (Data.EvaluatedData.Attribute == GetHPAttribute())
 	{
 		SetHP(FMath::Clamp(GetHP(), 0.0f, GetMaxHP()));
 	}
 }
+
 
 void UPBCharacterAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
 {

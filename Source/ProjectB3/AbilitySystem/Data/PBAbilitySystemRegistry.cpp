@@ -7,6 +7,7 @@
 #include "GameplayEffect.h"
 #include "ProjectB3/AbilitySystem/PBAbilityGrantTypes.h"
 #include "ProjectB3/PBGameplayTags.h"
+#include "ProjectB3/UI/CombatLog/PBCombatLogTypes.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPBAbilitySetRegistry, Log, All);
 
@@ -123,4 +124,54 @@ void UPBAbilitySystemRegistry::ApplyStatsInitialization(
 			UE_LOG(LogPBAbilitySetRegistry, Log, TEXT("최종 스탯 초기화 완료"));
 		}
 	}
+}
+
+const FPBGameplayTagDisplayRow* UPBAbilitySystemRegistry::FindTagDisplayRow(const FGameplayTag& Tag) const
+{
+	if (!Tag.IsValid())
+	{
+		return nullptr;
+	}
+
+	UDataTable* Table = GameplayTagDisplayTable.LoadSynchronous();
+	if (!IsValid(Table))
+	{
+		return nullptr;
+	}
+
+	// 전체 행 순회하여 Tag 필드가 일치하는 행 반환
+	TArray<FPBGameplayTagDisplayRow*> AllRows;
+	Table->GetAllRows<FPBGameplayTagDisplayRow>(TEXT("FindTagDisplayRow"), AllRows);
+	for (FPBGameplayTagDisplayRow* Row : AllRows)
+	{
+		if (Row && Row->Tag == Tag)
+		{
+			return Row;
+		}
+	}
+
+	return nullptr;
+}
+
+FText UPBAbilitySystemRegistry::GetTagDisplayName(const FGameplayTag& Tag) const
+{
+	const FPBGameplayTagDisplayRow* Row = FindTagDisplayRow(Tag);
+	if (Row && !Row->DisplayName.IsEmpty())
+	{
+		return Row->DisplayName;
+	}
+
+	UE_LOG(LogPBAbilitySetRegistry, Verbose, TEXT("태그 [%s]에 매핑된 표시 이름이 없습니다."), *Tag.ToString());
+	return FText::GetEmpty();
+}
+
+TSoftObjectPtr<UTexture2D> UPBAbilitySystemRegistry::GetTagIcon(const FGameplayTag& Tag) const
+{
+	const FPBGameplayTagDisplayRow* Row = FindTagDisplayRow(Tag);
+	if (Row)
+	{
+		return Row->Icon;
+	}
+
+	return TSoftObjectPtr<UTexture2D>();
 }

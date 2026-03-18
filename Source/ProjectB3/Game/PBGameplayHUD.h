@@ -31,6 +31,7 @@ private:
 	void HandleSelectedPartyMemberChanged(AActor* SelectedMember);
 	void HandleCombatStarted();
 	void HandleActiveTurnChanged(AActor* Combatant, int32 TurnIndex);
+
 protected:
 	// 게임 시작 시 자동으로 Push할 위젯 클래스 목록
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
