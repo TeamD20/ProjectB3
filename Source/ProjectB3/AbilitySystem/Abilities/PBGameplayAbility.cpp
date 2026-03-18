@@ -83,7 +83,8 @@ bool UPBGameplayAbility::CanActivateAbility(
 	}
 
 	// 타입이 None이면 제한 없이 활성화 허용
-	if (GetAbilityType(Handle, ActorInfo) == EPBAbilityType::None)
+	const EPBAbilityType AbilityType = GetAbilityType(Handle, ActorInfo); 
+	if (AbilityType == EPBAbilityType::None)
 	{
 		return true;
 	}
@@ -100,6 +101,15 @@ bool UPBGameplayAbility::CanActivateAbility(
 		if (PBASC->HasCooldown(Handle))
 		{
 			return false;
+		}
+		
+		if (AbilityType == EPBAbilityType::Action)
+		{
+			return PBASC->GetNumericAttribute(UPBTurnResourceAttributeSet::GetActionAttribute()) >= 0.999999f;
+		}
+		if (AbilityType == EPBAbilityType::BonusAction)
+		{
+			return PBASC->GetNumericAttribute(UPBTurnResourceAttributeSet::GetBonusActionAttribute()) >= 0.999999f;
 		}
 	}
 

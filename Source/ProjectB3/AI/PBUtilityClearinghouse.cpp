@@ -2351,27 +2351,41 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 
 				if (bNeedsMovement)
 				{
+					const float AvailableMP = Context.RemainingMP - Context.AccumulatedMP;
+
 					if (bOutOfRange)
 					{
-						// 사거리 도달 비용 — 타겟 방향으로 접근
+						// 사거리 도달 비용 — 직선 거리 기반 추정
 						const float NeededMovement = FMath::Max(
 							DistToTargetXY - AbilityRange, 1.0f);
+
+						if (NeededMovement > AvailableMP)
+						{
+							continue; // MP가 절대적으로 부족 → 후보 제외
+						}
+
+						// CanReachTarget 성공 시 정확한 비용, 실패 시 남은 MP 전체 사용
+						// (벽 뒤라 직선 도달 불가해도 EQS가 우회 위치를 찾아줌)
 						if (Context.CanReachTarget(Target->GetActorLocation()))
 						{
 							AttackAction.Cost.MovementCost = NeededMovement;
 						}
 						else
 						{
-							continue;  // 도달 불가 → 후보 제외
+							AttackAction.Cost.MovementCost = AvailableMP;
 						}
 					}
 					else
 					{
 						// 사거리 내지만 LoS 차단 → 벽 우회 재배치 비용 (휴리스틱)
 						// 실제 위치는 EQS가 LoS + 사거리 기준으로 결정
+						const float AvailableMPForLoS = Context.RemainingMP - Context.AccumulatedMP;
+						if (AvailableMPForLoS <= 0.f)
+						{
+							continue;  // MP 없어서 LoS 확보 위치로 이동 불가
+						}
 						static constexpr float LoSRepositionEstimate = 100.0f;
-						const float AvailableMP = Context.RemainingMP - Context.AccumulatedMP;
-						AttackAction.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMP);
+						AttackAction.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMPForLoS);
 					}
 				}
 
@@ -2463,20 +2477,29 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 					{
 						const float NeededMovement = FMath::Max(
 							DistToAllyXY - HealRange, 1.0f);
+						const float AvailableMP = Context.RemainingMP - Context.AccumulatedMP;
+						if (NeededMovement > AvailableMP)
+						{
+							continue;  // MP가 절대적으로 부족
+						}
 						if (Context.CanReachTarget(Ally->GetActorLocation()))
 						{
 							HealAction.Cost.MovementCost = NeededMovement;
 						}
 						else
 						{
-							continue;  // 도달 불가
+							HealAction.Cost.MovementCost = AvailableMP;  // EQS가 우회 위치 찾아줌
 						}
 					}
 					else
 					{
+						const float AvailableMPForLoS = Context.RemainingMP - Context.AccumulatedMP;
+						if (AvailableMPForLoS <= 0.f)
+						{
+							continue;  // MP 없어서 LoS 확보 위치로 이동 불가
+						}
 						static constexpr float LoSRepositionEstimate = 100.0f;
-						const float AvailableMP = Context.RemainingMP - Context.AccumulatedMP;
-						HealAction.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMP);
+						HealAction.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMPForLoS);
 					}
 				}
 
@@ -2560,20 +2583,29 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 				if (bEffectOutOfRange)
 				{
 					const float Needed = FMath::Max(DistXY - AbilityRange, 1.0f);
+					const float AvailableMP = Context.RemainingMP - Context.AccumulatedMP;
+					if (Needed > AvailableMP)
+					{
+						continue;  // MP가 절대적으로 부족
+					}
 					if (Context.CanReachTarget(Target->GetActorLocation()))
 					{
 						Action.Cost.MovementCost = Needed;
 					}
 					else
 					{
-						continue;
+						Action.Cost.MovementCost = AvailableMP;  // EQS가 우회 위치 찾아줌
 					}
 				}
 				else
 				{
+					const float AvailableMPForLoS = Context.RemainingMP - Context.AccumulatedMP;
+					if (AvailableMPForLoS <= 0.f)
+					{
+						continue;  // MP 없어서 LoS 확보 위치로 이동 불가
+					}
 					static constexpr float LoSRepositionEstimate = 100.0f;
-					const float AvailableMP = Context.RemainingMP - Context.AccumulatedMP;
-					Action.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMP);
+					Action.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMPForLoS);
 				}
 			}
 
@@ -2606,16 +2638,13 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 		const bool bUnlimitedRange = (AoECandidate.CastRange <= 0.0f);
 		const bool bInRange = bUnlimitedRange || (DistToCenter <= AoECandidate.CastRange);
 
-		// LoS 판정: 현재 위치에서 AoE 중심점까지 시야 확보 여부
-		// (벽 뒤에 AoE를 찍는 것을 방지)
+		// LoS 판정: 현재 위치에서 AoE 주타겟까지 시야 확보 여부
+		bool bAoEHasLoS = true;
 		if (CachedEnvSubsystem && IsValid(AoECandidate.PrimaryTarget))
 		{
 			const FPBLoSResult LoSResult = CachedEnvSubsystem->CheckLineOfSight(
 				Context.LastActionLocation, AoECandidate.PrimaryTarget);
-			if (!LoSResult.bHasLineOfSight)
-			{
-				continue;
-			}
+			bAoEHasLoS = LoSResult.bHasLineOfSight;
 		}
 
 		FPBSequenceAction AoEAction;
@@ -2628,17 +2657,34 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 		AoEAction.Cost.BonusActionCost = AoECandidate.Cost.BonusActionCost;
 		AoEAction.CachedActionScore = AoECandidate.NetScore;
 
-		if (!bInRange && !bUnlimitedRange)
+		const bool bAoEOutOfRange = !bInRange && !bUnlimitedRange;
+		const bool bAoENeedsMovement = bAoEOutOfRange || !bAoEHasLoS;
+
+		if (bAoENeedsMovement)
 		{
-			const float NeededMovement = FMath::Max(
-				DistToCenter - AoECandidate.CastRange, 1.0f);
-			if (Context.CanReachTarget(AoECandidate.Center))
+			if (bAoEOutOfRange)
 			{
-				AoEAction.Cost.MovementCost = NeededMovement;
+				const float NeededMovement = FMath::Max(
+					DistToCenter - AoECandidate.CastRange, 1.0f);
+				if (Context.CanReachTarget(AoECandidate.Center))
+				{
+					AoEAction.Cost.MovementCost = NeededMovement;
+				}
+				else
+				{
+					continue; // 도달 불가
+				}
 			}
 			else
 			{
-				continue; // 도달 불가
+				// 사거리 내지만 LoS 차단 → 벽 우회 재배치 비용 (휴리스틱)
+				const float AvailableMPForLoS = Context.RemainingMP - Context.AccumulatedMP;
+				if (AvailableMPForLoS <= 0.f)
+				{
+					continue;  // MP 없어서 LoS 확보 위치로 이동 불가
+				}
+				static constexpr float LoSRepositionEstimate = 100.0f;
+				AoEAction.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMPForLoS);
 			}
 		}
 
@@ -2683,6 +2729,7 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			UniqueTargets.Add(Target.Get());
 		}
 
+		bool bMTHasLoS = true;
 		for (AActor* Target : UniqueTargets)
 		{
 			if (!IsValid(Target))
@@ -2698,8 +2745,7 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 					Context.LastActionLocation, Target);
 				if (!LoSResult.bHasLineOfSight)
 				{
-					bAllInRange = false;
-					break;
+					bMTHasLoS = false;
 				}
 			}
 
@@ -2733,17 +2779,32 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 		MTAction.MultiTargetActors = MTCandidate.TargetDistribution;
 
 		// 이동 필요 시 MovementCost 부착
-		if (MaxNeededMovement > 0.0f)
+		const bool bMTNeedsMovement = (MaxNeededMovement > 0.0f) || !bMTHasLoS;
+		if (bMTNeedsMovement)
 		{
-			// 가장 먼 타겟 위치로 이동 가능한지 확인
-			if (MTAction.TargetActor && Context.CanReachTarget(
-					MTAction.TargetActor->GetActorLocation()))
+			if (MaxNeededMovement > 0.0f)
 			{
-				MTAction.Cost.MovementCost = MaxNeededMovement;
+				// 사거리 도달 비용
+				if (MTAction.TargetActor && Context.CanReachTarget(
+						MTAction.TargetActor->GetActorLocation()))
+				{
+					MTAction.Cost.MovementCost = MaxNeededMovement;
+				}
+				else
+				{
+					continue; // 도달 불가
+				}
 			}
 			else
 			{
-				continue; // 도달 불가
+				// 사거리 내지만 LoS 차단 → 벽 우회 재배치 비용
+				const float AvailableMPForLoS = Context.RemainingMP - Context.AccumulatedMP;
+				if (AvailableMPForLoS <= 0.f)
+				{
+					continue;  // MP 없어서 LoS 확보 위치로 이동 불가
+				}
+				static constexpr float LoSRepositionEstimate = 100.0f;
+				MTAction.Cost.MovementCost = FMath::Min(LoSRepositionEstimate, AvailableMPForLoS);
 			}
 		}
 
@@ -2983,8 +3044,12 @@ FVector UPBUtilityClearinghouse::CalculateFallbackPosition(
 	}
 	else if (bHasUnlimitedRange)
 	{
-		// 무한 사거리 전용 → 어디서든 공격 가능하므로 안전 거리 기반
-		DesiredDistFromEnemy = NearestEnemyDistXY + RemainingMP * UnlimitedRangeSafetyRatio;
+		// 무한 사거리 전용 → 어디서든 공격 가능하지만 무한 후퇴 방지
+		// 현재 거리가 이미 충분하면 유지, 아니면 최대 1500cm까지만 후퇴
+		static constexpr float UnlimitedMaxKiteDistance = 1500.0f;
+		DesiredDistFromEnemy = FMath::Min(
+			NearestEnemyDistXY + RemainingMP * UnlimitedRangeSafetyRatio,
+			UnlimitedMaxKiteDistance);
 	}
 	else
 	{
@@ -3077,6 +3142,7 @@ void UPBUtilityClearinghouse::RunAttackPositionQuery(
 	AActor* Querier,
 	AActor* TargetActor,
 	float AbilityMaxRange,
+	float IdealDistance,
 	FPBEQSQueryFinished OnFinished)
 {
 	if (!IsValid(QueryAsset) || !IsValid(Querier))
@@ -3088,9 +3154,10 @@ void UPBUtilityClearinghouse::RunAttackPositionQuery(
 		return;
 	}
 
-	// Context_Target이 참조할 타겟 + AbilityRange 테스트가 참조할 사거리 세팅
+	// Context_Target이 참조할 타겟 + AbilityRange/IdealDistance 테스트가 참조할 값 세팅
 	EQSTargetActor = TargetActor;
 	EQSAbilityMaxRange = AbilityMaxRange;
+	EQSIdealDistance = IdealDistance;
 	PendingAttackQueryDelegate = OnFinished;
 
 	// EQS 쿼리 비동기 실행 (SingleResult: 최고 점수 1개만 반환)
@@ -3102,11 +3169,12 @@ void UPBUtilityClearinghouse::RunAttackPositionQuery(
 
 	UE_LOG(LogPBUtility, Display,
 		TEXT("[EQS] AttackPosition 쿼리 실행 시작. "
-		     "Querier=[%s], Target=[%s], MaxRange=%.0f%s"),
+		     "Querier=[%s], Target=[%s], MaxRange=%.0f%s, IdealDist=%.0f"),
 		*Querier->GetName(),
 		IsValid(TargetActor) ? *TargetActor->GetName() : TEXT("None"),
 		AbilityMaxRange,
-		AbilityMaxRange <= 0.f ? TEXT(" (무제한)") : TEXT(""));
+		AbilityMaxRange <= 0.f ? TEXT(" (무제한)") : TEXT(""),
+		IdealDistance);
 }
 
 void UPBUtilityClearinghouse::RunFallbackPositionQuery(
@@ -3164,9 +3232,10 @@ void UPBUtilityClearinghouse::HandleAttackQueryResult(
 			     "DFS 원래 좌표를 유지합니다."));
 	}
 
-	// 타겟 + 사거리 참조 정리 (다음 쿼리와 충돌 방지)
+	// 타겟 + 사거리 + 이상거리 참조 정리 (다음 쿼리와 충돌 방지)
 	EQSTargetActor = nullptr;
 	EQSAbilityMaxRange = 0.f;
+	EQSIdealDistance = 0.f;
 
 	// 콜백 실행 후 바인딩 해제
 	PendingAttackQueryDelegate.ExecuteIfBound(bSuccess, BestLocation);

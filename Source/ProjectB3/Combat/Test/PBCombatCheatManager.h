@@ -84,12 +84,12 @@ private:
 
 	// 스폰된 테스트 캐릭터들
 	UPROPERTY()
-	TArray<TObjectPtr<APBTestCombatCharacter>> SpawnedEnemies;
+	TArray<TObjectPtr<APBAIMockCharacter>> SpawnedEnemies;
 
 	// Status HUD 표시 여부
 	bool bStatusHUDVisible = false;
 	
 public:
 	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<APBTestCombatCharacter> AICharacterClass = APBTestCombatCharacter::StaticClass();
+	TSubclassOf<APBAIMockCharacter> AICharacterClass = APBTestCombatCharacter::StaticClass();
 };

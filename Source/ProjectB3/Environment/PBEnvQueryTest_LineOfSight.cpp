@@ -9,6 +9,9 @@
 
 UPBEnvQueryTest_LineOfSight::UPBEnvQueryTest_LineOfSight()
 {
+	// SimpleGrid(Point) 아이템 호환 명시 — 미설정 시 "can't use test" 제거됨
+	ValidItemType = UEnvQueryItemType_VectorBase::StaticClass();
+
 	// Filter 모드로 기본 설정 — 시야가 없는 후보를 제거
 	FilterType = EEnvTestFilterType::Match;
 	Cost = EEnvTestCost::High;
@@ -50,6 +53,8 @@ void UPBEnvQueryTest_LineOfSight::RunTest(FEnvQueryInstance& QueryInstance) cons
 	// 타겟 Context에서 대상 액터 수집
 	if (!TargetContext)
 	{
+		UE_LOG(LogTemp, Error,
+			TEXT("[EQS] LoS: TargetContext=null — LoS 필터링 스킵!"));
 		return;
 	}
 
@@ -58,8 +63,13 @@ void UPBEnvQueryTest_LineOfSight::RunTest(FEnvQueryInstance& QueryInstance) cons
 
 	if (TargetActors.Num() == 0)
 	{
+		UE_LOG(LogTemp, Error,
+			TEXT("[EQS] LoS: PrepareContext → 타겟 액터 0개 — LoS 필터링 스킵!"));
 		return;
 	}
+
+	int32 PassCount = 0;
+	int32 FailCount = 0;
 
 	// 각 후보 포인트에서 타겟에 대해 LoS 판정
 	// bRequireAllTargets=true: 모든 타겟에 LoS 필요 (Attack용)
@@ -99,7 +109,16 @@ void UPBEnvQueryTest_LineOfSight::RunTest(FEnvQueryInstance& QueryInstance) cons
 		}
 
 		It.SetScore(TestPurpose, FilterType, bResult, true);
+		if (bResult) { ++PassCount; } else { ++FailCount; }
 	}
+
+	UE_LOG(LogTemp, Display,
+		TEXT("[EQS] LoS 결과: 타겟=%d명, RequireAll=%s, "
+		     "통과=%d, 탈락=%d, TestPurpose=%d"),
+		TargetActors.Num(),
+		bRequireAllTargets ? TEXT("true") : TEXT("false"),
+		PassCount, FailCount,
+		static_cast<int32>(TestPurpose));
 }
 
 FText UPBEnvQueryTest_LineOfSight::GetDescriptionTitle() const
