@@ -155,3 +155,20 @@ void UPBPartyMemberViewModel::OnSelected()
 	OnPartyMemberSelected.Broadcast(GetTargetActor());
 }
 
+void UPBPartyMemberViewModel::SetStatusEffects(const TArray<FPBPartyTooltipRowData>& InStatusEffects)
+{
+	StatusEffects = InStatusEffects;
+	if (OnStatusEffectsChanged.IsBound())
+	{
+		OnStatusEffectsChanged.Broadcast();
+	}
+}
+
+void UPBPartyMemberViewModel::SetReactions(const TArray<FPBPartyTooltipRowData>& InReactions)
+{
+	Reactions = InReactions;
+	if (OnReactionsChanged.IsBound())
+	{
+		OnReactionsChanged.Broadcast();
+	}
+}

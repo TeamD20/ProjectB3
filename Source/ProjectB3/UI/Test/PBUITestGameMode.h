@@ -99,6 +99,9 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
 	int32 SpellSlotCount = 12;
 	
+	UPROPERTY(EditAnywhere, Category = "Test|Settings")
+	int32 ResponseSlotCount = 2;
+	
 	// 랜덤으로 부여할 이름들 모음
 	UPROPERTY(EditAnywhere, Category = "Test|Data")
 	TArray<FText> DummyNamesPool;
@@ -114,6 +117,10 @@ protected:
 	// 랜덤으로 부여할 스킬 슬롯 아이콘 모음 (SkillBar 테스트용)
 	UPROPERTY(EditAnywhere, Category = "Test|Data")
 	TArray<TSoftObjectPtr<UTexture2D>> DummySkillIconPool;
+
+	// 대응 스킬 전용 아이콘 모음 (독립된 풀 사용)
+	UPROPERTY(EditAnywhere, Category = "Test|Data")
+	TArray<TSoftObjectPtr<UTexture2D>> DummyResponseIconPool;
 
 private:
 	/* ============================================================ */

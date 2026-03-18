@@ -8,6 +8,8 @@
 
 class UPBPartyMemberViewModel;
 class UTextBlock;
+class UVerticalBox;
+class UPBPartyMemberTooltipRowWidget;
 
 /**
  * Tooltip widget to display additional party member info.
@@ -30,16 +32,33 @@ protected:
 	void HandleNameChanged(FText InName);
 	void HandleLevelChanged(FText InLevel);
 	void HandleClassChanged(FText InClass);
+	// 레벨 + 클래스를 하나의 텍스트 블록에 합쳐 표시
+	void HandleLevelAndClassChanged();
+	
+	void HandleStatusEffectsChanged();
+	void HandleReactionsChanged();
 
 public:
+	// 캐릭터 이름
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* CharacterNameTextBlock;
 
+	// 레벨 + 클래스 합쳐 표시용 (예: "4레벨 클레릭")
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* CharacterLevelTextBlock;
 
+	// 직업 표시 ("Class. X")
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* CharacterClassTextBlock;
+
+	UPROPERTY(meta = (BindWidget))
+	UVerticalBox* StatusEffectsContainer;
+
+	UPROPERTY(meta = (BindWidget))
+	UVerticalBox* ReactionsContainer;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI | Tooltip Widget")
+	TSubclassOf<UPBPartyMemberTooltipRowWidget> RowWidgetClass;
 
 protected:
 	UPROPERTY()

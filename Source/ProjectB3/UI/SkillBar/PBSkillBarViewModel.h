@@ -56,6 +56,7 @@ private:
 		UAbilitySystemComponent* AbilitySystemComponent,
 		const FGameplayTagContainer& RequireTags,
 		const FGameplayTagContainer& IgnoreTags,
+		const FText& InSkillType,
 		TArray<FPBSkillSlotData>& OutSlots) const;
 
 	// 현재 선택된 파티원 ASC를 반환한다.
