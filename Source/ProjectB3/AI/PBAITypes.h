@@ -170,8 +170,7 @@ struct FPBUtilityContext
 };
 
 // 순서가 보장된 다중 행동 시퀀스.
-// Generate에서 채우고, Execute에서 비동기적으로 순차 소비한다.
-// 현재(DFS 미구현)는 Actions에 1개만 들어가므로 기존 동작과 동일.
+// Generate에서 DFS로 채우고, Execute에서 비동기적으로 순차 소비한다.
 USTRUCT(BlueprintType)
 struct PROJECTB3_API FPBActionSequence
 {
@@ -217,9 +216,7 @@ struct PROJECTB3_API FPBActionSequence
 };
 
 // AoE 어빌리티의 최적 배치 후보 (EvaluateAoEPlacements에서 산출)
-// AI_System.md §FindAoEPlacements 설계 기반:
-//   적 위치 + 클러스터 센트로이드 → 후보 중심점 생성
-//   NetScore = Σ(적 전술 가치) - Σ(아군 패널티) - 자기 패널티
+// NetScore = Σ(적 전술 가치) - Σ(아군 패널티) - 자기 패널티
 USTRUCT()
 struct FPBAoECandidate
 {
@@ -248,9 +245,7 @@ struct FPBAoECandidate
 };
 
 // MultiTarget 어빌리티의 최적 발사체 분배 후보 (EvaluateMultiTargetPlacements에서 산출)
-// 매직 미사일(3발), 엘드리치 블라스트 등 — 적 최대 4명 기준 전수 열거(H(4,3)=20)
-// NetScore = Σ(타겟별 AdjustedDamage × ThreatMult × RoleMult × ArchetypeWeight)
-// AdjustedDamage는 발사체 N발 누적 데미지에 KillBonus/OverhealPenalty 적용
+// 전수 열거(Stars & Bars) + KillBonus/OverhealPenalty 적용
 USTRUCT()
 struct FPBMultiTargetCandidate
 {
@@ -275,9 +270,7 @@ struct FPBMultiTargetCandidate
 };
 
 // 타겟 1명에 대한 ActionScore 평가 결과
-// Damage_Process.md 연동 공식:
-//   ActionScore = (ExpectedDamage × TargetModifier + SituationalBonus) × ArchetypeWeight
-// ExpectedDamage는 명중 확률을 내포한 유효 기대 피해량 (GetExpectedXxxDamage 결과)
+// ActionScore = (ExpectedDamage × TargetModifier + SituationalBonus) × ArchetypeWeight
 USTRUCT(BlueprintType)
 struct FPBTargetScore
 {
@@ -287,12 +280,7 @@ struct FPBTargetScore
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
 	TObjectPtr<AActor> TargetActor = nullptr;
 
-	// 유효 기대 피해량 (명중 확률 내포)
-	// DiceSpec.RollType에 따라:
-	//   HitRoll     → GetExpectedHitDamage()
-	//   SavingThrow → GetExpectedSavingThrowDamage()
-	//   None        → GetExpectedDirectDamage()
-	// TODO: Phase 2에서 어빌리티 DiceSpec 기반 실값 연결
+	// 유효 기대 피해량 (명중 확률 내포, DiceSpec 기반)
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
 	float ExpectedDamage = 0.0f;
 
@@ -306,17 +294,14 @@ struct FPBTargetScore
 	FGameplayAbilitySpecHandle AbilitySpecHandle;
 
 	// 대상 보정 배수 (ThreatMultiplier × RoleMultiplier)
-	// TODO: ThreatScore, 역할 시스템 연동 후 실값 교체
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
 	float TargetModifier = 1.0f;
 
-	// 상황 보너스 (환경 상호작용, 처치 보너스 등)
-	// TODO: 지형/CC/집중 파괴 등 상황 시스템 연동
+	// 상황 보너스 (FinishOffBonus 등)
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
 	float SituationalBonus = 0.0f;
 
-	// 아키타입 가중치 (행동 카테고리별)
-	// TODO: Archetype 데이터 에셋 연동
+	// 아키타입 가중치 (DataAsset 카테고리별)
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
 	float ArchetypeWeight = 1.0f;
 
@@ -327,10 +312,7 @@ struct FPBTargetScore
 		return (ExpectedDamage * TargetModifier + SituationalBonus) * ArchetypeWeight;
 	}
 
-	// 이동 비용 기반 점수 (0.0 ~ 1.0)
-	// Phase 3: 거리가 가까울수록 높음 (=이동 낭비 없음)
-	// AI_System.md §7.2 PositionScore 경량화 버전
-	// 공식: 1.0 - (DistToTarget / MaxMovementRange), 클램프 [0.0, 1.0]
+	// 이동 효율성 점수 (0.0 ~ 1.0, 가까울수록 높음)
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Scoring")
 	float MovementScore = 1.0f;
 

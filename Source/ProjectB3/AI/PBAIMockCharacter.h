@@ -28,13 +28,14 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float StartingHP = 100.0f;
-
 	// AI 아키타입 데이터 (공격형/방어형/지원형 등 행동 가중치)
 	// 미설정 시 모든 ArchetypeWeight = 1.0 (균등 가중)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	TObjectPtr<UPBAIArchetypeData> ArchetypeData;
+
+	/*~ APBCharacterBase Interface ~*/
+protected:
+	virtual void HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, bool TagExists) override;
 
 	/*~ IPBCombatParticipant Interface ~*/
 public:

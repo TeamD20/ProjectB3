@@ -1,5 +1,6 @@
 #include "PBAIMockCharacter.h"
 #include "Components/StateTreeComponent.h"
+#include "ProjectB3/PBGameplayTags.h"
 #include "StateTreeEvents.h"
 
 /*~ 생성자 ~*/
@@ -21,6 +22,26 @@ void APBAIMockCharacter::BeginPlay()
 		LogTemp, Display,
 		TEXT("=== PB Mock Character [%s] Spawned and Ready for AI Testing ==="),
 		*GetName());
+}
+
+/*~ APBCharacterBase Interface ~*/
+
+void APBAIMockCharacter::HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, bool TagExists)
+{
+	Super::HandleGameplayTagUpdated(ChangedTag, TagExists);
+
+	// 사망 시 StateTree 즉시 정지 → 진행 중인/대기 중인 AI 행동 차단
+	if (ChangedTag == PBGameplayTags::Character_State_Dead && TagExists)
+	{
+		if (AController* CharacterController = GetController())
+		{
+			if (UStateTreeComponent* StateTreeComp =
+				CharacterController->FindComponentByClass<UStateTreeComponent>())
+			{
+				StateTreeComp->StopLogic(TEXT("Character Dead"));
+			}
+		}
+	}
 }
 
 /*~ IPBCombatParticipant Interface ~*/

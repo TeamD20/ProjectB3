@@ -8,9 +8,7 @@
 #include "PBAIArchetypeData.generated.h"
 
 // AI 캐릭터의 전투 성향(아키타입)을 수치화한 DataAsset.
-// EvaluateActionScore에서 행동 카테고리에 맞는 가중치를 곱하여
-// 동일 상황에서도 아키타입마다 다른 행동을 선택하게 한다.
-// AI Scoring Example.md §7 ArchetypeWeight 테이블 기반.
+// EvaluateActionScore에서 카테고리별 가중치를 곱하여 아키타입마다 다른 행동을 선택하게 한다.
 UCLASS(BlueprintType)
 class PROJECTB3_API UPBAIArchetypeData : public UPrimaryDataAsset
 {
