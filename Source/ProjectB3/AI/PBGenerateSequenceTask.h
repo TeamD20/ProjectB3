@@ -104,6 +104,12 @@ private:
 	// Clearinghouse EQS 파라미터 오염 방지를 위해 한 번에 하나씩 직렬 실행.
 	void LaunchNextAttackQuery();
 
+	/*~ 행동 순서 최적화 (Phase 2.5) ~*/
+
+	// AoE/원거리 행동을 이동 없이 시전 가능하면 시퀀스 앞쪽으로 재배치.
+	// 이동 후 AoE 자기 피격 방지. DFS 스코어링은 변경하지 않는다.
+	void ReorderActionsForSafety(FPBActionSequence& Sequence) const;
+
 	/*~ Move 분리 헬퍼 (Phase 3) ~*/
 
 	// DFS 결과 시퀀스에서 MovementCost > 0인 행동 앞에
@@ -112,12 +118,6 @@ private:
 	static void InjectMoveActions(FPBActionSequence& Sequence);
 
 	/*~ Fallback 헬퍼 ~*/
-
-	// Fallback 이동 후 잔여 AP로 단일 행동(Attack/Heal) 탐색.
-	// FallbackPos에서의 사거리 기준으로 후보를 검색하고,
-	// 최고 점수 행동을 GeneratedSequence에 추가한다.
-	void TryAppendActionAfterFallback(
-		const FVector& FallbackPos, float RemainingAP, float RemainingBA);
 
 	// 현재 위치가 이미 전술적으로 유리하면 Fallback 이동 불필요 판정.
 	// ASC 어빌리티 사거리 + 2D 거리 + LoS 확인.

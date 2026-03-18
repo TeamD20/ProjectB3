@@ -1,6 +1,6 @@
 // PBAITestGameMode.h
 // AI 턴 시스템 테스트 전용 GameMode.
-// 레벨에 배치된 PBAIMockCharacter + Player를 자동 수집하여 전투를 개시한다.
+// 레벨에 배치된 PBEnemyCharacter + Player를 자동 수집하여 전투를 개시한다.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -13,7 +13,7 @@ class PROJECTB3_API APBAITestGameMode : public APBGameplayGameMode {
   GENERATED_BODY()
 
 public:
-  // 레벨의 모든 PBAIMockCharacter + Player Pawn을 자동 수집하여 전투 시작.
+  // 레벨의 모든 PBEnemyCharacter + Player Pawn을 자동 수집하여 전투 시작.
   // 레벨 BP BeginPlay에서 호출하거나, bAutoStart = true 시 자동 실행.
   UFUNCTION(BlueprintCallable, Category = "AI|Test")
   void AutoStartTestCombat();

@@ -9,7 +9,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "NavigationSystem.h"
 #include "PBAIArchetypeData.h"
-#include "PBAIMockCharacter.h"
+#include "ProjectB3/Characters/PBEnemyCharacter.h"
 #include "PBGE_RestoreTurnResources.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
@@ -196,12 +196,12 @@ void UPBUtilityClearinghouse::RestoreTurnResources(AActor *CurrentTurnActor)
 		return;
 	}
 
-	APBAIMockCharacter *MockChar = Cast<APBAIMockCharacter>(CurrentTurnActor);
-	if (!MockChar)
+	APBEnemyCharacter *EnemyChar = Cast<APBEnemyCharacter>(CurrentTurnActor);
+	if (!EnemyChar)
 		return;
 
-	UAbilitySystemComponent *ASC = MockChar->GetAbilitySystemComponent();
-	const UPBTurnResourceAttributeSet *AttrSet = MockChar->GetTurnResourceAttributeSet();
+	UAbilitySystemComponent *ASC = EnemyChar->GetAbilitySystemComponent();
+	const UPBTurnResourceAttributeSet *AttrSet = EnemyChar->GetTurnResourceAttributeSet();
 
 	if (ASC && AttrSet)
 	{
@@ -338,7 +338,7 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor)
 
 	// --- ArchetypeWeight 사전 캐싱 (카테고리별 1회 Cast) ---
 	CachedArchetypeWeights = FPBCachedArchetypeWeights();
-	if (const APBAIMockCharacter* AIChar = Cast<APBAIMockCharacter>(CurrentTurnActor))
+	if (const APBEnemyCharacter* AIChar = Cast<APBEnemyCharacter>(CurrentTurnActor))
 	{
 		if (const UPBAIArchetypeData* Archetype = AIChar->ArchetypeData)
 		{
