@@ -33,6 +33,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	TObjectPtr<UPBAIArchetypeData> ArchetypeData;
 
+	/*~ APBCharacterBase Interface ~*/
+protected:
+	virtual void HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, bool TagExists) override;
+
 	/*~ IPBCombatParticipant Interface ~*/
 public:
 	UFUNCTION(BlueprintCallable, Category = "Combat")
