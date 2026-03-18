@@ -1,4 +1,4 @@
-// PBAIMockCharacter.h
+// PBEnemyCharacter.h
 #pragma once
 
 #include "AbilitySystemInterface.h"
@@ -6,22 +6,22 @@
 #include "GameFramework/Character.h"
 #include "ProjectB3/Characters/PBCharacterBase.h"
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
-#include "PBAIMockCharacter.generated.h"
+#include "PBEnemyCharacter.generated.h"
 
 
 class UPBAIArchetypeData;
 
-// AI 샌드박스 구동 전용 더미 캐릭터 클래스.
+// AI 제어 적 캐릭터 클래스.
 // CombatIdentity(ClassTag, FactionTag)를 에디터에서 설정하면
 // 부모 APBCharacterBase의 GrantInitialAbilities()가 Registry 기반으로 어빌리티를 부여한다.
 UCLASS()
-class APBAIMockCharacter : public APBCharacterBase
+class APBEnemyCharacter : public APBCharacterBase
 {
 	GENERATED_BODY()
 
 	/*~ 생성자 ~*/
 public:
-	APBAIMockCharacter();
+	APBEnemyCharacter();
 
 	/*~ AActor Interface ~*/
 protected:

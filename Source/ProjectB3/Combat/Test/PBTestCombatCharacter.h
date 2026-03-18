@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ProjectB3/AI/PBAIMockCharacter.h"
+#include "ProjectB3/Characters/PBEnemyCharacter.h"
 #include "ProjectB3/Characters/PBCharacterBase.h"
 #include "PBTestCombatCharacter.generated.h"
 
@@ -12,7 +12,7 @@
  * 테스트 시 IPBCombatParticipant의 동작을 검증하기 위한 최소 구현.
  */
 UCLASS()
-class PROJECTB3_API APBTestCombatCharacter : public APBAIMockCharacter
+class PROJECTB3_API APBTestCombatCharacter : public APBEnemyCharacter
 {
 	GENERATED_BODY()
 

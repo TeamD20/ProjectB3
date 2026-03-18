@@ -36,6 +36,107 @@ void UPBGenerateSequenceTask::ResetEQSState()
 	FallbackMoveActionIndex = INDEX_NONE;
 }
 
+/*~ 행동 순서 최적화 (Phase 2.5) ~*/
+
+void UPBGenerateSequenceTask::ReorderActionsForSafety(FPBActionSequence& Sequence) const
+{
+	if (Sequence.Actions.Num() < 2)
+	{
+		return;
+	}
+
+	// AI 현재 위치 (턴 시작 위치)
+	if (!IsValid(SelfActor))
+	{
+		return;
+	}
+	const FVector AILocation = SelfActor->GetActorLocation();
+
+	// AoE 행동이 이동 행동 뒤에 있으면, 이동 후 위치가 AoE 범위 안인지 체크.
+	// 자기 피격 위험이 있고 이동 없이 AoE 시전 가능하면 앞으로 재배치.
+	UAbilitySystemComponent* ASC =
+		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(SelfActor);
+	if (!IsValid(ASC))
+	{
+		return;
+	}
+
+	for (int32 i = 1; i < Sequence.Actions.Num(); ++i)
+	{
+		FPBSequenceAction& Action = Sequence.Actions[i];
+
+		// 이동 비용이 있으면 AoE가 아니라 이동 필요 행동 → 스킵
+		if (Action.Cost.MovementCost > 0.0f)
+		{
+			continue;
+		}
+
+		if (!Action.AbilitySpecHandle.IsValid())
+		{
+			continue;
+		}
+
+		const FGameplayAbilitySpec* Spec = ASC->FindAbilitySpecFromHandle(Action.AbilitySpecHandle);
+		if (!Spec || !Spec->Ability)
+		{
+			continue;
+		}
+
+		const UPBGameplayAbility_Targeted* TargetedCDO =
+			Cast<UPBGameplayAbility_Targeted>(Spec->Ability);
+		if (!TargetedCDO || TargetedCDO->GetTargetingMode() != EPBTargetingMode::AoE)
+		{
+			continue;
+		}
+
+		const float AoERadius = TargetedCDO->GetAoERadius();
+
+		// 앞에 이동이 필요한 행동이 있는지 확인하고,
+		// 이동 후 위치가 AoE 범위 안에 들어가는지 체크
+		for (int32 j = 0; j < i; ++j)
+		{
+			if (Sequence.Actions[j].Cost.MovementCost <= 0.0f)
+			{
+				continue;
+			}
+
+			if (!IsValid(Sequence.Actions[j].TargetActor))
+			{
+				continue;
+			}
+
+			// 이동 후 예상 위치 = 이동 타겟의 위치 (사거리 내로 접근)
+			const FVector PostMoveLocation = Sequence.Actions[j].TargetActor->GetActorLocation();
+			const float PostMoveDistToAoE = FVector::DistXY(PostMoveLocation, Action.TargetLocation);
+
+			if (PostMoveDistToAoE <= AoERadius)
+			{
+				// 이동 후 AoE 자기 피격 위험!
+				// 현재 위치에서 AoE를 시전할 수 있는지 확인
+				const float CastRange = TargetedCDO->GetRange();
+				const float CurrentDistToAoE = FVector::DistXY(AILocation, Action.TargetLocation);
+				const bool bCanCastFromHere =
+					(CastRange <= 0.0f) || (CurrentDistToAoE <= CastRange);
+
+				if (bCanCastFromHere)
+				{
+					UE_LOG(LogPBStateTree, Display,
+						TEXT("[ReorderSafety] AoE 행동 [%d] → [%d] 앞으로 재배치 "
+							"(이동 후 자기 피격 위험: PostMoveDist=%.0f, AoERadius=%.0f, "
+							"현재 위치에서 시전 가능: Dist=%.0f, Range=%.0f)"),
+						i, j, PostMoveDistToAoE, AoERadius,
+						CurrentDistToAoE, CastRange);
+
+					FPBSequenceAction Temp = MoveTemp(Sequence.Actions[i]);
+					Sequence.Actions.RemoveAt(i);
+					Sequence.Actions.Insert(MoveTemp(Temp), j);
+					break;
+				}
+			}
+		}
+	}
+}
+
 /*~ Move 분리 헬퍼 (Phase 3) ~*/
 
 void UPBGenerateSequenceTask::InjectMoveActions(FPBActionSequence& Sequence)
@@ -347,15 +448,11 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 				GeneratedSequence.Actions.Add(FallbackAction);
 
 				UE_LOG(LogPBStateTree, Display,
-				       TEXT("[Fallback] 타겟 없음, 방어적 후퇴만 실행. "
+				       TEXT("[Fallback] 타겟 없음, 엄폐 후퇴 실행. "
 					       "목표: (%s)"),
 				       *FallbackPos.ToCompactString());
 
-				// Fallback 이동 후 잔여 AP로 단일 행동 탐색
-				TryAppendActionAfterFallback(
-					FallbackPos, CurrentAction, CurrentBonusAction);
-
-				// EQS로 후퇴 위치 최적화 시도
+				// EQS로 후퇴 위치 최적화 시도 (CoverScore 기반 엄폐 위치 탐색)
 				LaunchEQSQueries();
 
 				return EStateTreeRunStatus::Running;
@@ -394,6 +491,9 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	{
 		GeneratedSequence.Actions = BestPath;
 		GeneratedSequence.TotalUtilityScore = BestScore;
+
+		// Phase 2.5: AoE 자기 피격 방지를 위한 행동 순서 최적화
+		ReorderActionsForSafety(GeneratedSequence);
 
 		// Phase 3: DFS 결과에서 MovementCost > 0인 행동 앞에 Move 노드 삽입
 		InjectMoveActions(GeneratedSequence);
@@ -449,13 +549,9 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 				GeneratedSequence.Actions.Add(FallbackAction);
 
 				UE_LOG(LogPBStateTree, Display,
-				       TEXT("[Fallback] DFS 행동 없음, 방어적 후퇴만 실행. "
+				       TEXT("[Fallback] DFS 행동 없음, 엄폐 후퇴 실행. "
 					       "목표: (%s)"),
 				       *FallbackPos.ToCompactString());
-
-				// Fallback 이동 후 잔여 AP로 단일 행동 탐색
-				TryAppendActionAfterFallback(
-					FallbackPos, CurrentAction, CurrentBonusAction);
 			}
 		}
 
@@ -800,154 +896,15 @@ void UPBGenerateSequenceTask::CheckAllEQSComplete()
 
 /*~ Fallback 헬퍼 ~*/
 
-void UPBGenerateSequenceTask::TryAppendActionAfterFallback(
-	const FVector& FallbackPos, float RemainingAP, float RemainingBA)
-{
-	// Fallback 이동 후 잔여 AP가 있으면, 새 위치 기준으로 단일 행동 탐색
-	if (RemainingAP < 1.0f || !IsValid(CachedClearinghouse))
-	{
-		return;
-	}
-
-	// Fallback 위치 기준 컨텍스트 구성 (이동력 0 = 추가 이동 불허)
-	FPBUtilityContext PostFallbackCtx;
-	PostFallbackCtx.RemainingAP = RemainingAP;
-	PostFallbackCtx.RemainingBA = RemainingBA;
-	PostFallbackCtx.RemainingMP = 0.0f;
-	PostFallbackCtx.AccumulatedMP = 0.0f;
-	PostFallbackCtx.LastActionLocation = FallbackPos;
-
-	// 후보 행동 생성 (사거리 내 Attack/Heal만, Move는 MP=0이라 불가)
-	TArray<FPBSequenceAction> Candidates =
-		CachedClearinghouse->GetCandidateActions(PostFallbackCtx);
-
-	if (Candidates.IsEmpty())
-	{
-		UE_LOG(LogPBStateTree, Display,
-			TEXT("[Fallback+Action] Fallback 위치에서 실행 가능한 행동 없음."));
-		return;
-	}
-
-	// 최고 점수 행동 선택
-	FPBSequenceAction* BestAction = nullptr;
-	float BestActionScore = -1.0f;
-
-	for (FPBSequenceAction& Candidate : Candidates)
-	{
-		// Move는 스킵 (Fallback 후 추가 이동 무의미)
-		if (Candidate.ActionType == EPBActionType::Move)
-		{
-			continue;
-		}
-
-		float CandidateScore = 0.0f;
-		if (Candidate.ActionType == EPBActionType::Attack && IsValid(Candidate.TargetActor))
-		{
-			if (const FPBTargetScore* ScoreData =
-					CachedClearinghouse->GetCachedActionScores().Find(Candidate.TargetActor))
-			{
-				CandidateScore = ScoreData->GetActionScore();
-			}
-		}
-		else if (Candidate.ActionType == EPBActionType::Heal && IsValid(Candidate.TargetActor))
-		{
-			if (const FPBTargetScore* HealData =
-					CachedClearinghouse->GetCachedHealScores().Find(Candidate.TargetActor))
-			{
-				CandidateScore = HealData->GetActionScore();
-			}
-		}
-		else if (Candidate.ActionType == EPBActionType::Buff && IsValid(Candidate.TargetActor))
-		{
-			if (const FPBTargetScore* BuffData =
-					CachedClearinghouse->GetCachedBuffScores().Find(Candidate.TargetActor))
-			{
-				CandidateScore = BuffData->GetActionScore();
-			}
-		}
-		else if ((Candidate.ActionType == EPBActionType::Debuff
-				|| Candidate.ActionType == EPBActionType::Control)
-			&& IsValid(Candidate.TargetActor))
-		{
-			if (const FPBTargetScore* DebuffData =
-					CachedClearinghouse->GetCachedDebuffScores().Find(Candidate.TargetActor))
-			{
-				CandidateScore = DebuffData->GetActionScore();
-			}
-			if (const FPBTargetScore* ControlData =
-					CachedClearinghouse->GetCachedControlScores().Find(Candidate.TargetActor))
-			{
-				CandidateScore = FMath::Max(CandidateScore, ControlData->GetActionScore());
-			}
-		}
-
-		if (CandidateScore > BestActionScore)
-		{
-			BestActionScore = CandidateScore;
-			BestAction = &Candidate;
-		}
-	}
-
-	if (BestAction && BestActionScore > 0.0f)
-	{
-		GeneratedSequence.Actions.Add(*BestAction);
-
-		const TCHAR* TypeStr =
-			BestAction->ActionType == EPBActionType::Attack ? TEXT("Attack") :
-			BestAction->ActionType == EPBActionType::Heal   ? TEXT("Heal") :
-			TEXT("Other");
-
-		UE_LOG(LogPBStateTree, Display,
-			TEXT("[Fallback+Action] Fallback 후 %s 추가 (타겟: %s, Score: %.2f)"),
-			TypeStr,
-			IsValid(BestAction->TargetActor) ? *BestAction->TargetActor->GetName() : TEXT("N/A"),
-			BestActionScore);
-	}
-}
-
 bool UPBGenerateSequenceTask::ShouldSkipFallback(float RemainingMP) const
 {
-	// 현재 위치에서 교전 가능한 적이 있으면 Fallback 생략
-	// 판정: (1) ASC 최대 공격 사거리 추출 → (2) 2D 거리 비교 → (3) LoS 확인
+	// 엄폐 후퇴 전략: 이미 모든 적에게 안 보이면(완전 엄폐) 후퇴 불필요.
+	// 적 1명이라도 LoS가 있으면 후퇴 시도.
 	if (!IsValid(SelfActor) || !IsValid(CachedClearinghouse))
 	{
 		return false;
 	}
 
-	// 1. ASC에서 최대 공격 사거리 추출
-	float BestAttackRange = 0.0f;
-	bool bHasTargetedAbility = false;
-	bool bHasUnlimitedRange = false;
-
-	if (const UAbilitySystemComponent* ASC =
-			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(SelfActor))
-	{
-		for (const FGameplayAbilitySpec& Spec : ASC->GetActivatableAbilities())
-		{
-			if (const UPBGameplayAbility_Targeted* TargetedCDO =
-					Cast<UPBGameplayAbility_Targeted>(Spec.Ability))
-			{
-				bHasTargetedAbility = true;
-				const float Range = TargetedCDO->GetRange();
-				if (Range > 0.f)
-				{
-					BestAttackRange = FMath::Max(BestAttackRange, Range);
-				}
-				else
-				{
-					bHasUnlimitedRange = true;
-				}
-			}
-		}
-	}
-
-	// Targeted 어빌리티 없음 → 공격 수단이 없으므로 skip 불가
-	if (!bHasTargetedAbility)
-	{
-		return false;
-	}
-
-	// 2. 사거리 + LoS 판정
 	const FVector CurrentPos = SelfActor->GetActorLocation();
 
 	UPBEnvironmentSubsystem* EnvSubsystem = nullptr;
@@ -956,6 +913,12 @@ bool UPBGenerateSequenceTask::ShouldSkipFallback(float RemainingMP) const
 		EnvSubsystem = GI->GetSubsystem<UPBEnvironmentSubsystem>();
 	}
 
+	if (!EnvSubsystem)
+	{
+		return false;
+	}
+
+	// 모든 적에 대해 LoS 확인 — 1명이라도 보이면 엄폐 필요 → skip하지 않음
 	for (const auto& Pair : CachedClearinghouse->GetCachedActionScores())
 	{
 		if (!IsValid(Pair.Key))
@@ -963,39 +926,22 @@ bool UPBGenerateSequenceTask::ShouldSkipFallback(float RemainingMP) const
 			continue;
 		}
 
-		// 2D 거리 비교 (무한 사거리면 거리 체크 자동 통과)
-		if (!bHasUnlimitedRange)
+		const FPBLoSResult LoSResult =
+			EnvSubsystem->CheckLineOfSight(CurrentPos, Pair.Key);
+		if (LoSResult.bHasLineOfSight)
 		{
-			const float DistXY = FVector::DistXY(
-				CurrentPos, Pair.Key->GetActorLocation());
-			if (DistXY > BestAttackRange)
-			{
-				continue;
-			}
+			UE_LOG(LogPBStateTree, Display,
+				TEXT("[Fallback] 적(%s)에게 노출 중 → 엄폐 후퇴 필요. 잔여 MP=%.0f"),
+				*Pair.Key->GetName(),
+				RemainingMP);
+			return false;
 		}
-
-		// LoS 확인 (서브시스템 없으면 거리만으로 판정)
-		if (EnvSubsystem)
-		{
-			const FPBLoSResult LoSResult =
-				EnvSubsystem->CheckLineOfSight(CurrentPos, Pair.Key);
-			if (!LoSResult.bHasLineOfSight)
-			{
-				continue;
-			}
-		}
-
-		// 사거리 내 + LoS 확보된 적 발견
-		UE_LOG(LogPBStateTree, Display,
-			TEXT("[Fallback Skip] 사거리(%.0f) 내 LoS 확보 적(%s) 존재 "
-			     "→ Fallback 생략. 잔여 MP=%.0f"),
-			bHasUnlimitedRange ? -1.0f : BestAttackRange,
-			*Pair.Key->GetName(),
-			RemainingMP);
-		return true;
 	}
 
-	return false;
+	// 모든 적에게 안 보임 → 이미 엄폐 상태, 후퇴 불필요
+	UE_LOG(LogPBStateTree, Display,
+		TEXT("[Fallback Skip] 현재 위치에서 모든 적에게 비가시 → 이미 엄폐 상태. 후퇴 생략."));
+	return true;
 }
 
 void UPBGenerateSequenceTask::TryReplaceInvalidatedActions(
