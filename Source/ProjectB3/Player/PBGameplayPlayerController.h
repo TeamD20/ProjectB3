@@ -13,6 +13,7 @@ class UPBPathDisplayComponent;
 class UPBCameraControlComponent;
 class UPBTargetingComponent;
 class UPBInteractorComponent;
+class UPBTacticalCameraComponent;
 class UPBWidgetBase;
 class UInputMappingContext;
 class UInputAction;
@@ -54,6 +55,9 @@ public:
 
 	// 카메라 제어 컴포넌트 반환
 	UPBCameraControlComponent* GetCameraControl() const { return CameraControlComponent; }
+
+	// 전술 카메라 컴포넌트 반환
+	UPBTacticalCameraComponent* GetTacticalCameraComponent() const { return TacticalCameraComponent; }
 
 	// 타겟팅 컴포넌트 반환
 	UPBTargetingComponent* GetTargetingComponent() const { return TargetingComponent; }
@@ -197,6 +201,10 @@ private:
 	// 상호작용 포커스 및 위임 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UPBInteractorComponent> InteractorComponent;
+
+	// 전술 카메라 제어 컴포넌트
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UPBTacticalCameraComponent> TacticalCameraComponent;
 
 	// 현재 PC 입력 모드
 	EPBPlayerControllerMode CurrentMode = EPBPlayerControllerMode::None;
