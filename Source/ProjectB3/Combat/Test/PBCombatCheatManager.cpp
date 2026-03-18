@@ -1,6 +1,9 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBCombatCheatManager.h"
+
+#include "AbilitySystemBlueprintLibrary.h"
+#include "AbilitySystemComponent.h"
 #include "PBTestCombatCharacter.h"
 #include "ProjectB3/Combat/PBCombatManagerSubsystem.h"
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
@@ -92,12 +95,12 @@ void UPBCombatCheatManager::SpawnTestEnemies(int32 NumEnemies)
 	for (int32 i = 0; i < NumEnemies; ++i)
 	{
 		FVector SpawnLoc = SpawnOrigin + FVector(i * 300.0f, 300.0f, 10.0f);
-		APBTestCombatCharacter* Enemy = World->SpawnActor<APBTestCombatCharacter>(
+		APBAIMockCharacter* Enemy = World->SpawnActor<APBAIMockCharacter>(
 			AICharacterClass, SpawnLoc, FRotator::ZeroRotator, SpawnParams);
 
 		if (IsValid(Enemy))
 		{
-			Enemy->TestInitiativeModifier = FMath::RandRange(0, 3);
+			// Enemy->TestInitiativeModifier = FMath::RandRange(0, 3);
 			SpawnedEnemies.Add(Enemy);
 		}
 	}
@@ -105,7 +108,7 @@ void UPBCombatCheatManager::SpawnTestEnemies(int32 NumEnemies)
 
 void UPBCombatCheatManager::CleanupTestCharacters()
 {
-	for (TObjectPtr<APBTestCombatCharacter>& Character : SpawnedEnemies)
+	for (TObjectPtr<APBAIMockCharacter>& Character : SpawnedEnemies)
 	{
 		if (IsValid(Character))
 		{
@@ -290,7 +293,7 @@ void UPBCombatCheatManager::Combat_Start(int32 NumEnemies)
 	{
 		Combatants.Add(PartyMember);
 	}
-	for (APBTestCombatCharacter* Character : SpawnedEnemies)
+	for (APBAIMockCharacter* Character : SpawnedEnemies)
 	{
 		Combatants.Add(Character);
 	}
@@ -358,7 +361,7 @@ void UPBCombatCheatManager::Combat_Kill()
 		return;
 	}
 
-	for (APBTestCombatCharacter* Character : SpawnedEnemies)
+	for (APBAIMockCharacter* Character : SpawnedEnemies)
 	{
 		if (IsValid(Character) && Character->GetFactionTag() == PBGameplayTags::Combat_Faction_Enemy
 			&& !Character->IsIncapacitated())
@@ -366,7 +369,10 @@ void UPBCombatCheatManager::Combat_Kill()
 			DebugUtils::Print(FString::Printf(TEXT("[Combat.Kill] [%s] 행동불능 처리"),
 				*Character->GetCombatDisplayName().ToString()),
 				true, FColor::Orange, CombatCheatKeys::Kill);
-			Character->SetIncapacitated(true);
+			if (auto ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Character))
+			{
+				ASC->AddLooseGameplayTag(PBGameplayTags::Character_State_Dead);
+			}
 			CombatManager->NotifyCombatantIncapacitated(Character);
 			RefreshStatusHUD();
 			return;
@@ -401,7 +407,7 @@ void UPBCombatCheatManager::Combat_Reaction()
 
 	FGameplayTag CurrentFaction = CurrentParticipant->GetFactionTag();
 
-	for (APBTestCombatCharacter* Character : SpawnedEnemies)
+	for (APBAIMockCharacter* Character : SpawnedEnemies)
 	{
 		if (!IsValid(Character) || Character == CurrentActor)
 		{
