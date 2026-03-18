@@ -34,6 +34,7 @@ void UDialogueGraphNode_Base::GetNodeContextMenuActions(UToolMenu* Menu, UGraphN
 
 FLinearColor UDialogueGraphNode_Base::GetNodeTitleColor() const
 {
+	// 참여자 색상을 노드 타이틀 색으로 반환
 	if (IsValid(DialogueNode))
 	{
 		if (UDialogueData* DialogueData = GetDialogueData())

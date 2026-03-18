@@ -17,12 +17,6 @@ public:
 	virtual FString GetWorldCentricTabPrefix() const override { return FString("DialogueDataEditor"); }
 
 	virtual void OnClose() override;
-
-	void OnDataDetailViewPropertiesUpdated(const FPropertyChangedEvent& Event);
-	void OnNodeDetailViewPropertiesUpdated(const FPropertyChangedEvent& Event);
-
-	
-	void OnWorkingAssetPreSave();
 	
 	/*~ FWorkflowCentricApplication Interface ~*/
 	virtual void RegisterTabSpawners(const TSharedRef<FTabManager>& InTabManager) override;
@@ -43,6 +37,11 @@ protected:
 	void UpdateEditorGraphFromWorkingAsset();
 	UDialogueGraphNode_Base* GetSelectedNode(const FGraphPanelSelectionSet& Selection);
 
+private:
+	void OnDataDetailViewPropertiesUpdated(const FPropertyChangedEvent& Event);
+	void OnNodeDetailViewPropertiesUpdated(const FPropertyChangedEvent& Event);
+	void OnWorkingAssetPreSave();
+	
 private:
 	static const FName DialogueGraphEditorTabId;
 	

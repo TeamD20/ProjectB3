@@ -16,6 +16,7 @@ UDialogueManagerComponent::UDialogueManagerComponent(const FObjectInitializer& O
 
 void UDialogueManagerComponent::StartDialogue(UDialogueData* InDialogueData, const FDialogueSystemContext& InContext)
 {
+	PreStartDialogue(InDialogueData, InContext);
 	SetCurrentDialogueData(InDialogueData, InContext);
 	DialogueInstance = NewObject<UDialogueInstance>(this,UDialogueInstance::StaticClass());
 	DialogueInstance->SetDialogue(CurrentDialogueData);
@@ -47,14 +48,18 @@ void UDialogueManagerComponent::SetCurrentDialogueNode(UDialogueNode* InDialogue
 		if (CurrentDialogueNode->NodeType == EDialogueNodeType::StartNode)
 		{
 			OnDialogueStart(CurrentDialogueNode);
+			ProgressDialogue(0);
 		}
 		else if (CurrentDialogueNode->NodeType == EDialogueNodeType::EndNode)
 		{
 			OnDialogueEnd(CurrentDialogueNode);
+			ProgressDialogue(0);
+		}
+		else
+		{
+			OnDialogueChanged(CurrentDialogueNode);
 		}
 	}
-
-	OnDialogueChanged(CurrentDialogueNode);
 }
 
 void UDialogueManagerComponent::ProgressDialogue(const int32 OptionIndex)

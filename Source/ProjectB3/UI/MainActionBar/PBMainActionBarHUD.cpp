@@ -22,6 +22,7 @@ void UPBMainActionBarHUD::NativeConstruct()
 	SkillBarViewModel = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBSkillBarViewModel>(GetOwningLocalPlayer());
 	if (IsValid(SkillBarViewModel))
 	{
+		BindVisibilityToViewModel(SkillBarViewModel);
 		SlotsChangedHandle = SkillBarViewModel->OnSlotsChanged.AddUObject(this, &UPBMainActionBarHUD::HandleSlotsChanged);
 		RefreshEquipmentSlots();
 	}
@@ -61,6 +62,7 @@ void UPBMainActionBarHUD::NativeDestruct()
 {
 	if (IsValid(SkillBarViewModel))
 	{
+		UnbindVisibilityFromViewModel(SkillBarViewModel);
 		if (SlotsChangedHandle.IsValid())
 		{
 			SkillBarViewModel->OnSlotsChanged.Remove(SlotsChangedHandle);

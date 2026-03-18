@@ -136,6 +136,7 @@ void FDialogueDataEditorApp::OnGraphSelectionChanged(const FGraphPanelSelectionS
 
 void FDialogueDataEditorApp::UpdateWorkingAssetFromGraph()
 {
+	// UEdGraph로부터 DataAsset 갱신
 	if (WorkingGraph == nullptr || WorkingAsset == nullptr)
 	{
 		return;
@@ -205,12 +206,14 @@ void FDialogueDataEditorApp::UpdateWorkingAssetFromGraph()
 
 void FDialogueDataEditorApp::UpdateEditorGraphFromWorkingAsset()
 {
+	// DataAsset으로 부터 그래프를 갱신
 	if (WorkingAsset->DialogueNodes.IsEmpty())
 	{
 		WorkingGraph->GetSchema()->CreateDefaultNodesForGraph(*WorkingGraph);
 		return;
 	}
 
+	// DataAsset의 그래프를 바탕으로  UEdGraphNode 구성 
 	TMap<FName,UDialogueGraphNode_Base*> IdToGraphNodeMap;
 	TArray<FDialogueNodeLink> Links;
 	for (UDialogueNode* DialogueNode : WorkingAsset->DialogueNodes)

@@ -22,6 +22,7 @@ FColor FAssetTypeAction_DialogueData::GetTypeColor() const
 void FAssetTypeAction_DialogueData::OpenAssetEditor(const TArray<UObject*>& InObjects,
                                                     TSharedPtr<class IToolkitHost> EditWithinLevelEditor)
 {
+	// DialogueDataAsset을 열 때 커스텀 에디터를 열도록 함
 	EToolkitMode::Type Mode = EditWithinLevelEditor.IsValid() ? EToolkitMode::WorldCentric : EToolkitMode::Standalone;
 
 	for (UObject* Obj : InObjects)

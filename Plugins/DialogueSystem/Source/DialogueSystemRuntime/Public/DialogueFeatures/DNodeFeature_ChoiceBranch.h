@@ -18,7 +18,7 @@ public:
 	FName NextNodeID;
 };
 
-UCLASS(BlueprintType, meta = (DisplayName = "Dialogue Branch: User Choice"))
+UCLASS(Abstract, BlueprintType, meta = (DisplayName = "Dialogue Branch: User Choice"))
 class DIALOGUESYSTEMRUNTIME_API UDNodeFeature_ChoiceBranch : public UDNodeFeature_Branch
 {
 	GENERATED_BODY()

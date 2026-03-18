@@ -34,9 +34,9 @@ TSharedRef<SWidget> SDialogueGraphNode::CreateNodeContentArea()
 	FText CustomText;
 	FLinearColor TextColor = FColor::White;
 
+	// TextColor를 미리보기에 적용
 	if (auto DialogueNode = DialogueGraphNode->DialogueNode)
 	{
-
 		if (auto TextFeature =  DialogueNode->FindFeatureByClass<UDNodeFeature_Text>())
 		{
 			FString TextString = TextFeature->GetDialogueText().ToString();

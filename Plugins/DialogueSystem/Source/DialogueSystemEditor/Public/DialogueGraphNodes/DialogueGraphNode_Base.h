@@ -15,22 +15,23 @@ class DIALOGUESYSTEMEDITOR_API UDialogueGraphNode_Base : public UEdGraphNode
 	GENERATED_BODY()
 
 public:
+	/*~ UEdGraphNode Interface ~*/
 	virtual void GetNodeContextMenuActions(UToolMenu* Menu, UGraphNodeContextMenuContext* Context) const override;
-
-	// 참여자 색상을 노드 타이틀 색으로 반환
 	virtual FLinearColor GetNodeTitleColor() const override;
 	virtual void OnGraphNodeCreated();
 	virtual void OnDialogueNodePropertiesChanged();
 	virtual void SyncPinsWithBranch();
 	virtual UEdGraphPin* CreateDialoguePin(EEdGraphPinDirection Direction, FName Name);
 	virtual FName GetPinSubCategory() {return FName(TEXT("DialoguePin"));}
+	virtual TSharedPtr<SGraphNode> CreateVisualWidget() override;
+	
+	/*~ UDialogueGraphNode_Base Interface ~*/
 	UDialogueData* GetDialogueData() const;
 	UDialogueNode* InitDialogueNode(const UDialogueNode* InPresetNode);
 
 	virtual FSlateColor GetPinColor() const { return FSlateColor( FLinearColor::White);	}
 	virtual FSlateColor GetPinTextColor() const { return FSlateColor(PinTextColor);	}
 
-	virtual TSharedPtr<SGraphNode> CreateVisualWidget() override;
 public:
 	UPROPERTY()
 	UDialogueNode* DialogueNode;

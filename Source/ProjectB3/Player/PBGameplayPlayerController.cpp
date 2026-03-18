@@ -10,6 +10,7 @@
 #include "NiagaraFunctionLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
+#include "DialogueManagerComponent.h"
 #include "PBPlayerCheatManager.h"
 #include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
 #include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
@@ -22,6 +23,7 @@
 #include "ProjectB3/UI/PBWidgetBase.h"
 #include "ProjectB3/Interaction/PBInteractorComponent.h"
 #include "ProjectB3/Camera/PBTacticalCameraComponent.h"
+#include "ProjectB3/Dialogue/PBDialogueManagerComponent.h"
 
 APBGameplayPlayerController::APBGameplayPlayerController()
 {
@@ -33,6 +35,7 @@ APBGameplayPlayerController::APBGameplayPlayerController()
 	TargetingComponent = CreateDefaultSubobject<UPBTargetingComponent>(TEXT("TargetingComponent"));
 	InteractorComponent = CreateDefaultSubobject<UPBInteractorComponent>(TEXT("InteractorComponent"));
 	TacticalCameraComponent = CreateDefaultSubobject<UPBTacticalCameraComponent>(TEXT("TacticalCameraComponent"));
+	DialogueManagerComponent = CreateDefaultSubobject<UPBDialogueManagerComponent>(TEXT("DialogueManagerComponent"));
 }
 
 void APBGameplayPlayerController::BeginPlay()

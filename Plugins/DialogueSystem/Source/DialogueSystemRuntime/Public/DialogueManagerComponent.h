@@ -48,8 +48,8 @@ public:
 protected:
 	bool CanProgress(const int32 OptionIndex);
 	void SetCurrentNodeById(const FName NodeID);
+	virtual void PreStartDialogue(UDialogueData* InDialogueData, const FDialogueSystemContext& InContext){}
 	virtual void OnCurrentDialogueNodeSet(UDialogueNode* PreviousNode, UDialogueNode* NewNode);
-	
 	virtual void OnDialogueStart(UDialogueNode* CurrentNode);
 	virtual void OnDialogueChanged(UDialogueNode* CurrentNode);
 	virtual void OnDialogueEnd(UDialogueNode* CurrentNode);
