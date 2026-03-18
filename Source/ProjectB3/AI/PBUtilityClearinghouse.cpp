@@ -286,7 +286,7 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor)
 		   CachedTargets.Num());
 
 	// --- ThreatScore 사전 계산 및 정규화 ---
-	// AI Scoring Example.md §5: ThreatMultiplier = lerp(0.5, 2.0, NormalizedThreat)
+	// ThreatMultiplier = lerp(0.5, 2.0, NormalizedThreat)
 	TMap<AActor*, float> RawThreatScores;
 	float MaxThreatScore = 0.0f;
 
@@ -499,8 +499,7 @@ EPBCombatRole UPBUtilityClearinghouse::DetermineCombatRole(AActor *TargetActor)
 
 float UPBUtilityClearinghouse::GetRoleMultiplier(EPBCombatRole TargetRole)
 {
-	// AI Scoring Example.md §5: Attack 행동 × 타겟 역할 가중치
-	// | Attack | Healer:1.3 | Caster:1.2 | Ranged:1.1 | Melee:1.0 | Tank:0.8 |
+	// 타겟 역할 가중치
 	switch (TargetRole)
 	{
 	case EPBCombatRole::Healer: return 1.3f;
@@ -909,7 +908,7 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 			float CandidateDamage = CalcExpectedDamageFromDice(
 				SourceASC, TargetASC, Dice, SourceTags, TargetTags, &RawAvgDamage);
 
-			// --- KillBonus / OverhealPenalty 적용 (AI Scoring Example.md §3.1) ---
+			// --- KillBonus / OverhealPenalty 적용 ---
 			bool bCandidateCanKill = false;
 			if (bHPFound && TargetCurrentHP > 0.0f)
 			{
@@ -970,7 +969,7 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 	Score.AbilitySpecHandle = BestSpecHandle;
 
 	// --- TargetModifier 산정 ---
-	// AI Scoring Example.md §5: TargetModifier = ThreatMultiplier × RoleMultiplier
+	// TargetModifier = ThreatMultiplier × RoleMultiplier
 	const float* CachedThreat = CachedThreatMultiplierMap.Find(TargetActor);
 	const float ThreatMultiplier = CachedThreat ? *CachedThreat : 1.0f;
 	const EPBCombatRole TargetRole = DetermineCombatRole(TargetActor);
@@ -980,9 +979,7 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 	// --- SituationalBonus 산정 ---
 	Score.SituationalBonus = 0.0f;
 
-	// FinishOffBonus (AI Scoring Example.md §6):
-	// 처치 가능 시, 적이 살아있으면 가할 미래 위협을 제거하는 가치
-	// = TargetThreatPerTurn × 잔여 라운드 (최대 3)
+	// FinishOffBonus: 처치 시 제거되는 미래 위협 가치
 	if (bBestCanKill)
 	{
 		Score.SituationalBonus += FinishOffBaseThreat * MaxFinishOffRounds;
@@ -1288,7 +1285,7 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateHealScore(AActor* AllyTarget)
 	// --- EffectiveHeal (과잉 힐 방지) ---
 	const float EffectiveHeal = FMath::Min(BestExpectedHeal, MissingHP);
 
-	// --- UrgencyMultiplier (AI Scoring Example.md §3.2) ---
+	// --- UrgencyMultiplier ---
 	// HPRatio 구간별 긴급도 가중치
 	const float HPRatio = CurrentHP / MaxHP;
 	float UrgencyMultiplier;
@@ -2886,8 +2883,7 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 		return;
 	}
 
-	// --- Branch & Bound 가지치기 (Optimization §4.2) ---
-	// MaxSingleScore는 DFS 진입 전 CalcMaxSingleScore()로 1회 사전 계산됨
+	// --- Branch & Bound 가지치기 ---
 	const int32 MaxRemainingActions = FMath::Min(
 		FMath::FloorToInt32(Context.RemainingAP) + FMath::FloorToInt32(Context.RemainingBA),
 		MaxDFSDepth - Depth);
