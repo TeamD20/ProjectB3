@@ -907,45 +907,91 @@ void UPBGenerateSequenceTask::TryAppendActionAfterFallback(
 
 bool UPBGenerateSequenceTask::ShouldSkipFallback(float RemainingMP) const
 {
-	// 현재 위치가 이미 전술적으로 유리한지 판정
-	// 조건: (1) 사거리 내 적 존재 + (2) 잔여 이동력이 최대의 30% 미만
-	// → 조금 움직여봤자 큰 이득이 없고, 이미 교전 가능한 위치
+	// 현재 위치에서 교전 가능한 적이 있으면 Fallback 생략
+	// 판정: (1) ASC 최대 공격 사거리 추출 → (2) 2D 거리 비교 → (3) LoS 확인
 	if (!IsValid(SelfActor) || !IsValid(CachedClearinghouse))
 	{
 		return false;
 	}
 
-	// 잔여 이동력이 최대 이동력의 30% 이상이면 Fallback 가치 있음
-	const float MaxMovement = CachedClearinghouse->GetCachedMaxMovement();
-	if (MaxMovement > 0.0f && (RemainingMP / MaxMovement) >= 0.3f)
-	{
-		return false;
-	}
+	// 1. ASC에서 최대 공격 사거리 추출
+	float BestAttackRange = 0.0f;
+	bool bHasTargetedAbility = false;
+	bool bHasUnlimitedRange = false;
 
-	// 현재 위치에서 사거리 내 적이 있는지 확인
-	const FVector CurrentPos = SelfActor->GetActorLocation();
-	bool bHasTargetInRange = false;
-
-	for (const auto& Pair : CachedClearinghouse->GetCachedActionScores())
+	if (const UAbilitySystemComponent* ASC =
+			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(SelfActor))
 	{
-		if (IsValid(Pair.Key))
+		for (const FGameplayAbilitySpec& Spec : ASC->GetActivatableAbilities())
 		{
-			const float Dist = FVector::Dist(CurrentPos, Pair.Key->GetActorLocation());
-			// 기본 근접 사거리(200cm) 이내에 적이 있으면 교전 가능
-			if (Dist <= 200.0f)
+			if (const UPBGameplayAbility_Targeted* TargetedCDO =
+					Cast<UPBGameplayAbility_Targeted>(Spec.Ability))
 			{
-				bHasTargetInRange = true;
-				break;
+				bHasTargetedAbility = true;
+				const float Range = TargetedCDO->GetRange();
+				if (Range > 0.f)
+				{
+					BestAttackRange = FMath::Max(BestAttackRange, Range);
+				}
+				else
+				{
+					bHasUnlimitedRange = true;
+				}
 			}
 		}
 	}
 
-	if (bHasTargetInRange)
+	// Targeted 어빌리티 없음 → 공격 수단이 없으므로 skip 불가
+	if (!bHasTargetedAbility)
 	{
+		return false;
+	}
+
+	// 2. 사거리 + LoS 판정
+	const FVector CurrentPos = SelfActor->GetActorLocation();
+
+	UPBEnvironmentSubsystem* EnvSubsystem = nullptr;
+	if (UGameInstance* GI = SelfActor->GetGameInstance())
+	{
+		EnvSubsystem = GI->GetSubsystem<UPBEnvironmentSubsystem>();
+	}
+
+	for (const auto& Pair : CachedClearinghouse->GetCachedActionScores())
+	{
+		if (!IsValid(Pair.Key))
+		{
+			continue;
+		}
+
+		// 2D 거리 비교 (무한 사거리면 거리 체크 자동 통과)
+		if (!bHasUnlimitedRange)
+		{
+			const float DistXY = FVector::DistXY(
+				CurrentPos, Pair.Key->GetActorLocation());
+			if (DistXY > BestAttackRange)
+			{
+				continue;
+			}
+		}
+
+		// LoS 확인 (서브시스템 없으면 거리만으로 판정)
+		if (EnvSubsystem)
+		{
+			const FPBLoSResult LoSResult =
+				EnvSubsystem->CheckLineOfSight(CurrentPos, Pair.Key);
+			if (!LoSResult.bHasLineOfSight)
+			{
+				continue;
+			}
+		}
+
+		// 사거리 내 + LoS 확보된 적 발견
 		UE_LOG(LogPBStateTree, Display,
-			TEXT("[Fallback Skip] 현재 위치에 사거리 내 적 존재 + "
-			     "잔여 MP(%.0f)가 최대(%.0f)의 30%% 미만 → Fallback 생략"),
-			RemainingMP, MaxMovement);
+			TEXT("[Fallback Skip] 사거리(%.0f) 내 LoS 확보 적(%s) 존재 "
+			     "→ Fallback 생략. 잔여 MP=%.0f"),
+			bHasUnlimitedRange ? -1.0f : BestAttackRange,
+			*Pair.Key->GetName(),
+			RemainingMP);
 		return true;
 	}
 
