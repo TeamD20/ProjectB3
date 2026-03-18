@@ -2,7 +2,7 @@
 
 #include "PBAITestGameMode.h"
 #include "Kismet/GameplayStatics.h"
-#include "PBAIMockCharacter.h"
+#include "ProjectB3/Characters/PBEnemyCharacter.h"
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
 #include "ProjectB3/Combat/PBCombatManagerSubsystem.h"
 
@@ -40,10 +40,10 @@ void APBAITestGameMode::AutoStartTestCombat() {
 
   TArray<AActor *> Combatants;
 
-  // 1. 레벨에 배치된 모든 PBAIMockCharacter 수집 (적 AI)
+  // 1. 레벨에 배치된 모든 PBEnemyCharacter 수집 (적 AI)
   TArray<AActor *> FoundAI;
   UGameplayStatics::GetAllActorsOfClass(
-      World, APBAIMockCharacter::StaticClass(), FoundAI);
+      World, APBEnemyCharacter::StaticClass(), FoundAI);
 
   for (AActor *AI : FoundAI) {
     if (IsValid(AI) && Cast<IPBCombatParticipant>(AI)) {

@@ -1,18 +1,18 @@
-#include "PBAIMockCharacter.h"
+#include "PBEnemyCharacter.h"
 #include "Components/StateTreeComponent.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "StateTreeEvents.h"
 
 /*~ 생성자 ~*/
 
-APBAIMockCharacter::APBAIMockCharacter()
+APBEnemyCharacter::APBEnemyCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
 }
 
 /*~ AActor Interface ~*/
 
-void APBAIMockCharacter::BeginPlay()
+void APBEnemyCharacter::BeginPlay()
 {
 	// 부모가 전체 초기화 파이프라인 실행:
 	// InitAbilityActorInfo → InitTags(ClassTag) → GrantInitialAbilities(Stats+Common+Class) → GrantDefaultItems
@@ -20,13 +20,13 @@ void APBAIMockCharacter::BeginPlay()
 
 	UE_LOG(
 		LogTemp, Display,
-		TEXT("=== PB Mock Character [%s] Spawned and Ready for AI Testing ==="),
+		TEXT("=== PBEnemyCharacter [%s] Spawned and Ready ==="),
 		*GetName());
 }
 
 /*~ APBCharacterBase Interface ~*/
 
-void APBAIMockCharacter::HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, bool TagExists)
+void APBEnemyCharacter::HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, bool TagExists)
 {
 	Super::HandleGameplayTagUpdated(ChangedTag, TagExists);
 
@@ -46,7 +46,7 @@ void APBAIMockCharacter::HandleGameplayTagUpdated(const FGameplayTag& ChangedTag
 
 /*~ IPBCombatParticipant Interface ~*/
 
-void APBAIMockCharacter::OnTurnBegin()
+void APBEnemyCharacter::OnTurnBegin()
 {
 	// 부모 호출: Action/BonusAction/Movement 자원 리셋
 	Super::OnTurnBegin();
@@ -56,7 +56,7 @@ void APBAIMockCharacter::OnTurnBegin()
 	       *GetName());
 }
 
-void APBAIMockCharacter::OnTurnActivated()
+void APBEnemyCharacter::OnTurnActivated()
 {
 	UE_LOG(LogTemp, Display,
 	       TEXT("=== %s: OnTurnActivated 호출, StateTree 이벤트 전송 ==="),
@@ -77,7 +77,7 @@ void APBAIMockCharacter::OnTurnActivated()
 	}
 }
 
-void APBAIMockCharacter::OnActionInterrupted()
+void APBEnemyCharacter::OnActionInterrupted()
 {
 	UE_LOG(LogTemp, Display,
 	       TEXT("=== %s: OnActionInterrupted 호출, StateTree 이벤트 전송 ==="),
@@ -97,7 +97,7 @@ void APBAIMockCharacter::OnActionInterrupted()
 	}
 }
 
-float APBAIMockCharacter::GetBaseMovementSpeed() const
+float APBEnemyCharacter::GetBaseMovementSpeed() const
 {
 	// 이동속도 9m (900cm, D&D 5e 30ft 기준)
 	return 900.0f;

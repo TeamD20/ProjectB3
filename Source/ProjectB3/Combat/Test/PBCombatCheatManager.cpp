@@ -95,7 +95,7 @@ void UPBCombatCheatManager::SpawnTestEnemies(int32 NumEnemies)
 	for (int32 i = 0; i < NumEnemies; ++i)
 	{
 		FVector SpawnLoc = SpawnOrigin + FVector(i * 300.0f, 300.0f, 10.0f);
-		APBAIMockCharacter* Enemy = World->SpawnActor<APBAIMockCharacter>(
+		APBEnemyCharacter* Enemy = World->SpawnActor<APBEnemyCharacter>(
 			AICharacterClass, SpawnLoc, FRotator::ZeroRotator, SpawnParams);
 
 		if (IsValid(Enemy))
@@ -108,7 +108,7 @@ void UPBCombatCheatManager::SpawnTestEnemies(int32 NumEnemies)
 
 void UPBCombatCheatManager::CleanupTestCharacters()
 {
-	for (TObjectPtr<APBAIMockCharacter>& Character : SpawnedEnemies)
+	for (TObjectPtr<APBEnemyCharacter>& Character : SpawnedEnemies)
 	{
 		if (IsValid(Character))
 		{
@@ -293,7 +293,7 @@ void UPBCombatCheatManager::Combat_Start(int32 NumEnemies)
 	{
 		Combatants.Add(PartyMember);
 	}
-	for (APBAIMockCharacter* Character : SpawnedEnemies)
+	for (APBEnemyCharacter* Character : SpawnedEnemies)
 	{
 		Combatants.Add(Character);
 	}
@@ -361,7 +361,7 @@ void UPBCombatCheatManager::Combat_Kill()
 		return;
 	}
 
-	for (APBAIMockCharacter* Character : SpawnedEnemies)
+	for (APBEnemyCharacter* Character : SpawnedEnemies)
 	{
 		if (IsValid(Character) && Character->GetFactionTag() == PBGameplayTags::Combat_Faction_Enemy
 			&& !Character->IsIncapacitated())
@@ -407,7 +407,7 @@ void UPBCombatCheatManager::Combat_Reaction()
 
 	FGameplayTag CurrentFaction = CurrentParticipant->GetFactionTag();
 
-	for (APBAIMockCharacter* Character : SpawnedEnemies)
+	for (APBEnemyCharacter* Character : SpawnedEnemies)
 	{
 		if (!IsValid(Character) || Character == CurrentActor)
 		{
