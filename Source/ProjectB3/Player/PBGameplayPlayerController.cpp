@@ -21,6 +21,7 @@
 #include "ProjectB3/UI/PBUIManagerSubsystem.h"
 #include "ProjectB3/UI/PBWidgetBase.h"
 #include "ProjectB3/Interaction/PBInteractorComponent.h"
+#include "ProjectB3/Camera/PBTacticalCameraComponent.h"
 
 APBGameplayPlayerController::APBGameplayPlayerController()
 {
@@ -31,6 +32,7 @@ APBGameplayPlayerController::APBGameplayPlayerController()
 	PathDisplayComponent = CreateDefaultSubobject<UPBPathDisplayComponent>(TEXT("PathDisplayComponent"));
 	TargetingComponent = CreateDefaultSubobject<UPBTargetingComponent>(TEXT("TargetingComponent"));
 	InteractorComponent = CreateDefaultSubobject<UPBInteractorComponent>(TEXT("InteractorComponent"));
+	TacticalCameraComponent = CreateDefaultSubobject<UPBTacticalCameraComponent>(TEXT("TacticalCameraComponent"));
 }
 
 void APBGameplayPlayerController::BeginPlay()
@@ -64,6 +66,12 @@ void APBGameplayPlayerController::BeginPlay()
 void APBGameplayPlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	// 전술 카메라가 비활성 상태일 때만 기본 카메라 갱신
+	if (!TacticalCameraComponent->IsTacticalCameraActive())
+	{
+		CameraControlComponent->UpdateCamera(DeltaTime);
+	}
 
 	float MouseX = 0.0f;
 	float MouseY = 0.0f;

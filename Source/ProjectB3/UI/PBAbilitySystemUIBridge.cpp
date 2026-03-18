@@ -179,7 +179,7 @@ void UPBAbilitySystemUIBridge::HandleHPChanged(const FOnAttributeChangeData& Dat
 	}
 
 	// TurnPortrait는 전투 중에만 존재하므로 Find
-	UPBTurnPortraitViewModel* TurnVM = VMSubsystem->FindActorViewModel<UPBTurnPortraitViewModel>(GetOwner());
+	UPBTurnPortraitViewModel* TurnVM = VMSubsystem->GetOrCreateActorViewModel<UPBTurnPortraitViewModel>(GetOwner());
 	if (IsValid(TurnVM))
 	{
 		float Percent = (CurMaxHP > 0) ? static_cast<float>(CurHP) / static_cast<float>(CurMaxHP) : 0.f;

@@ -44,13 +44,10 @@ public:
 	// 프리 룩 입력 (우클릭 드래그 2D 축 값)
 	void AddFreeLookInput(const FVector2D& Axis);
 
-protected:
-	/*~ UActorComponent Interface ~*/
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	// 줌/회전/오프셋 보간 및 SpringArm 갱신 (PC Tick에서 명시적으로 호출)
+	void UpdateCamera(float DeltaTime);
 
 private:
-	// 줌/회전/오프셋 보간 및 SpringArm 갱신
-	void UpdateCamera(float DeltaTime);
 
 	// TargetYaw를 현재 모드의 RotateRange로 클램프
 	float ClampYaw(float InYaw) const;

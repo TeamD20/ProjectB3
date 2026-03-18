@@ -6,7 +6,7 @@
 
 UPBCameraControlComponent::UPBCameraControlComponent()
 {
-	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bCanEverTick = false;
 }
 
 void UPBCameraControlComponent::SetSpringArm(USpringArmComponent* InSpringArm)
@@ -63,14 +63,6 @@ void UPBCameraControlComponent::AddFreeLookInput(const FVector2D& Axis)
 	ClampCameraOffset();
 
 	bIsResettingOffset = false;
-}
-
-// Tick
-void UPBCameraControlComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	UpdateCamera(DeltaTime);
 }
 
 void UPBCameraControlComponent::UpdateCamera(float DeltaTime)

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "AbilitySystemComponent.h"
 #include "PBAbilityGrantTypes.h"
+#include "PBAbilityTypes.h"
 #include "PBAbilitySystemComponent.generated.h"
 
 class UPBAbilitySetData;
@@ -20,6 +21,11 @@ DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnGEExecutedNotifySignature,
 	const FGameplayEffectSpec& /*Spec*/,
 	const FGameplayAttribute& /*Attribute*/,
 	float /*EffectiveValue*/)
+
+// 어빌리티 실행 시작 통지 델리게이트 — 전술 카메라 SkillFraming 진입 트리거
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnAbilityExecutionStartedSignature,
+	const UGameplayAbility* /*Ability*/,
+	const FPBAbilityTargetData& /*TargetData*/)
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PROJECTB3_API UPBAbilitySystemComponent : public UAbilitySystemComponent
@@ -75,6 +81,9 @@ public:
 
 	// AttributeSet::PostGameplayEffectExecute에서 호출
 	void NotifyGEExecuted(const FGameplayEffectSpec& Spec, const FGameplayAttribute& Attribute, float EffectiveValue);
+
+	// 어빌리티 실행 시작 통지 (K2_ExecuteTargetLogic에서 호출)
+	void NotifyAbilityExecution(const UGameplayAbility* Ability, const FPBAbilityTargetData& TargetData);
 	
 protected:
 	/*~ UActorComponent Interface ~*/
@@ -95,6 +104,9 @@ public:
 
 	// GE 실행 결과 알림 (AttributeSet의 PostGameplayEffectExecuted 처리 결과)
 	FOnGEExecutedNotifySignature OnGEExecuted;
+
+	// 어빌리티 실행 시작 알림 (전술 카메라 SkillFraming 진입용)
+	FOnAbilityExecutionStartedSignature OnAbilityExecutionStarted;
 	
 protected:
 	// 출처별 핸들 캐시

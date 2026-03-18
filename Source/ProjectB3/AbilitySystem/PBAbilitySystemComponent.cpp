@@ -234,6 +234,12 @@ void UPBAbilitySystemComponent::NotifyGEExecuted(const FGameplayEffectSpec& Spec
 	OnGEExecuted.Broadcast(Spec, Attribute, EffectiveValue);
 }
 
+void UPBAbilitySystemComponent::NotifyAbilityExecution(
+	const UGameplayAbility* Ability, const FPBAbilityTargetData& TargetData)
+{
+	OnAbilityExecutionStarted.Broadcast(Ability, TargetData);
+}
+
 void UPBAbilitySystemComponent::BeginPlay()
 {
 	Super::BeginPlay();
