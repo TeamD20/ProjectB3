@@ -157,7 +157,8 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
     return EStateTreeRunStatus::Succeeded;
   }
 
-  // 타겟 사망 검증: 실행 시점에 타겟이 이미 사망했으면 행동을 스킵
+  // 타겟 사망 검증: 실행 시점에 타겟이 이미 사망했으면 행동을 스킵하고
+  // 동일 타겟을 참조하는 잔여 행동도 일괄 무효화하여 자원을 보존한다.
   if (IsValid(CurrentAction.TargetActor)) {
     UAbilitySystemComponent *TargetASC =
         UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(
@@ -165,8 +166,9 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
     if (TargetASC && TargetASC->HasMatchingGameplayTag(
                          PBGameplayTags::Character_State_Dead)) {
       UE_LOG(LogPBStateTreeExec, Warning,
-             TEXT("타겟 [%s]이(가) 이미 사망 상태입니다. 행동을 스킵합니다."),
+             TEXT("[Execute] 타겟 [%s]이(가) 이미 사망 상태입니다. 행동을 스킵합니다."),
              *CurrentAction.TargetActor->GetName());
+      InvalidateActionsForDeadTarget(CurrentAction.TargetActor);
       return EStateTreeRunStatus::Succeeded;
     }
   }
@@ -672,4 +674,33 @@ void UPBExecuteSequenceTask::AdvanceToNextAction() {
            TEXT("[시퀀스] 행동 실행 실패. 시퀀스를 중단합니다."));
   }
   // Running → 콜백이 다시 AdvanceToNextAction을 호출할 것
+}
+
+void UPBExecuteSequenceTask::InvalidateActionsForDeadTarget(
+    const AActor* DeadTarget)
+{
+  if (!DeadTarget)
+  {
+    return;
+  }
+
+  int32 InvalidatedCount = 0;
+  for (int32 i = ExecutionSequence.CurrentActionIndex;
+       i < ExecutionSequence.Actions.Num(); ++i)
+  {
+    FPBSequenceAction& Action = ExecutionSequence.Actions[i];
+    if (Action.TargetActor == DeadTarget)
+    {
+      Action.ActionType = EPBActionType::None;
+      Action.Cost = FPBCostData(); // 비용 0 → 자원 보존
+      ++InvalidatedCount;
+    }
+  }
+
+  if (InvalidatedCount > 0)
+  {
+    UE_LOG(LogPBStateTreeExec, Display,
+           TEXT("[ValidateRemaining] 타겟 [%s] 사망 → 잔여 %d개 행동 무효화 (자원 보존)"),
+           *DeadTarget->GetName(), InvalidatedCount);
+  }
 }
