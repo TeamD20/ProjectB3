@@ -113,12 +113,6 @@ private:
 
 	/*~ Fallback 헬퍼 ~*/
 
-	// Fallback 이동 후 잔여 AP로 단일 행동(Attack/Heal) 탐색.
-	// FallbackPos에서의 사거리 기준으로 후보를 검색하고,
-	// 최고 점수 행동을 GeneratedSequence에 추가한다.
-	void TryAppendActionAfterFallback(
-		const FVector& FallbackPos, float RemainingAP, float RemainingBA);
-
 	// 현재 위치가 이미 전술적으로 유리하면 Fallback 이동 불필요 판정.
 	// ASC 어빌리티 사거리 + 2D 거리 + LoS 확인.
 	// 교전 가능한 적이 있으면 true 반환.
