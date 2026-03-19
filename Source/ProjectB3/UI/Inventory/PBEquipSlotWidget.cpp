@@ -10,6 +10,7 @@
 #include "ProjectB3/ItemSystem/Components/PBInventoryComponent.h"
 #include "ProjectB3/UI/Inventory/PBInventoryDragDropOperation.h"
 #include "ProjectB3/UI/Inventory/PBInventoryViewModel.h"
+#include "ProjectB3/UI/Inventory/PBItemTooltipWidget.h"
 
 namespace
 {
@@ -100,6 +101,12 @@ void UPBEquipSlotWidget::NativeDestruct()
 
 	InventoryViewModel.Reset();
 
+	if (IsValid(CachedTooltipWidget))
+	{
+		CachedTooltipWidget->RemoveFromParent();
+		CachedTooltipWidget = nullptr;
+	}
+
 	Super::NativeDestruct();
 }
 
@@ -176,4 +183,59 @@ void UPBEquipSlotWidget::OnSlotClicked()
 
 	// 장비 슬롯 클릭은 즉시 해제 요청으로 처리
 	EquipmentComponent->UnequipItem(BoundSlot, InventoryComponent);
+}
+
+void UPBEquipSlotWidget::NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+	Super::NativeOnMouseEnter(InGeometry, InMouseEvent);
+
+	if (!InventoryViewModel.IsValid() || !TooltipWidgetClass)
+	{
+		return;
+	}
+
+	// 장비 슬롯이 비어 있으면 툴팁 불필요
+	FPBInventorySlotData SlotData;
+	if (!InventoryViewModel->GetEquipmentSlotData(BoundSlot, SlotData) || SlotData.bIsEmpty)
+	{
+		return;
+	}
+
+	AActor* TargetActor = InventoryViewModel->GetTargetActor();
+	if (!IsValid(TargetActor))
+	{
+		return;
+	}
+
+	// 장비된 아이템은 인벤토리에서 빠져있으므로 EquipmentComponent에서 직접 조회
+	UPBEquipmentComponent* EquipmentComponent = TargetActor->FindComponentByClass<UPBEquipmentComponent>();
+	if (!IsValid(EquipmentComponent))
+	{
+		return;
+	}
+
+	FPBItemInstance ItemInstance = EquipmentComponent->GetEquippedItem(BoundSlot);
+	if (ItemInstance.IsValid())
+	{
+		if (!IsValid(CachedTooltipWidget))
+		{
+			CachedTooltipWidget = CreateWidget<UPBItemTooltipWidget>(this, TooltipWidgetClass);
+			if (CachedTooltipWidget)
+			{
+				CachedTooltipWidget->BindViewModel(InventoryViewModel.Get());
+			}
+		}
+
+		if (IsValid(CachedTooltipWidget) && InventoryViewModel.IsValid())
+		{
+			InventoryViewModel->RequestTooltipData(ItemInstance.InstanceID);
+			SetToolTip(CachedTooltipWidget);
+		}
+	}
+}
+
+void UPBEquipSlotWidget::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
+{
+	Super::NativeOnMouseLeave(InMouseEvent);
+	SetToolTip(nullptr);
 }

@@ -7,6 +7,7 @@
 #include "ProjectB3/UI/PBUITypes.h"
 #include "ProjectB3/UI/ViewModel/PBViewModelBase.h"
 #include "PBInventorySlotData.h"
+#include "PBItemTooltipData.h"
 #include "PBInventoryViewModel.generated.h"
 
 class UPBCharacterPreviewComponent;
@@ -18,6 +19,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnInventorySlotUpdatedSignature, int32 /*Sl
 DECLARE_MULTICAST_DELEGATE(FOnInventoryFullRefreshSignature);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnEquipmentSlotUpdatedSignature, EPBEquipSlot /*Slot*/);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnWeaponSetChangedSignature, int32 /*NewWeaponSet*/);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnTooltipDataGeneratedSignature, const FPBItemTooltipData& /*TooltipData*/);
 
 using namespace PBUIDelegate;
 
@@ -59,6 +61,10 @@ public:
 	// 캐릭터 프리뷰 캡처 활성화 여부를 설정
 	void SetPreviewCaptureActive(bool bActive);
 
+	// 인스턴스 ID를 기반으로 아이템 정보를 조합하여 툴팁 데이터를 브로드캐스트합니다 (지연된 프레젠테이션 로직)
+	UFUNCTION(BlueprintCallable, Category = "UI|Inventory")
+	void RequestTooltipData(const FGuid& InstanceID);
+
 public:
 	// 캐릭터 이름 변경 이벤트
 	FOnTextChangedSignature OnCharacterNameChanged;
@@ -74,6 +80,9 @@ public:
 
 	// 활성 무기 세트 변경 이벤트
 	FOnWeaponSetChangedSignature OnWeaponSetChanged;
+
+	// 툴팁용 스냅샷 전송 이벤트
+	FOnTooltipDataGeneratedSignature OnTooltipDataGenerated;
 
 protected:
 	// 인벤토리 슬롯 스냅샷 배열

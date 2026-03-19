@@ -52,6 +52,39 @@ struct PROJECTB3_API FPBSkillSlotData
 	// 현재 선택(Pressed) 여부 (포커스 테두리 표시용)
 	UPROPERTY(BlueprintReadOnly, Category = "SkillBar")
 	bool bIsActive = false;
+
+	/* ============================================== */
+	/* 툴팁 전용 데이터 (Tooltip Data)                 */
+	/* ============================================== */
+	
+	UPROPERTY(BlueprintReadOnly, Category = "SkillBar|Tooltip")
+	FText Description;
+
+	UPROPERTY(BlueprintReadOnly, Category = "SkillBar|Tooltip")
+	FText SkillType;
+
+	UPROPERTY(BlueprintReadOnly, Category = "SkillBar|Tooltip")
+	FText DamageDesc;
+
+	UPROPERTY(BlueprintReadOnly, Category = "SkillBar|Tooltip")
+	FText DiceRollDesc;
+
+	// 주사위 텍스트 색상
+	UPROPERTY(BlueprintReadOnly, Category = "SkillBar|Tooltip")
+	FSlateColor DiceRollColor;
+
+	UPROPERTY(BlueprintReadOnly, Category = "SkillBar|Tooltip")
+	TSoftObjectPtr<UTexture2D> DiceRollIcon;
+
+	UPROPERTY(BlueprintReadOnly, Category = "SkillBar|Tooltip")
+	FText ActionRange;
+
+	UPROPERTY(BlueprintReadOnly, Category = "SkillBar|Tooltip")
+	FText RollType;
+
+	// 주사위 굴림 종류 (명중, 내성 등)에 따른 아이콘 맵핑용
+	UPROPERTY(BlueprintReadOnly, Category = "SkillBar|Tooltip")
+	EPBDiceRollType RollTypeEnum = EPBDiceRollType::None;
 };
 
 /** 장비/아이템 슬롯 1개의 스냅샷 데이터 */

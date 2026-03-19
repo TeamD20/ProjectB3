@@ -15,6 +15,8 @@
 #include "ProjectB3/UI/Inventory/PBInventoryDragDropOperation.h"
 #include "ProjectB3/UI/Inventory/PBInventorySlotData.h"
 #include "ProjectB3/UI/Inventory/PBInventoryViewModel.h"
+#include "ProjectB3/UI/Inventory/PBItemTooltipWidget.h"
+#include "ProjectB3/ItemSystem/PBItemTypes.h"
 
 namespace
 {
@@ -114,6 +116,12 @@ void UPBInventorySlotWidget::NativeDestruct()
 	InventoryViewModel.Reset();
 	SlotIndex = INDEX_NONE;
 
+	if (IsValid(CachedTooltipWidget))
+	{
+		CachedTooltipWidget->RemoveFromParent();
+		CachedTooltipWidget = nullptr;
+	}
+
 	Super::NativeDestruct();
 }
 
@@ -153,6 +161,62 @@ void UPBInventorySlotWidget::OnSlotClicked()
 {
 	// 현재는 선택 상태 저장 없이 즉시 시각 동기화만 수행
 	RefreshSlot();
+}
+
+void UPBInventorySlotWidget::NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+	Super::NativeOnMouseEnter(InGeometry, InMouseEvent);
+
+	// 빈 슬롯이거나 툴팁 클래스가 지정되지 않았으면 무시
+	FPBInventorySlotData SlotData;
+	if (!GetCurrentSlotData(SlotData) || !TooltipWidgetClass)
+	{
+		return;
+	}
+
+	AActor* TargetActor = InventoryViewModel.IsValid() ? InventoryViewModel->GetTargetActor() : nullptr;
+	if (!IsValid(TargetActor))
+	{
+		return;
+	}
+
+	UPBInventoryComponent* InventoryComponent = TargetActor->FindComponentByClass<UPBInventoryComponent>();
+	if (!IsValid(InventoryComponent))
+	{
+		return;
+	}
+
+	// 인벤토리에서 실제 아이템 인스턴스 정보 조회
+	FPBItemInstance ItemInstance = InventoryComponent->FindItemByID(SlotData.InstanceID);
+	if (ItemInstance.IsValid())
+	{
+		// 툴팁 위젯이 없으면 생성
+		if (!IsValid(CachedTooltipWidget))
+		{
+			CachedTooltipWidget = CreateWidget<UPBItemTooltipWidget>(this, TooltipWidgetClass);
+			if (CachedTooltipWidget)
+			{
+				CachedTooltipWidget->BindViewModel(InventoryViewModel.Get());
+			}
+		}
+
+		// 데이터 전송 및 화면 출력
+		if (IsValid(CachedTooltipWidget) && InventoryViewModel.IsValid())
+		{
+			InventoryViewModel->RequestTooltipData(ItemInstance.InstanceID);
+			
+			// Custom 팝업 방식 대신 UMG 기본 ToolTip 시스템을 사용해 크기 폭주 및 포지셔닝 문제 해결
+			SetToolTip(CachedTooltipWidget);
+		}
+	}
+}
+
+void UPBInventorySlotWidget::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
+{
+	Super::NativeOnMouseLeave(InMouseEvent);
+
+	// 마우스가 슬롯을 벗어나면 툴팁 숨김/제거
+	SetToolTip(nullptr);
 }
 
 void UPBInventorySlotWidget::NativeOnDragDetected(

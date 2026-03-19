@@ -1,8 +1,10 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBSkillSlotWidget.h"
+#include "PBSkillTooltipWidget.h"
 #include "PBSkillBarViewModel.h"
 #include "ProjectB3/Player/PBGameplayPlayerState.h"
+#include "Blueprint/UserWidget.h"
 #include "Components/Button.h"
 #include "Components/Image.h"
 #include "Components/TextBlock.h"
@@ -89,7 +91,46 @@ void UPBSkillSlotWidget::NativeDestruct()
 
 	SkillBarViewModel.Reset();
 
+	if (CachedToolTipWidget && CachedToolTipWidget->IsInViewport())
+	{
+		CachedToolTipWidget->RemoveFromParent();
+	}
+
 	Super::NativeDestruct();
+}
+
+void UPBSkillSlotWidget::NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+	Super::NativeOnMouseEnter(InGeometry, InMouseEvent);
+
+	// 스킬이 할당된 경우에만 호버 이벤트를 발생시켜 툴팁을 띄울 수 있도록 함
+	if (SlotData.AbilityHandle.IsValid() || !SlotData.Icon.IsNull())
+	{
+		OnSkillSlotHovered.Broadcast(SlotData, true);
+
+		if (ToolTipWidgetClass)
+		{
+			if (!CachedToolTipWidget)
+			{
+				CachedToolTipWidget = CreateWidget<UPBSkillTooltipWidget>(GetWorld(), ToolTipWidgetClass);
+				// 파티멤버 위젯처럼 마우스를 따라가는 UMG 기본 툴팁으로 설정
+				SetToolTip(CachedToolTipWidget);
+			}
+
+			// 런타임 툴팁 데이터 주입
+			CachedToolTipWidget->SetTooltipData(SlotData);
+		}
+	}
+}
+
+void UPBSkillSlotWidget::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
+{
+	Super::NativeOnMouseLeave(InMouseEvent);
+
+	if (SlotData.AbilityHandle.IsValid() || !SlotData.Icon.IsNull())
+	{
+		OnSkillSlotHovered.Broadcast(SlotData, false);
+	}
 }
 
 void UPBSkillSlotWidget::OnSlotClicked()
