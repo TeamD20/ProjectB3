@@ -75,6 +75,8 @@ protected:
 	virtual void ExecuteTargetLogic(const FPBAbilityTargetData& TargetData);
 
 private:
+	void InternalExecuteTargetLogic(const FPBAbilityTargetData& TargetData);
+	
 	// AbilityTask 기반 비동기 타겟팅 진입 (플레이어 전용 경로)
 	void StartTargetingTask();
 

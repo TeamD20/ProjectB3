@@ -6,6 +6,7 @@
 #include "InputActionValue.h"
 #include "PBGameplayPlayerController.generated.h"
 
+class UPBDialogueManagerComponent;
 class UNiagaraSystem;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnViewDataPropertyChangedSiganture);
 
@@ -13,6 +14,7 @@ class UPBPathDisplayComponent;
 class UPBCameraControlComponent;
 class UPBTargetingComponent;
 class UPBInteractorComponent;
+class UPBTacticalCameraComponent;
 class UPBWidgetBase;
 class UInputMappingContext;
 class UInputAction;
@@ -54,6 +56,9 @@ public:
 
 	// 카메라 제어 컴포넌트 반환
 	UPBCameraControlComponent* GetCameraControl() const { return CameraControlComponent; }
+
+	// 전술 카메라 컴포넌트 반환
+	UPBTacticalCameraComponent* GetTacticalCameraComponent() const { return TacticalCameraComponent; }
 
 	// 타겟팅 컴포넌트 반환
 	UPBTargetingComponent* GetTargetingComponent() const { return TargetingComponent; }
@@ -198,6 +203,14 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UPBInteractorComponent> InteractorComponent;
 
+	// 전술 카메라 제어 컴포넌트
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UPBTacticalCameraComponent> TacticalCameraComponent;
+
+	// 대화 매니저 컴포넌트
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UPBDialogueManagerComponent> DialogueManagerComponent;
+	
 	// 현재 PC 입력 모드
 	EPBPlayerControllerMode CurrentMode = EPBPlayerControllerMode::None;
 

@@ -34,6 +34,7 @@ void UPBGenerateSequenceTask::ResetEQSState()
 	PendingAttackMoveIndices.Empty();
 	CurrentAttackMoveIndex = INDEX_NONE;
 	FallbackMoveActionIndex = INDEX_NONE;
+	bFallbackIsApproach = false;
 }
 
 /*~ 행동 순서 최적화 (Phase 2.5) ~*/
@@ -196,9 +197,11 @@ void UPBGenerateSequenceTask::LaunchEQSQueries()
 			// 타겟 접근 이동 → 큐에 적재 (직렬 실행)
 			PendingAttackMoveIndices.Add(i);
 		}
-		else if (!IsValid(Action.TargetActor) && IsValid(FallbackPositionQuery))
+		else if (!IsValid(Action.TargetActor) && IsValid(FallbackPositionQuery)
+			&& !bFallbackIsApproach)
 		{
 			// Fallback 후퇴 이동 → EQS로 최적 후퇴 위치 탐색
+			// (접근 이동은 NavMesh 투영 좌표를 그대로 사용)
 			FallbackMoveActionIndex = i;
 			++PendingEQSQueryCount;
 
@@ -541,6 +544,23 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 
 			if (!FallbackPos.IsZero())
 			{
+				// 접근 vs 후퇴 판별: 이동 후 가장 가까운 적까지 거리가 줄었으면 접근
+				const FVector AIPos = SelfActor->GetActorLocation();
+				const auto& Targets = CachedClearinghouse->GetCachedTargets();
+				bool bIsApproach = false;
+				for (const TWeakObjectPtr<AActor>& WeakTarget : Targets)
+				{
+					if (const AActor* Target = WeakTarget.Get())
+					{
+						if (FVector::DistXY(FallbackPos, Target->GetActorLocation())
+							< FVector::DistXY(AIPos, Target->GetActorLocation()))
+						{
+							bIsApproach = true;
+							break;
+						}
+					}
+				}
+
 				FPBSequenceAction FallbackAction;
 				FallbackAction.ActionType = EPBActionType::Move;
 				FallbackAction.TargetActor = nullptr;
@@ -548,10 +568,21 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 				FallbackAction.Cost.MovementCost = CurrentMovement;
 				GeneratedSequence.Actions.Add(FallbackAction);
 
-				UE_LOG(LogPBStateTree, Display,
-				       TEXT("[Fallback] DFS 행동 없음, 엄폐 후퇴 실행. "
-					       "목표: (%s)"),
-				       *FallbackPos.ToCompactString());
+				if (bIsApproach)
+				{
+					bFallbackIsApproach = true;
+					UE_LOG(LogPBStateTree, Display,
+					       TEXT("[Fallback] DFS 행동 없음, 사거리 밖 접근 실행. "
+						       "목표: (%s)"),
+					       *FallbackPos.ToCompactString());
+				}
+				else
+				{
+					UE_LOG(LogPBStateTree, Display,
+					       TEXT("[Fallback] DFS 행동 없음, 엄폐 후퇴 실행. "
+						       "목표: (%s)"),
+					       *FallbackPos.ToCompactString());
+				}
 			}
 		}
 

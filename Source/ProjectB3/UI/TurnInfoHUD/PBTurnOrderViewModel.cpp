@@ -2,6 +2,8 @@
 
 #include "PBTurnOrderViewModel.h"
 
+#include "ProjectB3/UI/PBUIBlueprintLibrary.h"
+
 void UPBTurnOrderViewModel::SetTurnOrder(const TArray<FPBTurnOrderEntry>& InData)
 {
 	PortraitViewModels.Empty();
@@ -9,9 +11,9 @@ void UPBTurnOrderViewModel::SetTurnOrder(const TArray<FPBTurnOrderEntry>& InData
 
 	for (const FPBTurnOrderEntry& Entry : InData)
 	{
-		UPBTurnPortraitViewModel* NewViewModel = NewObject<UPBTurnPortraitViewModel>(this);
-		NewViewModel->InitializeTurnPortrait(Entry);
-		PortraitViewModels.Add(NewViewModel);
+		UPBTurnPortraitViewModel* PortraitViewModel = UPBUIBlueprintLibrary::GetOrCreateActorViewModel<UPBTurnPortraitViewModel>(GetOwningPlayerController(),Entry.TargetActor);
+		PortraitViewModel->InitializeTurnPortrait(Entry);
+		PortraitViewModels.Add(PortraitViewModel);
 	}
 
 	OnTurnOrderListChanged.Broadcast();

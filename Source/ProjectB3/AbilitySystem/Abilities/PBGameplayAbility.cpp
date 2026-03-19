@@ -392,6 +392,42 @@ FGameplayEffectSpecHandle UPBGameplayAbility::MakeDamageEffectSpecFromSavingThro
 	return SpecHandle;
 }
 
+FGameplayEffectSpecHandle UPBGameplayAbility::MakeHealSpec(
+	const UAbilitySystemComponent* InTargetASC) const
+{
+	const UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
+	if (!IsValid(SourceASC) || !IsValid(InTargetASC))
+	{
+		return FGameplayEffectSpecHandle();
+	}
+
+	const TSubclassOf<UGameplayEffect> HealGEClass = UPBAbilitySystemLibrary::GetHealGEClass(SourceASC);
+	if (!HealGEClass)
+	{
+		return FGameplayEffectSpecHandle();
+	}
+
+	const FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
+	FGameplayEffectSpecHandle SpecHandle = SourceASC->MakeOutgoingSpec(HealGEClass, 1.f, ContextHandle);
+	if (!SpecHandle.IsValid())
+	{
+		return FGameplayEffectSpecHandle();
+	}
+
+	float HealRoll = UPBAbilitySystemLibrary::RollHeal(DiceSpec.DiceCount, DiceSpec.DiceFaces);
+
+	UE_LOG(LogPBGameplayAbility, Warning,
+		TEXT("[%s] MakeHealSpec - Dice: %dd%d, HealRoll: %.2f"),
+		*GetName(),
+		DiceSpec.DiceCount,
+		DiceSpec.DiceFaces,
+		HealRoll);
+
+	SpecHandle.Data->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Heal_Amount, HealRoll);
+
+	return SpecHandle;
+}
+
 float UPBGameplayAbility::GetExpectedHitDamage(const UAbilitySystemComponent* InTargetASC,
                                                const FGameplayTagContainer& SourceTags,
                                                const FGameplayTagContainer& TargetTags) const

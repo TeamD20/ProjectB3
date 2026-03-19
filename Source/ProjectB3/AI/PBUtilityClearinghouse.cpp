@@ -9,7 +9,9 @@
 #include "Kismet/GameplayStatics.h"
 #include "NavigationSystem.h"
 #include "PBAIArchetypeData.h"
+#include "ProjectB3/Characters/PBCharacterBase.h"
 #include "ProjectB3/Characters/PBEnemyCharacter.h"
+#include "ProjectB3/Combat/IPBCombatParticipant.h"
 #include "PBGE_RestoreTurnResources.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
@@ -252,33 +254,41 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor)
 		   TEXT("=== AI [%s]의 턴 시작. 클리어링하우스 캐싱 작업 개시 ==="),
 		   *ActiveTurnActor->GetName());
 
-	// 반경 N미터 내의 적대적 액터들을 긁어모아(Overlap 등), 거리 및 취약성
-	// 점수를 미리 계산하여 TMap에 적재하는 로직 구현.
-	// 현 단계에서는 "Player" 태그를 가진 모든 액터를 타겟
-	TArray<AActor *> FoundPlayers;
-	UGameplayStatics::GetAllActorsWithTag(CurrentTurnActor->GetWorld(),
-										  FName("Player"), FoundPlayers);
+	// 팩션 기반 적/아군 분류: AI의 FactionTag와 다른 팩션 → 적 타겟
+	const IPBCombatParticipant* SelfParticipant = Cast<IPBCombatParticipant>(CurrentTurnActor);
+	const FGameplayTag SelfFaction = SelfParticipant ? SelfParticipant->GetFactionTag() : FGameplayTag();
 
-	for (AActor *PlayerActor : FoundPlayers)
+	TArray<AActor*> AllCharacters;
+	UGameplayStatics::GetAllActorsOfClass(CurrentTurnActor->GetWorld(),
+		APBCharacterBase::StaticClass(), AllCharacters);
+
+	for (AActor* Character : AllCharacters)
 	{
-		if (!IsValid(PlayerActor))
+		if (!IsValid(Character) || Character == CurrentTurnActor)
 		{
 			continue;
 		}
 
-		// 사망 캐릭터 제외: Character_State_Dead 태그 보유 시 타겟 목록에서 배제
-		UAbilitySystemComponent *TargetASC =
-			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(PlayerActor);
+		// 사망 캐릭터 제외
+		UAbilitySystemComponent* TargetASC =
+			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Character);
 		if (TargetASC && TargetASC->HasMatchingGameplayTag(
 							 PBGameplayTags::Character_State_Dead))
 		{
 			UE_LOG(LogPBUtility, Log,
-				   TEXT("사망 캐릭터 [%s]를 타겟 목록에서 제외합니다."),
-				   *PlayerActor->GetName());
+				   TEXT("사망 캐릭터 [%s]를 목록에서 제외합니다."),
+				   *Character->GetName());
 			continue;
 		}
 
-		CachedTargets.Add(PlayerActor);
+		// 팩션 비교
+		const IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(Character);
+		const FGameplayTag CharFaction = Participant ? Participant->GetFactionTag() : FGameplayTag();
+
+		if (CharFaction != SelfFaction)
+		{
+			CachedTargets.Add(Character);
+		}
 	}
 
 	UE_LOG(LogPBUtility, Log,
@@ -383,34 +393,35 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor)
 		TEXT("[MovementCache] %s MaxMovement=%.0f cm 캐싱 완료"),
 		*CurrentTurnActor->GetName(), CachedMaxMovement);
 
-	// --- 아군 캐싱 ---
-	// "Enemy" 태그 액터 중 사망자 제외, Self 포함
-	TArray<AActor*> FoundAllies;
-	UGameplayStatics::GetAllActorsWithTag(
-		CurrentTurnActor->GetWorld(), FName("Enemy"), FoundAllies);
-
+	// --- 아군 캐싱 (팩션 기반) ---
 	// Self를 명시적으로 아군 목록에 추가 (자가 힐/버프 후보)
 	CachedAllies.Add(CurrentTurnActor);
 
-	for (AActor* AllyActor : FoundAllies)
+	for (AActor* Character : AllCharacters)
 	{
-		if (!IsValid(AllyActor) || AllyActor == CurrentTurnActor)
+		if (!IsValid(Character) || Character == CurrentTurnActor)
 		{
 			continue;
 		}
 
 		UAbilitySystemComponent* AllyASC =
-			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(AllyActor);
+			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Character);
 		if (AllyASC && AllyASC->HasMatchingGameplayTag(
 						   PBGameplayTags::Character_State_Dead))
 		{
 			UE_LOG(LogPBUtility, Log,
 				TEXT("사망 아군 [%s]를 아군 목록에서 제외합니다."),
-				*AllyActor->GetName());
+				*Character->GetName());
 			continue;
 		}
 
-		CachedAllies.Add(AllyActor);
+		const IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(Character);
+		const FGameplayTag CharFaction = Participant ? Participant->GetFactionTag() : FGameplayTag();
+
+		if (CharFaction == SelfFaction)
+		{
+			CachedAllies.Add(Character);
+		}
 	}
 
 	UE_LOG(LogPBUtility, Log,
@@ -1761,10 +1772,57 @@ void UPBUtilityClearinghouse::EvaluateAoEPlacements()
 		}
 	}
 
+	// 3-3. 아군/자기 회피 중심점 (적 위치에서 아군·자신 반대 방향으로 오프셋)
+	const int32 PreAvoidCount = CandidateCenters.Num();
+	for (const FActorInfo& Enemy : EnemyInfos)
+	{
+		FVector AvoidDir = FVector::ZeroVector;
+		int32 AvoidCount = 0;
+
+		// 아군 회피
+		for (const FActorInfo& Ally : AllyInfos)
+		{
+			const float Dist = FVector::DistXY(Enemy.Location, Ally.Location);
+			if (Dist <= MaxAoERadius)
+			{
+				FVector Dir = Enemy.Location - Ally.Location;
+				Dir.Z = 0.0f;
+				if (!Dir.IsNearlyZero())
+				{
+					AvoidDir += Dir.GetSafeNormal();
+					++AvoidCount;
+				}
+			}
+		}
+
+		// 자기 회피
+		{
+			const float Dist = FVector::DistXY(Enemy.Location, AILocation);
+			if (Dist <= MaxAoERadius)
+			{
+				FVector Dir = Enemy.Location - AILocation;
+				Dir.Z = 0.0f;
+				if (!Dir.IsNearlyZero())
+				{
+					AvoidDir += Dir.GetSafeNormal();
+					++AvoidCount;
+				}
+			}
+		}
+
+		if (AvoidCount > 0)
+		{
+			AvoidDir = AvoidDir.GetSafeNormal();
+			const FVector ShiftedCenter = Enemy.Location + AvoidDir * (MaxAoERadius * 0.5f);
+			CandidateCenters.Add(ShiftedCenter);
+		}
+	}
+
 	UE_LOG(LogPBUtility, Log,
-		TEXT("[AoE] 후보 중심점 %d개 생성 (적 %d + 센트로이드 %d)"),
+		TEXT("[AoE] 후보 중심점 %d개 생성 (적 %d + 센트로이드 %d + 아군회피 %d)"),
 		CandidateCenters.Num(), EnemyInfos.Num(),
-		CandidateCenters.Num() - EnemyInfos.Num());
+		PreAvoidCount - EnemyInfos.Num(),
+		CandidateCenters.Num() - PreAvoidCount);
 
 	// --- 4. 어빌리티별 최적 배치 평가 ---
 	for (const FAoEAbilityInfo& Ability : AoEAbilities)
@@ -1854,22 +1912,40 @@ void UPBUtilityClearinghouse::EvaluateAoEPlacements()
 				}
 			}
 
-			// 4-2. 아군 피격 패널티
+			// 4-2. 아군 피격 패널티 (MP 잔량 고려 — 이동으로 아군 회피 가능 여부)
 			for (const FActorInfo& Ally : AllyInfos)
 			{
 				const float DistSqToCenter = FVector::DistSquaredXY(Center, Ally.Location);
 				if (DistSqToCenter <= RadiusSq)
 				{
-					ScoreSum -= AoEAllyHitPenalty;
+					if (CachedMaxMovement >= Ability.AoERadius && Ability.CastRange >= Ability.AoERadius)
+					{
+						ScoreSum -= AoEAllyHitPenalty * 3.0f;
+					}
+					else
+					{
+						ScoreSum -= AoEAllyHitPenalty;
+					}
 				}
 			}
 
-			// 4-3. 자기 피격 패널티
+			// 4-3. 자기 피격 패널티 (MP 잔량 고려)
 			{
 				const float SelfDistSq = FVector::DistSquaredXY(Center, AILocation);
 				if (SelfDistSq <= RadiusSq)
 				{
-					ScoreSum -= AoESelfHitPenalty;
+					const float SelfDistToCenter = FMath::Sqrt(SelfDistSq);
+					const float EscapeDistance = Ability.AoERadius - SelfDistToCenter;
+					if (CachedMaxMovement >= EscapeDistance && Ability.CastRange >= Ability.AoERadius)
+					{
+						// MP 충분 + 사거리 여유 → 빠져서 쏘면 됨 → 자기 포함 배치 강력 감점
+						ScoreSum -= AoESelfHitPenalty * 3.0f;
+					}
+					else
+					{
+						// MP 부족 → 빠질 수 없으므로 기존 페널티
+						ScoreSum -= AoESelfHitPenalty;
+					}
 				}
 			}
 
@@ -3059,12 +3135,77 @@ FVector UPBUtilityClearinghouse::CalculateFallbackPosition(
 
 	if (ActualRetreat <= 0.f)
 	{
+		// 후퇴 불필요 — 적이 공격 사거리 밖이면 접근 시도
+		const bool bEnemyOutOfRange =
+			(BestFiniteRange > 0.f && NearestEnemyDistXY > BestFiniteRange);
+
+		if (!bEnemyOutOfRange)
+		{
+			UE_LOG(LogPBUtility, Display,
+				TEXT("[Fallback] 이미 카이트 거리(%.0f) 이상, 사거리 내. "
+					 "NearestEnemy=%.0f, BestFiniteRange=%.0f, bUnlimited=%d"),
+				DesiredDistFromEnemy, NearestEnemyDistXY,
+				BestFiniteRange, bHasUnlimitedRange);
+			return FVector::ZeroVector;
+		}
+
+		// 사거리 경계 안쪽(KiteRangeRatio)까지 접근
+		const float DesiredApproachDist =
+			NearestEnemyDistXY - BestFiniteRange * KiteRangeRatio;
+		const float ActualApproach = FMath::Min(DesiredApproachDist, RemainingMP);
+
+		FVector ApproachDir = EnemyCentroid - AIPos;
+		ApproachDir.Z = 0.0f;
+		if (ApproachDir.IsNearlyZero())
+		{
+			ApproachDir = SelfRef->GetActorForwardVector();
+		}
+		ApproachDir.Normalize();
+
+		const FVector ApproachCandidate = AIPos + ApproachDir * ActualApproach;
+
+		// NavMesh 프로젝션
+		UNavigationSystemV1* ApproachNavSys =
+			FNavigationSystem::GetCurrent<UNavigationSystemV1>(SelfRef->GetWorld());
+		if (!ApproachNavSys)
+		{
+			UE_LOG(LogPBUtility, Warning,
+				TEXT("[Fallback] NavigationSystem을 찾을 수 없습니다 (접근)."));
+			return FVector::ZeroVector;
+		}
+
+		FNavLocation ApproachProjected;
+		bool bApproachProjected = ApproachNavSys->ProjectPointToNavigation(
+			ApproachCandidate, ApproachProjected, FVector(200.0f, 200.0f, 200.0f));
+
+		if (!bApproachProjected)
+		{
+			const FVector HalfApproach = AIPos + ApproachDir * (ActualApproach * 0.5f);
+			bApproachProjected = ApproachNavSys->ProjectPointToNavigation(
+				HalfApproach, ApproachProjected, FVector(200.0f, 200.0f, 200.0f));
+
+			if (!bApproachProjected)
+			{
+				UE_LOG(LogPBUtility, Warning,
+					TEXT("[Fallback] NavMesh 투영 실패. 접근 불가."));
+				return FVector::ZeroVector;
+			}
+		}
+
 		UE_LOG(LogPBUtility, Display,
-			TEXT("[Fallback] 이미 카이트 거리(%.0f) 이상. 후퇴 불필요. "
-				 "NearestEnemy=%.0f, BestFiniteRange=%.0f, bUnlimited=%d"),
-			DesiredDistFromEnemy, NearestEnemyDistXY,
-			BestFiniteRange, bHasUnlimitedRange);
-		return FVector::ZeroVector;
+			TEXT("[Fallback] 사거리 밖 접근: (%s) → (%s) | "
+				 "BestFiniteRange=%.0f, NearestEnemy=%.0f, "
+				 "DesiredApproach=%.0f, ActualApproach=%.0f, MP=%.0f"),
+			*AIPos.ToCompactString(),
+			*ApproachProjected.Location.ToCompactString(),
+			BestFiniteRange, NearestEnemyDistXY,
+			DesiredApproachDist, ActualApproach, RemainingMP);
+
+		UE_VLOG_SEGMENT(SelfRef, LogPBUtility, Log,
+			AIPos, ApproachProjected.Location, FColor::Green,
+			TEXT("Approach"));
+
+		return ApproachProjected.Location;
 	}
 
 	// 5. 적 Centroid 반대 방향 벡터 (XY 평면)

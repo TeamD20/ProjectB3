@@ -114,7 +114,10 @@ public:
 	UFUNCTION(BlueprintCallable,BlueprintPure = false, Category = "Ability|Dice")
 	FGameplayEffectSpecHandle MakeDamageEffectSpecFromSavingThrowDamageRoll(const UAbilitySystemComponent* InTargetASC, FPBSavingThrowResult& OutSavingThrowResult,FPBDamageRollResult& OutDamageRollResult) const;
 
-	
+	// 힐 주사위 굴림 → HealEffectSpec 반환 (명중/세이빙 없음)
+	UFUNCTION(BlueprintCallable, BlueprintPure = false, Category = "Ability|Dice")
+	FGameplayEffectSpecHandle MakeHealSpec(const UAbilitySystemComponent* InTargetASC) const;
+
 	// AI 스코링용: 명중 굴림 기반 유효 기댓값 (AttackBonus·AttackModifier 자동 산출)
 	// TargetASC: 피격 대상 ASC
 	UFUNCTION(BlueprintPure, Category = "Ability|Dice")

@@ -81,6 +81,9 @@ private:
 
 	int32 FallbackMoveActionIndex = INDEX_NONE;
 
+	// Fallback이 접근(사거리 밖 전진)인 경우 엄폐 EQS를 건너뛴다
+	bool bFallbackIsApproach = false;
+
 	// 캐싱된 Clearinghouse (EnterState에서 획득)
 	UPROPERTY()
 	TObjectPtr<UPBUtilityClearinghouse> CachedClearinghouse = nullptr;

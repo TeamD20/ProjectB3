@@ -2,10 +2,13 @@
 
 #include "PBGameplayHUD.h"
 
+#include "AbilitySystemBlueprintLibrary.h"
+#include "AbilitySystemComponent.h"
 #include "PBGameplayGameState.h"
 #include "Engine/LocalPlayer.h"
 #include "GameFramework/PlayerController.h"
 #include "ProjectB3/PBGameplayTags.h"
+#include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
 #include "ProjectB3/Combat/PBCombatManagerSubsystem.h"
 #include "ProjectB3/Player/PBGameplayPlayerState.h"
@@ -187,7 +190,14 @@ void APBGameplayHUD::HandleCombatStarted()
 			TurnOrderEntry.DisplayName = CPI->GetCombatDisplayName();
 			TurnOrderEntry.Portrait = CPI->GetCombatPortrait();
 			TurnOrderEntry.bIsAlly = !CPI->GetFactionTag().MatchesTagExact(PBGameplayTags::Combat_Faction_Player);
-			// TODO: TurnOrderEntry에서 HealthPercent제거?
+		}
+		
+		if (UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(InitiativeEntry.Combatant.Get()))
+		{
+			float MaxHP = ASC->GetNumericAttribute(UPBCharacterAttributeSet::GetMaxHPAttribute());
+			float HP = ASC->GetNumericAttribute(UPBCharacterAttributeSet::GetHPAttribute());
+			float Percent = MaxHP == 0.f ? 0.f : HP / MaxHP;
+			TurnOrderEntry.InitialHealthPercent = Percent;	
 		}
 		
 		UITurnOrder.Add(TurnOrderEntry);

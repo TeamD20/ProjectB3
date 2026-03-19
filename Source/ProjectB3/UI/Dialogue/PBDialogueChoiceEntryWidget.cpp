@@ -1,0 +1,94 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+
+#include "PBDialogueChoiceEntryWidget.h"
+#include "Components/Button.h"
+#include "InputCoreTypes.h"
+#include "Components/RichTextBlock.h"
+#include "ProjectB3/UI/Dialogue/PBDialogueViewModel.h"
+
+void UPBDialogueChoiceEntryWidget::NativeConstruct()
+{
+    Super::NativeConstruct();
+
+    if (IsValid(ChoiceButton))
+    {
+        ChoiceButton->OnClicked.AddDynamic(this, &ThisClass::HandleChoiceButtonClicked);
+    }
+}
+
+void UPBDialogueChoiceEntryWidget::NativeDestruct()
+{
+    if (IsValid(ChoiceButton))
+    {
+        ChoiceButton->OnClicked.RemoveDynamic(this, &ThisClass::HandleChoiceButtonClicked);
+    }
+
+    BoundViewModel.Reset();
+    Super::NativeDestruct();
+}
+
+FReply UPBDialogueChoiceEntryWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+    if (!IsValid(ChoiceButton)
+        && InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton
+        && bChoiceAvailable)
+    {
+        RequestSelectChoice();
+        return FReply::Handled();
+    }
+
+    return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
+}
+
+void UPBDialogueChoiceEntryWidget::InitializeChoice(const FPBDialogueChoiceInfo& InInfo, int32 InChoiceIndex, UPBDialogueViewModel* InViewModel)
+{
+    ChoiceIndex = InChoiceIndex;
+    bChoiceAvailable = InInfo.bAvailable;
+    BoundViewModel = InViewModel;
+
+    if (IsValid(ChoiceText))
+    {
+        ChoiceText->SetText(InInfo.ChoiceText);
+    }
+
+    if (IsValid(ChoiceButton))
+    {
+        ChoiceButton->SetIsEnabled(InInfo.bAvailable);
+    }
+    else
+    {
+        SetIsEnabled(InInfo.bAvailable);
+    }
+
+    // 비활성 사유 표시
+    if (IsValid(UnavailableReasonText))
+    {
+        if (!InInfo.bAvailable && !InInfo.UnavailableReason.IsEmpty())
+        {
+            UnavailableReasonText->SetText(InInfo.UnavailableReason);
+            UnavailableReasonText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+        }
+        else
+        {
+            UnavailableReasonText->SetVisibility(ESlateVisibility::Collapsed);
+        }
+    }
+}
+
+void UPBDialogueChoiceEntryWidget::HandleChoiceButtonClicked()
+{
+    RequestSelectChoice();
+}
+
+void UPBDialogueChoiceEntryWidget::RequestSelectChoice()
+{
+    if (!bChoiceAvailable)
+    {
+        return;
+    }
+
+    if (BoundViewModel.IsValid())
+    {
+        BoundViewModel->SelectChoice(ChoiceIndex);
+    }
+}
