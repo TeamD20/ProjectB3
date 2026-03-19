@@ -24,6 +24,13 @@
 #include "ProjectB3/Interaction/PBInteractorComponent.h"
 #include "ProjectB3/Camera/PBTacticalCameraComponent.h"
 #include "ProjectB3/Dialogue/PBDialogueManagerComponent.h"
+#include "ProjectB3/Player/PBGameplayPlayerState.h"
+#include "ProjectB3/Utils/PBGameplayStatics.h"
+#include "Components/MeshComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "TimerManager.h"
+
+#include "ProjectB3/Combat/IPBCombatTarget.h"
 
 APBGameplayPlayerController::APBGameplayPlayerController()
 {
@@ -64,6 +71,8 @@ void APBGameplayPlayerController::BeginPlay()
 	PathDisplayComponent->SetPathDisplayEnabled(true);
 
 	BindCameraToCharacter();
+
+	GetWorldTimerManager().SetTimer(CutoutTimerHandle, this, &APBGameplayPlayerController::UpdateCameraCutout, CutoutTraceInterval, true);
 }
 
 void APBGameplayPlayerController::Tick(float DeltaTime)
@@ -95,7 +104,7 @@ void APBGameplayPlayerController::Tick(float DeltaTime)
 	}
 	// 단일 라인트레이스 결과를 경로 표시와 타겟팅이 공유
 	FHitResult CursorHit;
-	const bool bGotHit = GetHitResultUnderCursor(ECC_Visibility, false, CursorHit);
+	const bool bGotHit = GetCursorHitWithIgnoredActors(ECC_Visibility, false, CursorHit);
 
 	if (bGotHit)
 	{
@@ -360,7 +369,7 @@ void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value
 		}
 
 		FHitResult HitResult;
-		if (!GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
+		if (!GetCursorHitWithIgnoredActors(ECC_Visibility, false, HitResult))
 		{
 			return;
 		}
@@ -401,7 +410,7 @@ void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value
 		}
 
 		FHitResult HitResult;
-		if (!GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
+		if (!GetCursorHitWithIgnoredActors(ECC_Visibility, false, HitResult))
 		{
 			return;
 		}
@@ -486,3 +495,170 @@ void APBGameplayPlayerController::RequestNavPathDisplay(const FVector& TargetLoc
 
 	PathDisplayComponent->DisplayPath(NavPath->PathPoints, true);
 }
+
+void APBGameplayPlayerController::UpdateCameraCutout()
+{
+	APBGameplayPlayerState* PBPlayerState = GetPlayerState<APBGameplayPlayerState>();
+	if (!IsValid(PBPlayerState))
+	{
+		return;
+	}
+
+	TArray<AActor*> PartyMembers = PBPlayerState->GetPartyMembers();
+	if (PartyMembers.IsEmpty())
+	{
+		return;
+	}
+
+	APlayerCameraManager* CameraManager = PlayerCameraManager;
+	if (!IsValid(CameraManager))
+	{
+		return;
+	}
+
+	FVector CameraLocation = CameraManager->GetCameraLocation();
+	TMap<TWeakObjectPtr<UMeshComponent>, FPBMeshFadeState> CurrentHits;
+	TSet<TWeakObjectPtr<AActor>> CurrentActorHits;
+
+	FCollisionQueryParams QueryParams(TEXT("CameraCutoutTrace"), false, GetPawn());
+	QueryParams.AddIgnoredActors(PartyMembers);
+
+	// 최대 4인까지만 안전하게 순회
+	int32 MemberCount = FMath::Min(PartyMembers.Num(), 4);
+
+	for (int32 Index = 0; Index < MemberCount; ++Index)
+	{
+		AActor* Member = PartyMembers[Index];
+		if (!IsValid(Member))
+		{
+			continue;
+		}
+
+		TArray<FHitResult> HitResults;
+		bool bHit = GetWorld()->LineTraceMultiByChannel(
+			HitResults,
+			CameraLocation,
+			Member->GetActorLocation(),
+			ECC_Visibility, // 채널 변경 가능
+			QueryParams
+		);
+
+		if (bHit)
+		{
+			for (const FHitResult& Hit : HitResults)
+			{
+				AActor* HitActor = Hit.GetActor();
+				if (!IsValid(HitActor))
+				{
+					continue;
+				}
+
+				CurrentActorHits.Add(HitActor);
+
+				TArray<UMeshComponent*> HitMeshes;
+				UPBGameplayStatics::GetAllMeshComponents(HitActor, HitMeshes);
+
+				for (UMeshComponent* Mesh : HitMeshes)
+				{
+					if (!IsValid(Mesh))
+					{
+						continue;
+					}
+
+					FPBMeshFadeState& State = CurrentHits.FindOrAdd(Mesh);
+					State.bHitByMember[Index] = true;
+
+					int32 NumMaterials = Mesh->GetNumMaterials();
+					for (int32 i = 0; i < NumMaterials; ++i)
+					{
+						UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(Mesh->GetMaterial(i));
+						if (!IsValid(MID))
+						{
+							MID = Mesh->CreateAndSetMaterialInstanceDynamic(i);
+						}
+
+						if (IsValid(MID))
+						{
+							FName LocParamName = FName(*FString::Printf(TEXT("HitLocation%d"), Index));
+							FName FadeParamName = FName(*FString::Printf(TEXT("TraceFadeAmount%d"), Index));
+							MID->SetVectorParameterValue(LocParamName, Hit.ImpactPoint);
+							MID->SetScalarParameterValue(FadeParamName, 1.0f);
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 기존에 투명화되었으나 이번 주기에 히트 상태가 풀린(파티원별) 메시 복구
+	for (auto& Pair : FadedMeshes)
+	{
+		TWeakObjectPtr<UMeshComponent> FadedMesh = Pair.Key;
+		if (!FadedMesh.IsValid())
+		{
+			continue;
+		}
+
+		UMeshComponent* Mesh = FadedMesh.Get();
+		const FPBMeshFadeState& OldState = Pair.Value;
+		const FPBMeshFadeState* NewStatePtr = CurrentHits.Find(Mesh);
+
+		bool bNewHit[4] = {false, false, false, false};
+		if (NewStatePtr)
+		{
+			for (int32 idx = 0; idx < 4; ++idx)
+			{
+				bNewHit[idx] = NewStatePtr->bHitByMember[idx];
+			}
+		}
+
+		int32 NumMaterials = Mesh->GetNumMaterials();
+		for (int32 i = 0; i < NumMaterials; ++i)
+		{
+			UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(Mesh->GetMaterial(i));
+			if (IsValid(MID))
+			{
+				for (int32 idx = 0; idx < 4; ++idx)
+				{
+					// 이전에는 가려졌는데(true), 현재 안 가려짐(false) -> 파라미터 0 반환
+					if (OldState.bHitByMember[idx] && !bNewHit[idx])
+					{
+						FName FadeParamName = FName(*FString::Printf(TEXT("TraceFadeAmount%d"), idx));
+						MID->SetScalarParameterValue(FadeParamName, 0.0f);
+					}
+				}
+			}
+		}
+	}
+
+	FadedMeshes = CurrentHits;
+	FadedActors = CurrentActorHits;
+}
+
+bool APBGameplayPlayerController::GetCursorHitWithIgnoredActors(ECollisionChannel TraceChannel, bool bTraceComplex, FHitResult& OutHitResult) const
+{
+	FVector WorldLocation, WorldDirection;
+	if (DeprojectMousePositionToWorld(WorldLocation, WorldDirection))
+	{
+		FVector Start = WorldLocation;
+		FVector End = Start + (WorldDirection * 100000.f);
+
+		FCollisionQueryParams QueryParams(TEXT("ClickTraceWithIgnore"), bTraceComplex, GetPawn());
+		
+		// 투명화된 장애물 액터들을 무시 목록에 추가 (CombatTarget이 아닌 경우만)
+		for (const TWeakObjectPtr<AActor>& FadedActor : FadedActors)
+		{
+			// 전투 타겟 인터페이스를 가진 액터는 트레이스 무시 목록에서 제외
+			if (!FadedActor.IsValid() || FadedActor->Implements<UPBCombatTarget>())
+			{
+				continue;
+			}
+			
+			QueryParams.AddIgnoredActor(FadedActor.Get());
+		}
+
+		return GetWorld()->LineTraceSingleByChannel(OutHitResult, Start, End, TraceChannel, QueryParams);
+	}
+	return false;
+}
+

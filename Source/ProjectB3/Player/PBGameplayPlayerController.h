@@ -94,6 +94,17 @@ public:
 	void ToggleInventory();
 
 protected:
+	/*~ Camera Cutout ~*/
+	// 카메라에서 파티원들을 향해 방해물을 검사하여 투명화 처리한다.
+	void UpdateCameraCutout();
+
+	// 특정 액터(투명화된 장애물 등)를 무시하고 커서 위치를 트레이스한다.
+	bool GetCursorHitWithIgnoredActors(ECollisionChannel TraceChannel, bool bTraceComplex, FHitResult& OutHitResult) const;
+
+	// 투명화 트레이스를 수행할 주기 (초)
+	UPROPERTY(EditDefaultsOnly, Category = "Camera Cutout")
+	float CutoutTraceInterval = 0.1f;
+
 	/*~ AActor Interface ~*/
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
@@ -225,4 +236,18 @@ private:
 	
 	// 인벤토리 표시 여부
 	bool bIsInventoryOpen = false;
+
+	// 카메라 컷아웃 타이머 핸들
+	FTimerHandle CutoutTimerHandle;
+
+	struct FPBMeshFadeState 
+	{
+		bool bHitByMember[4] = {false, false, false, false};
+	};
+
+	// 현재 투명화 상태인 메시 컴포넌트 목록 (파티원별 히트 상태 추적)
+	TMap<TWeakObjectPtr<UMeshComponent>, FPBMeshFadeState> FadedMeshes;
+
+	// 현재 투명화 상태인 장애물 액터 목록 (트레이스 무시용)
+	TSet<TWeakObjectPtr<AActor>> FadedActors;
 };
