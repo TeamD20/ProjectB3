@@ -31,8 +31,10 @@ void UPBGenerateSequenceTask::ResetEQSState()
 	bWaitingForEQS = false;
 	PendingEQSQueryCount = 0;
 	EQSTimeoutRemaining = 0.0f;
+	bEQSAllInvalidated = false;
 	PendingAttackMoveIndices.Empty();
 	CurrentAttackMoveIndex = INDEX_NONE;
+	CurrentAttackMinRange = 0.f;
 	FallbackMoveActionIndex = INDEX_NONE;
 	bFallbackIsApproach = false;
 }
@@ -253,59 +255,101 @@ void UPBGenerateSequenceTask::LaunchNextAttackQuery()
 	const FPBSequenceAction& MoveAction =
 		GeneratedSequence.Actions[CurrentAttackMoveIndex];
 
-	// Move 다음 행동의 어빌리티 CDO에서 사거리 + 이상적 교전 거리 추출
+	// Move 이후 ~ 다음 Move(또는 끝)까지 모든 행동의 사거리 중 최소값을 사용.
+	// DFS가 "이동 후 타겟 위치에 도착"을 가정하므로, 동일 위치에서
+	// 실행되는 모든 어빌리티가 사거리 내에 있으려면 최소 사거리 기준이 필요.
 	float AbilityMaxRange = 0.f;
 	float IdealDistance = 0.f;
+	float RawMinRange = 0.f; // 로그용: 안전 여유 적용 전 원본 최소 사거리
 	static constexpr float MeleeRangeThreshold = 300.f;
-	static constexpr float MeleeIdealDistance = 100.f;
 	static constexpr float RangedIdealRatio = 0.85f;
+	// NavMesh 경로는 직선보다 길어서 AI가 목표 지점에 못 미칠 수 있다.
+	// 안전 여유(30%)를 적용하여 EQS가 더 가까운 위치를 선정하도록 한다.
+	static constexpr float NavMeshSafetyFactor = 0.7f;
 
-	const int32 NextIdx = CurrentAttackMoveIndex + 1;
-	if (NextIdx < GeneratedSequence.Actions.Num())
+	UAbilitySystemComponent* ASC =
+		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(SelfActor);
+	if (IsValid(ASC))
 	{
-		const FPBSequenceAction& NextAction =
-			GeneratedSequence.Actions[NextIdx];
-		UAbilitySystemComponent* ASC =
-			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(
-				SelfActor);
-		if (IsValid(ASC))
-		{
-			const FGameplayAbilitySpec* Spec =
-				ASC->FindAbilitySpecFromHandle(
-					NextAction.AbilitySpecHandle);
-			if (Spec)
-			{
-				const UPBGameplayAbility_Targeted* TargetedCDO =
-					Cast<UPBGameplayAbility_Targeted>(Spec->Ability);
-				if (TargetedCDO)
-				{
-					AbilityMaxRange = TargetedCDO->GetRange();
+		bool bAnyRangeFound = false;
+		float MinRange = 0.f;
 
-					// 이상적 교전 거리 계산
-					if (AbilityMaxRange <= 0.f)
-					{
-						static constexpr float UnlimitedIdealDistance = 800.f;
-						IdealDistance = UnlimitedIdealDistance;
-					}
-					else if (AbilityMaxRange <= MeleeRangeThreshold)
-					{
-						IdealDistance = MeleeIdealDistance;
-					}
-					else
-					{
-						IdealDistance = AbilityMaxRange * RangedIdealRatio;
-					}
-				}
+		for (int32 ScanIdx = CurrentAttackMoveIndex + 1;
+			ScanIdx < GeneratedSequence.Actions.Num(); ++ScanIdx)
+		{
+			const FPBSequenceAction& ScanAction =
+				GeneratedSequence.Actions[ScanIdx];
+
+			// 다음 Move를 만나면 중단 — 그 이후는 다른 위치에서 실행
+			if (ScanAction.ActionType == EPBActionType::Move)
+			{
+				break;
 			}
+
+			if (!ScanAction.AbilitySpecHandle.IsValid())
+			{
+				continue;
+			}
+
+			const FGameplayAbilitySpec* Spec =
+				ASC->FindAbilitySpecFromHandle(ScanAction.AbilitySpecHandle);
+			if (!Spec)
+			{
+				continue;
+			}
+
+			const UPBGameplayAbility_Targeted* TargetedCDO =
+				Cast<UPBGameplayAbility_Targeted>(Spec->Ability);
+			if (!TargetedCDO)
+			{
+				continue;
+			}
+
+			const float Range = TargetedCDO->GetRange();
+			if (Range <= 0.f)
+			{
+				// 무제한 사거리 — 위치 제약 없음, 최소값에 영향 안 줌
+				continue;
+			}
+
+			if (!bAnyRangeFound || Range < MinRange)
+			{
+				MinRange = Range;
+				bAnyRangeFound = true;
+			}
+		}
+
+		// 예: Kick(Range=150) → EQS MaxRange=105 → 실제 도착이 다소 밀려도 150 이내.
+		RawMinRange = bAnyRangeFound ? MinRange : 0.f;
+		CurrentAttackMinRange = RawMinRange; // 콜백에서 클램핑 후 사거리 검증용
+		AbilityMaxRange = bAnyRangeFound ? MinRange * NavMeshSafetyFactor : 0.f;
+
+		// 이상적 교전 거리 계산 (축소된 사거리 기준)
+		if (AbilityMaxRange <= 0.f)
+		{
+			static constexpr float UnlimitedIdealDistance = 800.f;
+			IdealDistance = UnlimitedIdealDistance;
+		}
+		else if (AbilityMaxRange <= MeleeRangeThreshold)
+		{
+			// 근접 어빌리티: 가능한 한 타겟에 가까이
+			IdealDistance = AbilityMaxRange * 0.5f;
+		}
+		else
+		{
+			IdealDistance = AbilityMaxRange * RangedIdealRatio;
 		}
 	}
 
 	UE_LOG(LogPBStateTree, Display,
 		TEXT("[EQS] Attack 쿼리 발사: Move[%d] → 타겟(%s), "
-		     "MaxRange=%.0f, IdealDist=%.0f (큐 잔여: %d)"),
+		     "EQSRange=%.0f (원본 MinRange=%.0f × Safety=%.2f), "
+		     "IdealDist=%.0f (큐 잔여: %d)"),
 		CurrentAttackMoveIndex,
 		*GetNameSafe(MoveAction.TargetActor),
-		AbilityMaxRange, IdealDistance,
+		AbilityMaxRange,
+		RawMinRange, NavMeshSafetyFactor,
+		IdealDistance,
 		PendingAttackMoveIndices.Num());
 
 	CachedClearinghouse->RunAttackPositionQuery(
@@ -680,6 +724,15 @@ EStateTreeRunStatus UPBGenerateSequenceTask::Tick(
 		}
 	}
 
+	// EQS 후검증에서 모든 행동 무효화 + Fallback 불가 → 턴 종료
+	if (bEQSAllInvalidated)
+	{
+		UE_LOG(LogPBStateTree, Warning,
+			TEXT("GenerateSequenceTask: EQS 전체 무효화, Fallback 불가. "
+			     "턴 종료."));
+		return EStateTreeRunStatus::Failed;
+	}
+
 	// Generate는 항상 Running 유지 (하위 Execute State가 동작하도록)
 	return EStateTreeRunStatus::Running;
 }
@@ -778,6 +831,110 @@ void UPBGenerateSequenceTask::OnAttackPositionQueryFinished(
 									*FinalDestination.ToCompactString(),
 									*TargetActor->GetName());
 							}
+							else if (CurrentAttackMinRange > 0.f)
+							{
+								// 클램핑 위치에서 타겟까지 개별 어빌리티 사거리 검증.
+								// MinRange 기준 전체 무효화 대신, 각 어빌리티별로 판정하여
+								// 장거리 어빌리티는 살리고 단거리만 개별 무효화한다.
+								const float DistToTarget = FVector::DistXY(
+									FinalDestination,
+									TargetActor->GetActorLocation());
+
+								bool bAnyAbilitySurvived = false;
+								for (int32 ScanIdx = CurrentAttackMoveIndex + 1;
+									ScanIdx < GeneratedSequence.Actions.Num();
+									++ScanIdx)
+								{
+									FPBSequenceAction& ScanAction =
+										GeneratedSequence.Actions[ScanIdx];
+									if (ScanAction.ActionType
+										== EPBActionType::Move)
+									{
+										break;
+									}
+
+									// 개별 어빌리티 사거리 조회
+									float AbilityRange = 0.f;
+									bool bUnlimited = true;
+									if (ScanAction.AbilitySpecHandle.IsValid())
+									{
+										const FGameplayAbilitySpec* Spec =
+											ASC->FindAbilitySpecFromHandle(
+												ScanAction.AbilitySpecHandle);
+										if (Spec)
+										{
+											const UPBGameplayAbility_Targeted*
+												CDO = Cast<
+													UPBGameplayAbility_Targeted>(
+													Spec->Ability);
+											if (CDO)
+											{
+												AbilityRange = CDO->GetRange();
+												bUnlimited =
+													(AbilityRange <= 0.f);
+											}
+										}
+									}
+
+									if (!bUnlimited
+										&& DistToTarget > AbilityRange)
+									{
+										// 이 어빌리티는 사거리 초과 → 개별 무효화
+										UE_LOG(LogPBStateTree, Warning,
+											TEXT("[EQS] 클램핑 위치에서 "
+											     "어빌리티[%d] 사거리 초과 "
+											     "(Dist=%.0f > Range=%.0f). "
+											     "개별 무효화."),
+											ScanIdx, DistToTarget,
+											AbilityRange);
+										ScanAction.ActionType =
+											EPBActionType::None;
+										ScanAction.Cost = FPBCostData();
+									}
+									else
+									{
+										bAnyAbilitySurvived = true;
+										UE_LOG(LogPBStateTree, Display,
+											TEXT("[EQS] 클램핑 위치에서 "
+											     "어빌리티[%d] 사거리 확보 "
+											     "(Dist=%.0f, Range=%.0f%s)."),
+											ScanIdx, DistToTarget,
+											AbilityRange,
+											bUnlimited
+												? TEXT(", 무제한")
+												: TEXT(""));
+									}
+								}
+
+								if (bAnyAbilitySurvived)
+								{
+									UE_LOG(LogPBStateTree, Display,
+										TEXT("[EQS] 경로거리(%.0f) > "
+										     "잔여MP(%.0f) → "
+										     "클램핑 위치(%s)에서 "
+										     "일부 어빌리티 사거리 확보. "
+										     "클램핑 좌표로 이동."),
+										PathResult.TotalCost, RemainingMP,
+										*FinalDestination
+											.ToCompactString());
+								}
+								else
+								{
+									bPositionValid = false;
+									UE_LOG(LogPBStateTree, Warning,
+										TEXT("[EQS] 경로거리(%.0f) > "
+										     "잔여MP(%.0f) → "
+										     "클램핑 위치(%s)에서 "
+										     "타겟(%s) 모든 어빌리티 "
+										     "사거리 초과 (Dist=%.0f). "
+										     "Move+Attack 무효화."),
+										PathResult.TotalCost, RemainingMP,
+										*FinalDestination
+											.ToCompactString(),
+										*TargetActor->GetName(),
+										DistToTarget);
+								}
+							}
 							else
 							{
 								UE_LOG(LogPBStateTree, Display,
@@ -810,43 +967,104 @@ void UPBGenerateSequenceTask::OnAttackPositionQueryFinished(
 		}
 		else
 		{
-			// 클램핑 위치에서 LoS 불가 → Move+Attack 무효화
+			// 클램핑 위치에서 LoS/사거리 불가 → Move + 후속 행동 전체 무효화
+			// 1단계: ActionType만 None으로 (Cost는 TryReplace가 예산으로 사용)
 			if (GeneratedSequence.Actions.IsValidIndex(CurrentAttackMoveIndex))
 			{
 				GeneratedSequence.Actions[CurrentAttackMoveIndex].ActionType =
 					EPBActionType::None;
 			}
-			const int32 AttackIdx = CurrentAttackMoveIndex + 1;
-			if (GeneratedSequence.Actions.IsValidIndex(AttackIdx))
+			for (int32 Idx = CurrentAttackMoveIndex + 1;
+				Idx < GeneratedSequence.Actions.Num(); ++Idx)
 			{
-				GeneratedSequence.Actions[AttackIdx].ActionType =
+				if (GeneratedSequence.Actions[Idx].ActionType
+					== EPBActionType::Move)
+				{
+					break;
+				}
+				GeneratedSequence.Actions[Idx].ActionType =
 					EPBActionType::None;
 			}
 
-			// 대안 탐색: 현재 위치에서 다른 타겟에게 행동 가능한지 확인
+			// 2단계: 대안 탐색 (원본 Cost를 예산으로 활용)
+			const int32 AttackIdx = CurrentAttackMoveIndex + 1;
 			TryReplaceInvalidatedActions(CurrentAttackMoveIndex, AttackIdx);
+
+			// 3단계: 대안 교체되지 않은 None 슬롯의 Cost 초기화
+			// ExecuteTask가 자원을 헛되이 소모하지 않도록 한다.
+			if (GeneratedSequence.Actions.IsValidIndex(CurrentAttackMoveIndex)
+				&& GeneratedSequence.Actions[CurrentAttackMoveIndex].ActionType
+					== EPBActionType::None)
+			{
+				GeneratedSequence.Actions[CurrentAttackMoveIndex].Cost =
+					FPBCostData();
+			}
+			for (int32 Idx = CurrentAttackMoveIndex + 1;
+				Idx < GeneratedSequence.Actions.Num(); ++Idx)
+			{
+				if (GeneratedSequence.Actions[Idx].ActionType
+					== EPBActionType::Move)
+				{
+					break;
+				}
+				if (GeneratedSequence.Actions[Idx].ActionType
+					== EPBActionType::None)
+				{
+					GeneratedSequence.Actions[Idx].Cost = FPBCostData();
+				}
+			}
 		}
 	}
 	else
 	{
 		// EQS 실패 → LoS 확보 위치를 찾지 못함
-		// Move+Attack 무효화 (벽 뒤 타겟에게 맹목적으로 전진 방지)
+		// Move + 후속 행동 전체 무효화 (벽 뒤 타겟에게 맹목적으로 전진 방지)
 		if (CurrentAttackMoveIndex != INDEX_NONE)
 		{
+			// 1단계: ActionType만 None으로
 			if (GeneratedSequence.Actions.IsValidIndex(CurrentAttackMoveIndex))
 			{
 				GeneratedSequence.Actions[CurrentAttackMoveIndex].ActionType =
 					EPBActionType::None;
 			}
-			const int32 AttackIdx = CurrentAttackMoveIndex + 1;
-			if (GeneratedSequence.Actions.IsValidIndex(AttackIdx))
+			for (int32 Idx = CurrentAttackMoveIndex + 1;
+				Idx < GeneratedSequence.Actions.Num(); ++Idx)
 			{
-				GeneratedSequence.Actions[AttackIdx].ActionType =
+				if (GeneratedSequence.Actions[Idx].ActionType
+					== EPBActionType::Move)
+				{
+					break;
+				}
+				GeneratedSequence.Actions[Idx].ActionType =
 					EPBActionType::None;
 			}
 
-			// 대안 탐색: 현재 위치에서 다른 타겟에게 행동 가능한지 확인
+			// 2단계: 대안 탐색
+			const int32 AttackIdx = CurrentAttackMoveIndex + 1;
 			TryReplaceInvalidatedActions(CurrentAttackMoveIndex, AttackIdx);
+
+			// 3단계: None 유지된 슬롯의 Cost 초기화
+			if (GeneratedSequence.Actions.IsValidIndex(CurrentAttackMoveIndex)
+				&& GeneratedSequence.Actions[CurrentAttackMoveIndex].ActionType
+					== EPBActionType::None)
+			{
+				GeneratedSequence.Actions[CurrentAttackMoveIndex].Cost =
+					FPBCostData();
+			}
+			for (int32 Idx = CurrentAttackMoveIndex + 1;
+				Idx < GeneratedSequence.Actions.Num(); ++Idx)
+			{
+				if (GeneratedSequence.Actions[Idx].ActionType
+					== EPBActionType::Move)
+				{
+					break;
+				}
+				if (GeneratedSequence.Actions[Idx].ActionType
+					== EPBActionType::None)
+				{
+					GeneratedSequence.Actions[Idx].Cost = FPBCostData();
+				}
+			}
 		}
 
 		UE_LOG(LogPBStateTree, Warning,
@@ -906,6 +1124,81 @@ void UPBGenerateSequenceTask::CheckAllEQSComplete()
 	if (PendingEQSQueryCount <= 0)
 	{
 		bWaitingForEQS = false;
+
+		// EQS 무효화로 모든 행동이 None이면, Fallback 이동으로 교체한다.
+		// 단순히 비우면 Generate→Execute 루프가 동일 계획을 반복 → 무한 루프.
+		// Fallback으로 MP를 소진해야 다음 DFS에서 이동 불가 → 루프 탈출.
+		bool bAllNone = true;
+		for (const FPBSequenceAction& A : GeneratedSequence.Actions)
+		{
+			if (A.ActionType != EPBActionType::None)
+			{
+				bAllNone = false;
+				break;
+			}
+		}
+
+		if (bAllNone && GeneratedSequence.Actions.Num() > 0)
+		{
+			GeneratedSequence.Actions.Empty();
+			GeneratedSequence.TotalUtilityScore = 0.f;
+
+			// 잔여 MP 확인 후 Fallback 이동 삽입
+			if (IsValid(SelfActor) && IsValid(CachedClearinghouse))
+			{
+				UAbilitySystemComponent* ASC =
+					UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(
+						SelfActor);
+				bool bMPFound = false;
+				const float RemainingMP = ASC
+					? ASC->GetGameplayAttributeValue(
+						UPBTurnResourceAttributeSet::GetMovementAttribute(),
+						bMPFound)
+					: 0.f;
+
+				if (bMPFound && RemainingMP > 10.f
+					&& !ShouldSkipFallback(RemainingMP))
+				{
+					const FVector FallbackPos =
+						CachedClearinghouse->CalculateFallbackPosition(
+							SelfActor, RemainingMP);
+
+					if (!FallbackPos.IsZero())
+					{
+						FPBSequenceAction FallbackAction;
+						FallbackAction.ActionType = EPBActionType::Move;
+						FallbackAction.TargetActor = nullptr;
+						FallbackAction.TargetLocation = FallbackPos;
+						FallbackAction.Cost.MovementCost = RemainingMP;
+						GeneratedSequence.Actions.Add(FallbackAction);
+
+						UE_LOG(LogPBStateTree, Warning,
+							TEXT("[EQS] 모든 행동 무효화 → Fallback 후퇴로 "
+							     "교체. 목표: (%s)"),
+							*FallbackPos.ToCompactString());
+					}
+					else
+					{
+						bEQSAllInvalidated = true;
+						UE_LOG(LogPBStateTree, Warning,
+							TEXT("[EQS] 모든 행동 무효화, Fallback 위치도 "
+							     "없음. 턴 종료 예정."));
+					}
+				}
+				else
+				{
+					bEQSAllInvalidated = true;
+					UE_LOG(LogPBStateTree, Warning,
+						TEXT("[EQS] 모든 행동 무효화. MP 부족 또는 이미 "
+						     "엄폐 상태 → 턴 종료 예정."));
+				}
+			}
+			else
+			{
+				bEQSAllInvalidated = true;
+			}
+		}
+
 		GeneratedSequence.bIsReady = true;
 
 		UE_LOG(LogPBStateTree, Display,

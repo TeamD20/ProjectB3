@@ -138,6 +138,29 @@ public:
 		UPARAM(ref) const FGameplayTagContainer& SourceTags,
 		UPARAM(ref) const FGameplayTagContainer& TargetTags) const;
 
+	// --- C++ 오버로드: CDO 안전 (AI 스코어링용) ---
+	// SourceASC를 외부에서 주입하여 CDO에서도 호출 가능.
+	// OutRawAvg: (선택) 명중 시 평균 데미지 — 확률 미반영, KillBonus 판정용.
+	float GetExpectedHitDamage(
+		const UAbilitySystemComponent* InSourceASC,
+		const UAbilitySystemComponent* InTargetASC,
+		const FGameplayTagContainer& SourceTags,
+		const FGameplayTagContainer& TargetTags,
+		float* OutRawAvg) const;
+
+	float GetExpectedSavingThrowDamage(
+		const UAbilitySystemComponent* InSourceASC,
+		const UAbilitySystemComponent* InTargetASC,
+		const FGameplayTagContainer& SourceTags,
+		const FGameplayTagContainer& TargetTags,
+		float* OutRawAvg) const;
+
+	float GetExpectedDirectDamage(
+		const UAbilitySystemComponent* InSourceASC,
+		const FGameplayTagContainer& SourceTags,
+		const FGameplayTagContainer& TargetTags,
+		float* OutRawAvg) const;
+
 protected:
 	/*~ UGameplayAbility Interface ~*/
 

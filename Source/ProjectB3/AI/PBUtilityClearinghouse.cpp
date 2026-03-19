@@ -462,6 +462,11 @@ void UPBUtilityClearinghouse::ClearCache()
 	CachedControlScoreMap.Empty();
 	CachedAPControlScoreMap.Empty();
 	CachedBAControlScoreMap.Empty();
+	CachedAllAttackScores.Empty();
+	CachedAllHealScores.Empty();
+	CachedAllBuffScores.Empty();
+	CachedAllDebuffScores.Empty();
+	CachedAllControlScores.Empty();
 	CachedAoECandidates.Empty();
 	CachedMultiTargetCandidates.Empty();
 	CachedArchetypeWeights = FPBCachedArchetypeWeights();
@@ -765,6 +770,12 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 	FGameplayTag BestBAControlTag;
 	FGameplayAbilitySpecHandle BestBAControlHandle;
 
+	// Phase 3: 모든 유효 (타겟 × 어빌리티) 조합 임시 저장
+	// TargetModifier/ArchetypeWeight는 루프 이후 계산되므로 2단계 적재
+	TArray<FPBTargetScore> LocalAttackScores;
+	TArray<FPBTargetScore> LocalDebuffScores;
+	TArray<FPBTargetScore> LocalControlScores;
+
 	if (IsValid(SourceASC) && IsValid(TargetASC))
 	{
 		// 태그 컨텍스트 (향후 저항/취약 등 확장용)
@@ -902,11 +913,22 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 					}
 				}
 
+				// Phase 3: 전체 어빌리티 flat 배열 적재
+				{
+					FPBTargetScore Entry;
+					Entry.TargetActor = TargetActor;
+					Entry.ExpectedDamage = CandidateScore;
+					Entry.AbilityTag = Tag;
+					Entry.AbilitySpecHandle = Spec.Handle;
+					(Category == EPBAbilityCategory::Debuff
+						? LocalDebuffScores : LocalControlScores).Add(Entry);
+				}
+
 				continue;  // Debuff/Control은 DiceSpec 경로를 타지 않음
 			}
 
-			// --- Attack: DiceSpec 기반 기대 피해량 스코어링 ---
-			const FPBDiceSpec &Dice = AbilityCDO->GetDiceSpec();
+			// --- Attack: 어빌리티 위임 기대 피해량 스코어링 ---
+			const FPBDiceSpec& Dice = AbilityCDO->GetDiceSpec();
 
 			// 데미지 주사위가 없는 어빌리티는 스킵
 			if (Dice.DiceCount <= 0 || Dice.DiceFaces <= 0)
@@ -914,10 +936,26 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 				continue;
 			}
 
-			// 공용 헬퍼로 기대 피해량 + 명중 시 평균 데미지 계산
+			// 어빌리티의 CDO 안전 오버로드로 기대 피해량 산출
+			// (ProficiencyBonus 포함, 서브클래스 오버라이드 가능)
 			float RawAvgDamage = 0.0f;
-			float CandidateDamage = CalcExpectedDamageFromDice(
-				SourceASC, TargetASC, Dice, SourceTags, TargetTags, &RawAvgDamage);
+			float CandidateDamage = 0.0f;
+			switch (Dice.RollType)
+			{
+			case EPBDiceRollType::HitRoll:
+				CandidateDamage = AbilityCDO->GetExpectedHitDamage(
+					SourceASC, TargetASC, SourceTags, TargetTags, &RawAvgDamage);
+				break;
+			case EPBDiceRollType::SavingThrow:
+				CandidateDamage = AbilityCDO->GetExpectedSavingThrowDamage(
+					SourceASC, TargetASC, SourceTags, TargetTags, &RawAvgDamage);
+				break;
+			case EPBDiceRollType::None:
+			default:
+				CandidateDamage = AbilityCDO->GetExpectedDirectDamage(
+					SourceASC, SourceTags, TargetTags, &RawAvgDamage);
+				break;
+			}
 
 			// --- KillBonus / OverhealPenalty 적용 ---
 			bool bCandidateCanKill = false;
@@ -971,6 +1009,19 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 				BestAbilityTag = AbilityTags.Num() > 0
 					? AbilityTags.First()
 					: FGameplayTag();
+			}
+
+			// Phase 3: 전체 어빌리티 flat 배열 적재
+			{
+				FPBTargetScore Entry;
+				Entry.TargetActor = TargetActor;
+				Entry.ExpectedDamage = CandidateDamage;
+				Entry.AbilitySpecHandle = Spec.Handle;
+				Entry.SituationalBonus = bCandidateCanKill
+					? FinishOffBaseThreat * MaxFinishOffRounds : 0.0f;
+				const FGameplayTagContainer& Tags = AbilityCDO->GetAssetTags();
+				Entry.AbilityTag = Tags.Num() > 0 ? Tags.First() : FGameplayTag();
+				LocalAttackScores.Add(Entry);
 			}
 		}
 	}
@@ -1134,6 +1185,30 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 				CachedArchetypeWeights.ControlWeight));
 	}
 
+	// --- Phase 3: 로컬 배열 → CachedAll 배열 변환 ---
+	// TargetModifier·ArchetypeWeight·MovementScore를 타겟 수준 속성으로 채운다
+	for (FPBTargetScore& Entry : LocalAttackScores)
+	{
+		Entry.TargetModifier = Score.TargetModifier;
+		Entry.ArchetypeWeight = CachedArchetypeWeights.AttackWeight;
+		Entry.MovementScore = Score.MovementScore;
+		CachedAllAttackScores.Add(MoveTemp(Entry));
+	}
+	for (FPBTargetScore& Entry : LocalDebuffScores)
+	{
+		Entry.TargetModifier = Score.TargetModifier;
+		Entry.ArchetypeWeight = CachedArchetypeWeights.DebuffWeight;
+		Entry.MovementScore = Score.MovementScore;
+		CachedAllDebuffScores.Add(MoveTemp(Entry));
+	}
+	for (FPBTargetScore& Entry : LocalControlScores)
+	{
+		Entry.TargetModifier = Score.TargetModifier;
+		Entry.ArchetypeWeight = CachedArchetypeWeights.ControlWeight;
+		Entry.MovementScore = Score.MovementScore;
+		CachedAllControlScores.Add(MoveTemp(Entry));
+	}
+
 	return Score;
 }
 
@@ -1208,6 +1283,9 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateHealScore(AActor* AllyTarget)
 	FGameplayTag BestBAHealTag;
 	FGameplayAbilitySpecHandle BestBAHealHandle;
 
+	// Phase 3: 모든 유효 힐 어빌리티 임시 저장 (RawExpectedHeal 기준)
+	TArray<FPBTargetScore> LocalHealScores;
+
 	const TArray<FGameplayAbilitySpec>& Specs = SourceASC->GetActivatableAbilities();
 	for (const FGameplayAbilitySpec& Spec : Specs)
 	{
@@ -1241,12 +1319,11 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateHealScore(AActor* AllyTarget)
 			continue;
 		}
 
-		// 기대 회복량 = DiceCount × (DiceFaces + 1) / 2 + Modifier
-		const int32 HealMod = UPBAbilitySystemLibrary::GetAttackModifier(
-			SourceASC, Dice.AttackModifierAttributeOverride);
-		const float RawExpectedHeal =
-			Dice.DiceCount * (Dice.DiceFaces + 1) / 2.0f
-			+ static_cast<float>(HealMod);
+		// 어빌리티 위임 기대 회복량 산출 (CDO 안전 오버로드)
+		// Heal은 판정 없음 → GetExpectedDirectDamage (태그는 향후 저항/취약 확장용)
+		const FGameplayTagContainer EmptyTags;
+		const float RawExpectedHeal = AbilityCDO->GetExpectedDirectDamage(
+			SourceASC, EmptyTags, EmptyTags, nullptr);
 
 		// --- 자원 유형별 최고 힐 어빌리티 추적 ---
 		const FPBCostData HealAbilityCost = ExtractAbilityCost(SourceASC, Spec.Handle);
@@ -1283,6 +1360,18 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateHealScore(AActor* AllyTarget)
 			BestHealTag = AbilityTags.Num() > 0
 				? AbilityTags.First()
 				: FGameplayTag();
+		}
+
+		// Phase 3: 전체 힐 어빌리티 flat 배열 적재
+		// ExpectedDamage에 RawExpectedHeal을 저장, UrgencyMultiplier 등은 루프 후 적용
+		{
+			FPBTargetScore Entry;
+			Entry.TargetActor = AllyTarget;
+			Entry.ExpectedDamage = RawExpectedHeal;
+			Entry.AbilitySpecHandle = Spec.Handle;
+			const FGameplayTagContainer& Tags = AbilityCDO->GetAssetTags();
+			Entry.AbilityTag = Tags.Num() > 0 ? Tags.First() : FGameplayTag();
+			LocalHealScores.Add(Entry);
 		}
 	}
 
@@ -1375,6 +1464,15 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateHealScore(AActor* AllyTarget)
 		CachedBAHealScoreMap.Add(AllyTarget, BAScore);
 	}
 
+	// --- Phase 3: 로컬 힐 배열 → CachedAllHealScores 변환 ---
+	for (FPBTargetScore& Entry : LocalHealScores)
+	{
+		Entry.ExpectedDamage = FMath::Min(Entry.ExpectedDamage, MissingHP);
+		Entry.TargetModifier = UrgencyMultiplier;
+		Entry.ArchetypeWeight = CachedArchetypeWeights.HealWeight;
+		CachedAllHealScores.Add(MoveTemp(Entry));
+	}
+
 	return Score;
 }
 
@@ -1416,6 +1514,9 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 	float BestBABuff = 0.0f;
 	FGameplayTag BestBABuffTag;
 	FGameplayAbilitySpecHandle BestBABuffHandle;
+
+	// Phase 3: 모든 유효 버프 어빌리티 임시 저장
+	TArray<FPBTargetScore> LocalBuffScores;
 
 	const TArray<FGameplayAbilitySpec>& Specs = SourceASC->GetActivatableAbilities();
 	for (const FGameplayAbilitySpec& Spec : Specs)
@@ -1488,6 +1589,16 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 			BestBuffHandle = Spec.Handle;
 			BestBuffTag = Tag;
 		}
+
+		// Phase 3: 전체 버프 어빌리티 flat 배열 적재
+		{
+			FPBTargetScore Entry;
+			Entry.TargetActor = AllyTarget;
+			Entry.ExpectedDamage = CandidateScore;
+			Entry.AbilitySpecHandle = Spec.Handle;
+			Entry.AbilityTag = Tag;
+			LocalBuffScores.Add(Entry);
+		}
 	}
 
 	// Buff 어빌리티가 없으면 점수 0
@@ -1546,6 +1657,14 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 		BAScore.SituationalBonus = 0.0f;
 		BAScore.ArchetypeWeight = CachedArchetypeWeights.BuffWeight;
 		CachedBABuffScoreMap.Add(AllyTarget, BAScore);
+	}
+
+	// --- Phase 3: 로컬 버프 배열 → CachedAllBuffScores 변환 ---
+	for (FPBTargetScore& Entry : LocalBuffScores)
+	{
+		Entry.TargetModifier = 1.0f;
+		Entry.ArchetypeWeight = CachedArchetypeWeights.BuffWeight;
+		CachedAllBuffScores.Add(MoveTemp(Entry));
 	}
 
 	return Score;
@@ -2349,15 +2468,13 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 		return Candidates;
 	}
 
-	// 공격 후보 생성 헬퍼 (AP/BA 어빌리티 맵 공용)
-	// 같은 타겟이라도 AP 어빌리티와 BA 어빌리티가 각각 후보로 등록될 수 있다.
-	auto GenerateAttackCandidates = [&](const TMap<AActor*, FPBTargetScore>& ScoreMap)
+	// Phase 3: 전체 어빌리티 배열에서 공격 후보 생성
+	// 같은 타겟에 대해 여러 어빌리티가 각각 후보로 등록된다.
+	auto GenerateAttackCandidates = [&](const TArray<FPBTargetScore>& AllScores)
 	{
-		for (const auto& Pair : ScoreMap)
+		for (const FPBTargetScore& ScoreData : AllScores)
 		{
-			AActor* Target = Pair.Key;
-			const FPBTargetScore& ScoreData = Pair.Value;
-
+			AActor* Target = ScoreData.TargetActor;
 			if (!IsValid(Target))
 			{
 				continue;
@@ -2467,19 +2584,16 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 		}
 	};
 
-	// AP/BA 양쪽 어빌리티 맵에서 공격 후보 생성
-	GenerateAttackCandidates(CachedAPAttackScoreMap);
-	GenerateAttackCandidates(CachedBAAttackScoreMap);
+	// Phase 3: 전체 어빌리티 배열에서 공격 후보 생성 (타겟×어빌리티 모든 조합)
+	GenerateAttackCandidates(CachedAllAttackScores);
 
-	// --- Heal 후보: AP/BA 양쪽 힐 맵에서 아군 대상 ---
-	// Attack과 동일한 람다 패턴으로 AP/BA 힐 맵 순회
-	auto GenerateHealCandidates = [&](const TMap<AActor*, FPBTargetScore>& HealScoreMap,
+	// --- Heal/Buff 후보: 전체 어빌리티 배열에서 아군 대상 ---
+	auto GenerateHealCandidates = [&](const TArray<FPBTargetScore>& AllScores,
 		EPBActionType OverrideActionType = EPBActionType::Heal)
 	{
-		for (const auto& HealPair : HealScoreMap)
+		for (const FPBTargetScore& HealData : AllScores)
 		{
-			AActor* Ally = HealPair.Key;
-			const FPBTargetScore& HealData = HealPair.Value;
+			AActor* Ally = HealData.TargetActor;
 
 			if (!IsValid(Ally))
 			{
@@ -2581,19 +2695,16 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 		}
 	};
 
-	// AP/BA 양쪽 어빌리티 맵에서 힐 후보 생성
-	GenerateHealCandidates(CachedAPHealScoreMap);
-	GenerateHealCandidates(CachedBAHealScoreMap);
+	// Phase 3: 전체 힐 어빌리티 배열에서 후보 생성
+	GenerateHealCandidates(CachedAllHealScores);
 
-	// --- Debuff/Control 후보: 적 대상 (Attack과 동일한 사거리/LoS/자원 검사) ---
-	// GenerateAttackCandidates 람다를 재활용. ActionType만 Debuff/Control로 설정.
+	// --- Debuff/Control 후보: 전체 어빌리티 배열에서 적 대상 ---
 	auto GenerateEnemyEffectCandidates = [&](
-		const TMap<AActor*, FPBTargetScore>& ScoreMap, EPBActionType ActionType)
+		const TArray<FPBTargetScore>& AllScores, EPBActionType ActionType)
 	{
-		for (const auto& Pair : ScoreMap)
+		for (const FPBTargetScore& ScoreData : AllScores)
 		{
-			AActor* Target = Pair.Key;
-			const FPBTargetScore& ScoreData = Pair.Value;
+			AActor* Target = ScoreData.TargetActor;
 
 			if (!IsValid(Target))
 			{
@@ -2686,14 +2797,10 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 		}
 	};
 
-	GenerateEnemyEffectCandidates(CachedAPDebuffScoreMap, EPBActionType::Debuff);
-	GenerateEnemyEffectCandidates(CachedBADebuffScoreMap, EPBActionType::Debuff);
-	GenerateEnemyEffectCandidates(CachedAPControlScoreMap, EPBActionType::Control);
-	GenerateEnemyEffectCandidates(CachedBAControlScoreMap, EPBActionType::Control);
-
-	// --- Buff 후보: 아군 대상 (Heal과 동일한 사거리/LoS/자원 검사) ---
-	GenerateHealCandidates(CachedAPBuffScoreMap, EPBActionType::Buff);
-	GenerateHealCandidates(CachedBABuffScoreMap, EPBActionType::Buff);
+	// Phase 3: 전체 어빌리티 배열에서 Debuff/Control/Buff 후보 생성
+	GenerateEnemyEffectCandidates(CachedAllDebuffScores, EPBActionType::Debuff);
+	GenerateEnemyEffectCandidates(CachedAllControlScores, EPBActionType::Control);
+	GenerateHealCandidates(CachedAllBuffScores, EPBActionType::Buff);
 
 	// --- AoE 후보: CachedAoECandidates에서 후보 생성 ---
 	for (const FPBAoECandidate& AoECandidate : CachedAoECandidates)

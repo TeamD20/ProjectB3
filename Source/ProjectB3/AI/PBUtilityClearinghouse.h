@@ -318,6 +318,15 @@ protected:
 	TMap<AActor*, FPBTargetScore> CachedAPControlScoreMap;
 	TMap<AActor*, FPBTargetScore> CachedBAControlScoreMap;
 
+	// DFS 전체 탐색용: (타겟 × 어빌리티) 모든 유효 조합.
+	// 기존 AP/BA 최고 맵은 랭킹·디버그용으로 유지하고,
+	// DFS 후보 생성(GetCandidateActions)은 이 배열에서 수행.
+	TArray<FPBTargetScore> CachedAllAttackScores;
+	TArray<FPBTargetScore> CachedAllHealScores;
+	TArray<FPBTargetScore> CachedAllBuffScores;
+	TArray<FPBTargetScore> CachedAllDebuffScores;
+	TArray<FPBTargetScore> CachedAllControlScores;
+
 	// AoE 어빌리티 최적 배치 후보 캐시 (어빌리티당 1개 — 최고 NetScore)
 	TArray<FPBAoECandidate> CachedAoECandidates;
 

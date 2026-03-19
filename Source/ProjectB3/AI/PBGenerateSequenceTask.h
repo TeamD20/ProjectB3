@@ -70,6 +70,10 @@ private:
 	// EQS 타임아웃 잔여 시간 (초)
 	float EQSTimeoutRemaining = 0.0f;
 
+	// EQS 후검증에서 모든 행동이 무효화되고 Fallback도 불가능할 때 true.
+	// Tick에서 Failed를 반환하여 턴을 종료한다.
+	bool bEQSAllInvalidated = false;
+
 	// EQS Attack 쿼리 직렬 실행 큐.
 	// LaunchEQSQueries에서 모든 Attack-Move 인덱스를 적재하고,
 	// 첫 번째만 발사. 콜백 완료 시 다음을 발사하여
@@ -78,6 +82,10 @@ private:
 
 	// 현재 처리 중인 Attack-Move 인덱스 (콜백에서 사용)
 	int32 CurrentAttackMoveIndex = INDEX_NONE;
+
+	// 현재 Attack-Move의 최소 어빌리티 사거리 (안전 여유 미적용 원본값).
+	// 클램핑 후 사거리 검증에 사용. 0 이하 = 무제한.
+	float CurrentAttackMinRange = 0.f;
 
 	int32 FallbackMoveActionIndex = INDEX_NONE;
 
