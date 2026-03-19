@@ -10,7 +10,13 @@
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
 #include "ProjectB3/Player/PBGameplayPlayerState.h"
+#include "ProjectB3/UI/PBUITags.h"
 #include "ProjectB3/UI/PBUITypes.h"
+
+UPBSkillBarViewModel::UPBSkillBarViewModel()
+{
+	ViewModelTag = PBUITags::UI_ViewModel_SkillBar;
+}
 
 void UPBSkillBarViewModel::InitializeForPlayer(ULocalPlayer* InLocalPlayer)
 {

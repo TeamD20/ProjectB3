@@ -22,9 +22,10 @@ public class ProjectB3 : ModuleRules
 			"UMG",
 			"GameplayTags",
 			"GameplayAbilities",
-			"GameplayTasks"
+			"GameplayTasks",
+			"DialogueSystemRuntime"
 		});
-		
+
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"Slate",
@@ -32,10 +33,5 @@ public class ProjectB3 : ModuleRules
 			"FunctionalTesting",
 			"GameplayDebugger"
 		});
-
-		// Uncomment if you are using online features
-		// PrivateDependencyModuleNames.Add("OnlineSubsystem");
-
-		// To include OnlineSubsystemSteam, add it to the plugins section in your uproject file with the Enabled attribute set to true
 	}
 }

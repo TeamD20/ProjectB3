@@ -6,6 +6,7 @@
 #include "InputActionValue.h"
 #include "PBGameplayPlayerController.generated.h"
 
+class UPBDialogueManagerComponent;
 class UNiagaraSystem;
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnViewDataPropertyChangedSiganture);
 
@@ -206,6 +207,10 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UPBTacticalCameraComponent> TacticalCameraComponent;
 
+	// 대화 매니저 컴포넌트
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UPBDialogueManagerComponent> DialogueManagerComponent;
+	
 	// 현재 PC 입력 모드
 	EPBPlayerControllerMode CurrentMode = EPBPlayerControllerMode::None;
 

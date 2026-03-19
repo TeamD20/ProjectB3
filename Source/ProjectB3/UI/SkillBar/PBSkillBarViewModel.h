@@ -20,6 +20,8 @@ class PROJECTB3_API UPBSkillBarViewModel : public UPBViewModelBase
 	GENERATED_BODY()
 
 public:
+	UPBSkillBarViewModel();
+	
 	// 플레이어 초기화 시 PlayerState를 찾아 자동 바인딩한다.
 	virtual void InitializeForPlayer(ULocalPlayer* InLocalPlayer) override;
 
