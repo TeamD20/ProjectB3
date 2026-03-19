@@ -16,6 +16,7 @@
 UPBSkillBarViewModel::UPBSkillBarViewModel()
 {
 	ViewModelTag = PBUITags::UI_ViewModel_SkillBar;
+	bIsVisible = true;
 }
 
 void UPBSkillBarViewModel::InitializeForPlayer(ULocalPlayer* InLocalPlayer)
