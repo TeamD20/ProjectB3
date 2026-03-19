@@ -14,6 +14,8 @@ class UOverlay;
 class UBorder;
 class UPBSkillBarViewModel;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnSkillSlotHoveredEvent, const FPBSkillSlotData&, SlotData, bool, bIsHovered);
+
 /** 스킬바의 단일 슬롯 UI 위젯 */
 UCLASS()
 class PROJECTB3_API UPBSkillSlotWidget : public UPBWidgetBase
@@ -30,10 +32,26 @@ public:
 	// 슬롯 클릭 시 참조할 스킬바 ViewModel을 설정한다.
 	void InitializeBinding(UPBSkillBarViewModel* InSkillBarViewModel);
 
+public:
+	// 슬롯 호버 상태 변경 시 발생하는 이벤트 (고정 툴팁 표시에 활용)
+	UPROPERTY(BlueprintAssignable, Category = "UI | SkillSlot")
+	FOnSkillSlotHoveredEvent OnSkillSlotHovered;
+
+protected:
+	// 마우스를 따라다니는 기본 툴팁으로 사용하기 위한 툴팁 클래스 직접 바인딩
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI | Tooltip")
+	TSubclassOf<class UPBSkillTooltipWidget> ToolTipWidgetClass;
+
+	// 생성된 툴팁 보관
+	UPROPERTY(Transient)
+	TObjectPtr<class UPBSkillTooltipWidget> CachedToolTipWidget;
+
 protected:
 	/*~ UUserWidget Interface ~*/
 	virtual void NativeConstruct() override;
 	virtual void NativeDestruct() override;
+	virtual void NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+	virtual void NativeOnMouseLeave(const FPointerEvent& InMouseEvent) override;
 
 private:
 	// 슬롯 클릭 시 선택 캐릭터에 어빌리티 발동을 요청한다.

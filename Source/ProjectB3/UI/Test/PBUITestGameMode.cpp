@@ -119,6 +119,38 @@ void APBUITestGameMode::SetupDummyCharacterData()
 				VM->SetPortrait(DummyPortraitPool[i]);
 			}
 			
+			// [새로 추가된 기능] 툴팁 UI 검증을 위한 더미 상태(Status) 및 대응(Reaction) 데이터 주입
+			// 상태 효과 3개 - 아이콘은 DummySkillIconPool에서 순환 사용
+			TArray<FPBPartyTooltipRowData> DummyStatuses;
+
+			FPBPartyTooltipRowData Status1;
+			Status1.Text = FText::FromString(TEXT("실바너스의 축복"));
+			Status1.Icon = DummySkillIconPool.IsValidIndex(0) ? DummySkillIconPool[0] : TSoftObjectPtr<UTexture2D>();
+			DummyStatuses.Add(Status1);
+
+			FPBPartyTooltipRowData Status2;
+			Status2.Text = FText::FromString(TEXT("가속도"));
+			Status2.Icon = DummySkillIconPool.IsValidIndex(1) ? DummySkillIconPool[1] : TSoftObjectPtr<UTexture2D>();
+			DummyStatuses.Add(Status2);
+
+			FPBPartyTooltipRowData Status3;
+			Status3.Text = FText::FromString(TEXT("위협당함"));
+			Status3.Icon = DummySkillIconPool.IsValidIndex(2) ? DummySkillIconPool[2] : TSoftObjectPtr<UTexture2D>();
+			DummyStatuses.Add(Status3);
+
+			// 대응 기술 - DummyResponseIconPool을 사용하고, 스킬바에 등록된 대응 슬롯 이름과 동일하게 표시
+			TArray<FPBPartyTooltipRowData> DummyReactions;
+			for (int32 r = 0; r < ResponseSlotCount; ++r)
+			{
+				FPBPartyTooltipRowData ReactionRow;
+				ReactionRow.Text = FText::FromString(FString::Printf(TEXT("대응 스킬 %d"), r + 1));
+				ReactionRow.Icon = DummyResponseIconPool.IsValidIndex(r) ? DummyResponseIconPool[r] : TSoftObjectPtr<UTexture2D>();
+				DummyReactions.Add(ReactionRow);
+			}
+
+			VM->SetStatusEffects(DummyStatuses);
+			VM->SetReactions(DummyReactions);
+			
 			// 초기 턴 설정 (첫 번째 멤버)
 			VM->SetIsSelectedCharacter(i == 0);
 			
@@ -274,7 +306,7 @@ void APBUITestGameMode::InitializeSkillBarViewModel()
 	if (SkillBarVM)
 	{
 		// 임의로 각 탭에 넣을 더미 데이터 생성 (빈 슬롯 포함)
-		auto CreateDummySlots = [this](int32 DataCount, int32 TotalCapacity, const FString& Prefix) -> TArray<FPBSkillSlotData>
+		auto CreateDummySlots = [this](int32 DataCount, int32 TotalCapacity, const FString& Prefix, const TArray<TSoftObjectPtr<UTexture2D>>& IconPool, const FText& InSkillType) -> TArray<FPBSkillSlotData>
 		{
 			TArray<FPBSkillSlotData> DummySlots;
 			for (int32 i = 0; i < TotalCapacity; ++i)
@@ -285,14 +317,23 @@ void APBUITestGameMode::InitializeSkillBarViewModel()
 				if (i < DataCount)
 				{
 					SlotData.DisplayName = FText::FromString(FString::Printf(TEXT("%s Skill %d"), *Prefix, i + 1));
+					SlotData.SkillType = InSkillType;
 					
-					// 시각적 테스트를 위한 상태 다양화
 					if (i == 0)
 					{
 						// 첫 번째: 활성화 상태 (포커스 테두리)
 						SlotData.bCanActivate = true;
 						SlotData.CooldownRemaining = 0;
 						SlotData.bIsActive = true;
+
+						// [툴팁 테스트용 더미 데이터 주입]
+						SlotData.Description = FText::FromString(TEXT("강력한 마법의 힘을 응축하여 전방에 발사합니다."));
+						SlotData.DamageDesc = FText::FromString(TEXT("1~10 피해"));
+						SlotData.DiceRollDesc = FText::FromString(TEXT("1d10 역장"));
+						SlotData.RollType = FText::FromString(TEXT("명중 굴림"));
+						SlotData.RollTypeEnum = EPBDiceRollType::HitRoll;
+						SlotData.ActionRange = FText::FromString(TEXT("18m"));
+						// 주사위 아이콘/색상은 더미용 임시 텍스처나 기본값을 사용 (아이콘이 없으면 Blueprint 더미가 출력됨)
 					}
 					else if (i == 1)
 					{
@@ -300,6 +341,14 @@ void APBUITestGameMode::InitializeSkillBarViewModel()
 						SlotData.bCanActivate = false;
 						SlotData.CooldownRemaining = 0;
 						SlotData.bIsActive = false;
+
+						// [툴팁 테스트용 더미 데이터 주입]
+						SlotData.Description = FText::FromString(TEXT("아군의 상처를 초자연적인 힘으로 즉시 치유합니다."));
+						SlotData.DamageDesc = FText::FromString(TEXT("2~8 회복"));
+						SlotData.DiceRollDesc = FText::FromString(TEXT("2d4 생명"));
+						SlotData.RollType = FText::FromString(TEXT("자동 적중 (회복)"));
+						SlotData.RollTypeEnum = EPBDiceRollType::None;
+						SlotData.ActionRange = FText::FromString(TEXT("접촉"));
 					}
 					else if (i == 2)
 					{
@@ -316,9 +365,9 @@ void APBUITestGameMode::InitializeSkillBarViewModel()
 						SlotData.bIsActive = false;
 					}
 					
-					if (DummySkillIconPool.Num() > 0)
+					if (IconPool.Num() > 0)
 					{
-						SlotData.Icon = DummySkillIconPool[i % DummySkillIconPool.Num()];
+						SlotData.Icon = IconPool[i % IconPool.Num()];
 					}
 				}
 				else
@@ -336,12 +385,12 @@ void APBUITestGameMode::InitializeSkillBarViewModel()
 		};
 
 		// GameMode 프로퍼티에 설정된 수만큼 슬롯 생성 (실제 데이터는 일부만 채움)
-		SkillBarVM->PrimaryActions = CreateDummySlots(10, PrimarySlotCount, TEXT("Primary"));
-		SkillBarVM->SecondaryActions = CreateDummySlots(8, SecondarySlotCount, TEXT("Secondary"));
-		SkillBarVM->SpellActions = CreateDummySlots(5, SpellSlotCount, TEXT("Spell"));
+		SkillBarVM->PrimaryActions = CreateDummySlots(10, PrimarySlotCount, TEXT("Primary"), DummySkillIconPool, FText::FromString(TEXT("주 행동")));
+		SkillBarVM->SecondaryActions = CreateDummySlots(8, SecondarySlotCount, TEXT("Secondary"), DummySkillIconPool, FText::FromString(TEXT("보조 행동")));
+		SkillBarVM->SpellActions = CreateDummySlots(5, SpellSlotCount, TEXT("Spell"), DummySkillIconPool, FText::FromString(TEXT("주문")));
 		
-		// [ Step 5 테스트 ] 대응 스킬 2개 생성 (Reaction)
-		SkillBarVM->ResponseActions = CreateDummySlots(2, 2, TEXT("Reaction"));
+		// [ Step 5 테스트 ] 대응 스킬 유동적 조절 (Response)
+		SkillBarVM->ResponseActions = CreateDummySlots(ResponseSlotCount, ResponseSlotCount, TEXT("Reaction"), DummyResponseIconPool, FText::FromString(TEXT("대응")));
 
 		auto CreateDummyEquipment = [this](int32 Count, bool bIsUtility) -> TArray<FPBEquipmentSlotData>
 		{

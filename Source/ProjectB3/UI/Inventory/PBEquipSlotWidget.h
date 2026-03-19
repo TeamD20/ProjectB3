@@ -47,6 +47,12 @@ protected:
 	// 인벤토리 슬롯 드롭 시 BoundSlot 장착을 처리
 	virtual bool NativeOnDrop(const FGeometry& InGeometry, const FDragDropEvent& InDragDropEvent, UDragDropOperation* InOperation) override;
 
+	// 마우스 툴팁 표시
+	virtual void NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+
+	// 마우스 툴팁 숨김
+	virtual void NativeOnMouseLeave(const FPointerEvent& InMouseEvent) override;
+
 private:
 	// 슬롯 클릭 시 장비 해제 동작을 수행
 	UFUNCTION()
@@ -56,6 +62,10 @@ protected:
 	// 이 위젯이 표현하는 장비 슬롯 키
 	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "UI|Inventory")
 	EPBEquipSlot BoundSlot = EPBEquipSlot::Head;
+
+	// 표시할 툴팁 위젯 클래스 (블루프린트에서 WBP_ItemTooltip 할당)
+	UPROPERTY(EditDefaultsOnly, Category = "UI|Tooltip")
+	TSubclassOf<class UPBItemTooltipWidget> TooltipWidgetClass;
 
 private:
 	// 장비 아이콘
@@ -79,4 +89,8 @@ private:
 
 	// 인벤토리 ViewModel 참조
 	TWeakObjectPtr<UPBInventoryViewModel> InventoryViewModel;
+
+	// 생성되어 캐싱된 툴팁 위젯
+	UPROPERTY(Transient)
+	TObjectPtr<class UPBItemTooltipWidget> CachedTooltipWidget;
 };

@@ -34,6 +34,10 @@ struct PROJECTB3_API FPBInventorySlotData
 	UPROPERTY(BlueprintReadOnly, Category = "Inventory")
 	FLinearColor RarityColor = FLinearColor::White;
 
+	// 박스 1 배경 오버레이 색상 (등급 동기화 툴팁 표출용)
+	UPROPERTY(BlueprintReadOnly, Category = "Inventory")
+	FLinearColor RarityOverlayColor = FLinearColor::Transparent;
+
 	// 상호작용 시 원본 식별용 (드래그, 장착 등)
 	UPROPERTY(BlueprintReadOnly, Category = "Inventory")
 	FGuid InstanceID;

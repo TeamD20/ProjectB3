@@ -49,6 +49,12 @@ protected:
 	// 다른 슬롯에서 드래그된 아이템을 드롭했을 때 이동을 처리
 	virtual bool NativeOnDrop(const FGeometry& InGeometry, const FDragDropEvent& InDragDropEvent, UDragDropOperation* InOperation) override;
 
+	// 마우스 포인터 진입 시 툴팁 표시
+	virtual void NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+
+	// 마우스 포인터 이탈 시 툴팁 숨김
+	virtual void NativeOnMouseLeave(const FPointerEvent& InMouseEvent) override;
+
 private:
 	// 좌클릭 선택 동작을 처리
 	UFUNCTION()
@@ -60,7 +66,16 @@ private:
 	// 현재 슬롯의 유효한 아이템 데이터를 조회
 	bool GetCurrentSlotData(FPBInventorySlotData& OutSlotData) const;
 
+protected:
+	// 표시할 툴팁 위젯 클래스
+	UPROPERTY(EditDefaultsOnly, Category = "UI|Tooltip")
+	TSubclassOf<class UPBItemTooltipWidget> TooltipWidgetClass;
+
 private:
+	// 생성되어 캐싱된 툴팁 위젯
+	UPROPERTY(Transient)
+	TObjectPtr<class UPBItemTooltipWidget> CachedTooltipWidget;
+
 	// 아이템 아이콘
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UImage> ItemIcon;

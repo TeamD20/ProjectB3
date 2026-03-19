@@ -10,6 +10,20 @@
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnPartyMemberSelectedSignature, AActor*);
 
 using namespace PBUIDelegate;
+
+/** 툴팁 리스트(상태, 대응 등)의 1줄을 담는 데이터 구조체 */
+USTRUCT(BlueprintType)
+struct PROJECTB3_API FPBPartyTooltipRowData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tooltip")
+	TSoftObjectPtr<UTexture2D> Icon;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tooltip")
+	FText Text;
+};
+
 /**
  * 
  */
@@ -47,6 +61,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
 	bool bIsCharacterSelect() const;
 	
+	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
+	const TArray<FPBPartyTooltipRowData>& GetStatusEffects() const { return StatusEffects; }
+
+	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
+	const TArray<FPBPartyTooltipRowData>& GetReactions() const { return Reactions; }
+	
 public:
 	// 세터
 	void SetCharacterName(FText InCharacterName);
@@ -55,6 +75,8 @@ public:
 	void SetHP(int32 InCurrentHP, int32 InMaxHP);
 	void SetPortrait(TSoftObjectPtr<UTexture2D> InPortrait);
 	void SetIsSelectedCharacter(bool InMyTurn);
+	void SetStatusEffects(const TArray<FPBPartyTooltipRowData>& InStatusEffects);
+	void SetReactions(const TArray<FPBPartyTooltipRowData>& InReactions);
 	
 	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
 	void OnSelected();
@@ -72,6 +94,12 @@ public:
 	FOnFloatValueChangedSignature OnHPPercentValueChanged;
 	FOnBoolValueChangedSignature OnIsMyTurnChanged;
 	FOnPartyMemberSelectedSignature OnPartyMemberSelected;
+
+	DECLARE_MULTICAST_DELEGATE(FOnStatusEffectsChangedSignature);
+	FOnStatusEffectsChangedSignature OnStatusEffectsChanged;
+
+	DECLARE_MULTICAST_DELEGATE(FOnReactionsChangedSignature);
+	FOnReactionsChangedSignature OnReactionsChanged;
 	
 private:
 	FText CharacterName;
@@ -85,4 +113,7 @@ private:
 	int32 MaxHP;
 	float HealthPercent;
 	bool bIsCharSelect;
+
+	TArray<FPBPartyTooltipRowData> StatusEffects;
+	TArray<FPBPartyTooltipRowData> Reactions;
 };

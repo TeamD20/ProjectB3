@@ -82,3 +82,29 @@ struct PROJECTB3_API FPBResourceState
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource")
 	int32 MaxValue = 0;
 };
+
+/** 자원 툴팁 표시용 정적 데이터 구조체 */
+USTRUCT(BlueprintType)
+struct PROJECTB3_API FPBResourceTooltipData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource|Tooltip")
+	FText ResourceName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource|Tooltip")
+	FText ResourceSubtitle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource|Tooltip")
+	FText Description;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource|Tooltip")
+	FText RechargeText;
+
+	// 자원 상징 색상 아이콘 (행동: 초록, 보조: 주황 등)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource|Tooltip")
+	TSoftObjectPtr<UTexture2D> ResourceIcon;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource|Tooltip")
+	TSoftObjectPtr<UTexture2D> RechargeIcon;
+};

@@ -7,6 +7,8 @@
 #include "ProjectB3/ItemSystem/Components/PBEquipmentComponent.h"
 #include "ProjectB3/ItemSystem/Components/PBInventoryComponent.h"
 #include "ProjectB3/ItemSystem/Data/PBItemDataAsset.h"
+#include "ProjectB3/ItemSystem/Data/PBEquipmentDataAsset.h"
+#include "ProjectB3/ItemSystem/PBItemTypes.h"
 
 void UPBInventoryViewModel::InitializeForActor(AActor* InTargetActor, ULocalPlayer* InLocalPlayer)
 {
@@ -107,6 +109,108 @@ bool UPBInventoryViewModel::GetEquipmentSlotData(EPBEquipSlot Slot, FPBInventory
 	}
 
 	return false;
+}
+
+void UPBInventoryViewModel::RequestTooltipData(const FGuid& InstanceID)
+{
+	if (!InstanceID.IsValid()) return;
+
+	FPBItemInstance TargetInstance;
+	
+	if (IsValid(CachedInventory))
+	{
+		TargetInstance = CachedInventory->FindItemByID(InstanceID);
+	}
+
+	if (!TargetInstance.IsValid() && IsValid(CachedEquipment))
+	{
+		for (const auto& Pair : CachedEquipment->GetEquippedItems())
+		{
+			if (Pair.Value.InstanceID == InstanceID)
+			{
+				TargetInstance = Pair.Value;
+				break;
+			}
+		}
+	}
+
+	if (!TargetInstance.IsValid() || !TargetInstance.ItemDataAsset) return;
+
+	UPBItemDataAsset* ItemData = TargetInstance.ItemDataAsset;
+
+	FPBItemTooltipData TooltipData;
+	TooltipData.ItemName = ItemData->ItemName;
+	TooltipData.ItemModelIcon = ItemData->ItemIcon;
+	TooltipData.ItemType = ItemData->ItemType;
+	
+	switch (ItemData->Rarity)
+	{
+		case EPBItemRarity::Common:    TooltipData.RarityText = FText::FromString(TEXT("일반")); break;
+		case EPBItemRarity::Uncommon:  TooltipData.RarityText = FText::FromString(TEXT("고급")); break;
+		case EPBItemRarity::Rare:      TooltipData.RarityText = FText::FromString(TEXT("희귀")); break;
+		case EPBItemRarity::Legendary: TooltipData.RarityText = FText::FromString(TEXT("전설")); break;
+		default: TooltipData.RarityText = FText::FromString(TEXT("Null")); break;
+	}
+
+	FLinearColor OverlayColor = GetRarityColor(ItemData->Rarity);
+	if (ItemData->Rarity == EPBItemRarity::Common) OverlayColor = FLinearColor::Transparent;
+	else OverlayColor.A = 0.45f;
+	TooltipData.RarityOverlayColor = OverlayColor;
+
+	TooltipData.AbilityDescription = ItemData->ItemDescription;
+	TooltipData.bHasAbility = !TooltipData.AbilityDescription.IsEmpty();
+	TooltipData.LoreDescription = ItemData->BackGroundDescription;
+
+	switch (ItemData->ItemType)
+	{
+		case EPBItemType::Weapon:     TooltipData.ItemCategoryText = FText::FromString(TEXT("무기")); break;
+		case EPBItemType::Armor:      TooltipData.ItemCategoryText = FText::FromString(TEXT("방어구")); break;
+		case EPBItemType::Trinket:    TooltipData.ItemCategoryText = FText::FromString(TEXT("장신구")); break;
+		case EPBItemType::Consumable: TooltipData.ItemCategoryText = FText::FromString(TEXT("소모품")); break;
+		case EPBItemType::Misc:       TooltipData.ItemCategoryText = FText::FromString(TEXT("기타")); break;
+		default:                      TooltipData.ItemCategoryText = FText::GetEmpty(); break;
+	}
+
+	TooltipData.bHasLore = !TooltipData.LoreDescription.IsEmpty() || !TooltipData.ItemCategoryText.IsEmpty();
+
+	if (UPBEquipmentDataAsset* EquipData = Cast<UPBEquipmentDataAsset>(ItemData))
+	{
+		if (EquipData->EquipmentType == EPBEquipmentType::Weapon)
+		{
+			const FPBDiceSpec& Dice = EquipData->DamageSpec;
+			TooltipData.DiceText = FText::FromString(FString::Printf(TEXT("%dd%d"), Dice.DiceCount, Dice.DiceFaces));
+			TooltipData.DiceColor = Dice.DiceColor;
+			TooltipData.DiceIcon = Dice.DiceIcon;
+
+			int32 Mod = EquipData->WeaponBonusModifier;
+			if (Mod > 0) TooltipData.ModifierText = FText::FromString(FString::Printf(TEXT("(+%d)"), Mod));
+			else if (Mod < 0) TooltipData.ModifierText = FText::FromString(FString::Printf(TEXT("(%d)"), Mod));
+			else TooltipData.ModifierText = FText::GetEmpty();
+
+			TooltipData.DamageRangeText = FText::FromString(FString::Printf(TEXT("%d~%d 피해"), 
+				FMath::Max(1, Dice.DiceCount * 1 + Mod), 
+				FMath::Max(1, Dice.DiceCount * Dice.DiceFaces + Mod)));
+
+			TooltipData.DamageTypeTag = EquipData->DamageTypeTag;
+			TooltipData.DamageTypeText = EquipData->DamageTypeText;
+			TooltipData.DamageTypeIcon = EquipData->DamageTypeIcon;
+		}
+		else if (EquipData->EquipmentType != EPBEquipmentType::Weapon)
+		{
+			TooltipData.DamageRangeText = FText::FromString(FString::Printf(TEXT("방어도 %d"), EquipData->ArmorClass));
+			TooltipData.DiceIcon = EquipData->ArmorClassIcon;
+			TooltipData.DiceText = EquipData->ArmorTypeText;
+			TooltipData.ModifierText = EquipData->bStealthDisadvantage ? EquipData->StealthWarningText : FText::GetEmpty();
+		}
+	}
+	else if (ItemData->ItemType == EPBItemType::Consumable)
+	{
+		TooltipData.DamageRangeText = ItemData->EffectText;
+		TooltipData.DiceIcon = ItemData->EffectIcon;
+		TooltipData.DiceText = ItemData->DurationText;
+	}
+
+	OnTooltipDataGenerated.Broadcast(TooltipData);
 }
 
 FPBInventorySlotData UPBInventoryViewModel::BuildSlotData(const FPBItemInstance& ItemInstance) const
