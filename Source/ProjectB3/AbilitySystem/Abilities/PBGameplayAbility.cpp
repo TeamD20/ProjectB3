@@ -392,46 +392,151 @@ FGameplayEffectSpecHandle UPBGameplayAbility::MakeDamageEffectSpecFromSavingThro
 	return SpecHandle;
 }
 
+FGameplayEffectSpecHandle UPBGameplayAbility::MakeHealSpec(
+	const UAbilitySystemComponent* InTargetASC) const
+{
+	const UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
+	if (!IsValid(SourceASC) || !IsValid(InTargetASC))
+	{
+		return FGameplayEffectSpecHandle();
+	}
+
+	const TSubclassOf<UGameplayEffect> HealGEClass = UPBAbilitySystemLibrary::GetHealGEClass(SourceASC);
+	if (!HealGEClass)
+	{
+		return FGameplayEffectSpecHandle();
+	}
+
+	const FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
+	FGameplayEffectSpecHandle SpecHandle = SourceASC->MakeOutgoingSpec(HealGEClass, 1.f, ContextHandle);
+	if (!SpecHandle.IsValid())
+	{
+		return FGameplayEffectSpecHandle();
+	}
+
+	float HealRoll = UPBAbilitySystemLibrary::RollHeal(DiceSpec.DiceCount, DiceSpec.DiceFaces);
+
+	UE_LOG(LogPBGameplayAbility, Warning,
+		TEXT("[%s] MakeHealSpec - Dice: %dd%d, HealRoll: %.2f"),
+		*GetName(),
+		DiceSpec.DiceCount,
+		DiceSpec.DiceFaces,
+		HealRoll);
+
+	SpecHandle.Data->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Heal_Amount, HealRoll);
+
+	return SpecHandle;
+}
+
+// --- BP 버전: ActorInfo에서 SourceASC를 자동 조회 → 오버로드에 위임 ---
+
 float UPBGameplayAbility::GetExpectedHitDamage(const UAbilitySystemComponent* InTargetASC,
                                                const FGameplayTagContainer& SourceTags,
                                                const FGameplayTagContainer& TargetTags) const
 {
-	const UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
-	// AttackModifier: 데미지 수정치 (숙련 미포함)
-	const float AttackModifier = static_cast<float>(UPBAbilitySystemLibrary::GetAttackModifier(SourceASC,  DiceSpec.AttackModifierAttributeOverride));
-	// HitBonus: 명중 수정치 + 숙련 보너스
-	const int32 HitBonus = UPBAbilitySystemLibrary::GetHitBonus(SourceASC, DiceSpec.BonusAttributeOverride)
-		+ UPBAbilitySystemLibrary::GetProficiencyBonus(SourceASC);
-	
-	bool bFound = false;
-	const float TargetACValue = IsValid(InTargetASC)
-		? InTargetASC->GetGameplayAttributeValue(UPBCharacterAttributeSet::GetArmorClassAttribute(), bFound)
-		: 0.f;
-	const int32 TargetAC = static_cast<int32>(TargetACValue);
-
-	return UPBAbilitySystemLibrary::CalcExpectedAttackDamage(
-		DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, HitBonus, TargetAC, SourceTags, TargetTags);
+	return GetExpectedHitDamage(
+		GetAbilitySystemComponentFromActorInfo(), InTargetASC,
+		SourceTags, TargetTags, nullptr);
 }
 
 float UPBGameplayAbility::GetExpectedSavingThrowDamage(const UAbilitySystemComponent* InTargetASC,
                                                        const FGameplayTagContainer& SourceTags,
                                                        const FGameplayTagContainer& TargetTags) const
 {
-	const UAbilitySystemComponent* SourceASC = GetAbilitySystemComponentFromActorInfo();
-	const float AttackModifier = static_cast<float>(UPBAbilitySystemLibrary::GetAttackModifier(SourceASC, DiceSpec.AttackModifierAttributeOverride));
-	const int32 SaveBonus = UPBAbilitySystemLibrary::GetSaveBonus(InTargetASC, DiceSpec.TargetSaveAttribute);
-	const int32 SpellSaveDC = UPBAbilitySystemLibrary::CalcSpellSaveDC(SourceASC, DiceSpec.BonusAttributeOverride);
-	
-	return UPBAbilitySystemLibrary::CalcExpectedSavingThrowDamage(
-		DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, SaveBonus, SpellSaveDC, SourceTags, TargetTags);
+	return GetExpectedSavingThrowDamage(
+		GetAbilitySystemComponentFromActorInfo(), InTargetASC,
+		SourceTags, TargetTags, nullptr);
 }
 
 float UPBGameplayAbility::GetExpectedDirectDamage(
 	const FGameplayTagContainer& SourceTags, const FGameplayTagContainer& TargetTags) const
 {
-	const UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
-	const float AttackModifier = static_cast<float>(UPBAbilitySystemLibrary::GetAttackModifier(ASC,  DiceSpec.AttackModifierAttributeOverride));
-	
+	return GetExpectedDirectDamage(
+		GetAbilitySystemComponentFromActorInfo(),
+		SourceTags, TargetTags, nullptr);
+}
+
+// --- C++ 오버로드: SourceASC 외부 주입 (CDO 안전, AI 스코어링용) ---
+
+float UPBGameplayAbility::GetExpectedHitDamage(
+	const UAbilitySystemComponent* InSourceASC,
+	const UAbilitySystemComponent* InTargetASC,
+	const FGameplayTagContainer& SourceTags,
+	const FGameplayTagContainer& TargetTags,
+	float* OutRawAvg) const
+{
+	if (!IsValid(InSourceASC) || !IsValid(InTargetASC))
+	{
+		if (OutRawAvg) { *OutRawAvg = 0.f; }
+		return 0.f;
+	}
+	// AttackModifier: 데미지 수정치 (숙련 미포함)
+	const float AttackModifier = static_cast<float>(
+		UPBAbilitySystemLibrary::GetAttackModifier(InSourceASC, DiceSpec.AttackModifierAttributeOverride));
+	// HitBonus: 명중 수정치 + 숙련 보너스
+	const int32 HitBonus = UPBAbilitySystemLibrary::GetHitBonus(InSourceASC, DiceSpec.BonusAttributeOverride)
+		+ UPBAbilitySystemLibrary::GetProficiencyBonus(InSourceASC);
+
+	bool bFound = false;
+	const float TargetACValue = IsValid(InTargetASC)
+		? InTargetASC->GetGameplayAttributeValue(UPBCharacterAttributeSet::GetArmorClassAttribute(), bFound)
+		: 0.f;
+	const int32 TargetAC = static_cast<int32>(TargetACValue);
+
+	if (OutRawAvg)
+	{
+		*OutRawAvg = DiceSpec.DiceCount * (DiceSpec.DiceFaces + 1) / 2.0f + AttackModifier;
+	}
+
+	return UPBAbilitySystemLibrary::CalcExpectedAttackDamage(
+		DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, HitBonus, TargetAC, SourceTags, TargetTags);
+}
+
+float UPBGameplayAbility::GetExpectedSavingThrowDamage(
+	const UAbilitySystemComponent* InSourceASC,
+	const UAbilitySystemComponent* InTargetASC,
+	const FGameplayTagContainer& SourceTags,
+	const FGameplayTagContainer& TargetTags,
+	float* OutRawAvg) const
+{
+	if (!IsValid(InSourceASC) || !IsValid(InTargetASC))
+	{
+		if (OutRawAvg) { *OutRawAvg = 0.f; }
+		return 0.f;
+	}
+	const float AttackModifier = static_cast<float>(
+		UPBAbilitySystemLibrary::GetAttackModifier(InSourceASC, DiceSpec.AttackModifierAttributeOverride));
+	const int32 SaveBonus = UPBAbilitySystemLibrary::GetSaveBonus(InTargetASC, DiceSpec.TargetSaveAttribute);
+	const int32 SpellSaveDC = UPBAbilitySystemLibrary::CalcSpellSaveDC(InSourceASC, DiceSpec.BonusAttributeOverride);
+
+	if (OutRawAvg)
+	{
+		*OutRawAvg = DiceSpec.DiceCount * (DiceSpec.DiceFaces + 1) / 2.0f + AttackModifier;
+	}
+
+	return UPBAbilitySystemLibrary::CalcExpectedSavingThrowDamage(
+		DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, SaveBonus, SpellSaveDC, SourceTags, TargetTags);
+}
+
+float UPBGameplayAbility::GetExpectedDirectDamage(
+	const UAbilitySystemComponent* InSourceASC,
+	const FGameplayTagContainer& SourceTags,
+	const FGameplayTagContainer& TargetTags,
+	float* OutRawAvg) const
+{
+	if (!IsValid(InSourceASC))
+	{
+		if (OutRawAvg) { *OutRawAvg = 0.f; }
+		return 0.f;
+	}
+	const float AttackModifier = static_cast<float>(
+		UPBAbilitySystemLibrary::GetAttackModifier(InSourceASC, DiceSpec.AttackModifierAttributeOverride));
+
+	if (OutRawAvg)
+	{
+		*OutRawAvg = DiceSpec.DiceCount * (DiceSpec.DiceFaces + 1) / 2.0f + AttackModifier;
+	}
+
 	return UPBAbilitySystemLibrary::CalcExpectedDamage(
 		DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, SourceTags, TargetTags);
 }

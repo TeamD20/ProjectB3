@@ -27,6 +27,9 @@ public:
 	// 데미지 GE 클래스 반환
 	TSubclassOf<UGameplayEffect> GetDamageGEClass() const { return GE_Damage; }
 
+	// 힐 GE 클래스 반환
+	TSubclassOf<UGameplayEffect> GetHealGEClass() const { return GE_Heal; }
+
 	// 태그로 DA를 동기 로드하여 반환 (미로드 시 LoadSynchronous)
 	const UPBAbilitySetData* FindAbilitySetByTag(const FGameplayTag& Tag) const;
 
@@ -82,4 +85,8 @@ protected:
 	// 데미지 GE (Instant, PBEC_Damage ExecCalc). 모든 공격 어빌리티가 공유.
 	UPROPERTY(EditDefaultsOnly, Category = "Combat")
 	TSubclassOf<UGameplayEffect> GE_Damage;
+
+	// 힐 GE (Instant, PBEC_Heal ExecCalc). 모든 힐 어빌리티가 공유.
+	UPROPERTY(EditDefaultsOnly, Category = "Combat")
+	TSubclassOf<UGameplayEffect> GE_Heal;
 };

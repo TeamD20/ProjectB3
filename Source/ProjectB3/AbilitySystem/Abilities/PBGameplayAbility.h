@@ -114,7 +114,10 @@ public:
 	UFUNCTION(BlueprintCallable,BlueprintPure = false, Category = "Ability|Dice")
 	FGameplayEffectSpecHandle MakeDamageEffectSpecFromSavingThrowDamageRoll(const UAbilitySystemComponent* InTargetASC, FPBSavingThrowResult& OutSavingThrowResult,FPBDamageRollResult& OutDamageRollResult) const;
 
-	
+	// 힐 주사위 굴림 → HealEffectSpec 반환 (명중/세이빙 없음)
+	UFUNCTION(BlueprintCallable, BlueprintPure = false, Category = "Ability|Dice")
+	FGameplayEffectSpecHandle MakeHealSpec(const UAbilitySystemComponent* InTargetASC) const;
+
 	// AI 스코링용: 명중 굴림 기반 유효 기댓값 (AttackBonus·AttackModifier 자동 산출)
 	// TargetASC: 피격 대상 ASC
 	UFUNCTION(BlueprintPure, Category = "Ability|Dice")
@@ -134,6 +137,29 @@ public:
 	float GetExpectedDirectDamage(
 		UPARAM(ref) const FGameplayTagContainer& SourceTags,
 		UPARAM(ref) const FGameplayTagContainer& TargetTags) const;
+
+	// --- C++ 오버로드: CDO 안전 (AI 스코어링용) ---
+	// SourceASC를 외부에서 주입하여 CDO에서도 호출 가능.
+	// OutRawAvg: (선택) 명중 시 평균 데미지 — 확률 미반영, KillBonus 판정용.
+	float GetExpectedHitDamage(
+		const UAbilitySystemComponent* InSourceASC,
+		const UAbilitySystemComponent* InTargetASC,
+		const FGameplayTagContainer& SourceTags,
+		const FGameplayTagContainer& TargetTags,
+		float* OutRawAvg) const;
+
+	float GetExpectedSavingThrowDamage(
+		const UAbilitySystemComponent* InSourceASC,
+		const UAbilitySystemComponent* InTargetASC,
+		const FGameplayTagContainer& SourceTags,
+		const FGameplayTagContainer& TargetTags,
+		float* OutRawAvg) const;
+
+	float GetExpectedDirectDamage(
+		const UAbilitySystemComponent* InSourceASC,
+		const FGameplayTagContainer& SourceTags,
+		const FGameplayTagContainer& TargetTags,
+		float* OutRawAvg) const;
 
 protected:
 	/*~ UGameplayAbility Interface ~*/

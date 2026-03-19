@@ -87,6 +87,20 @@ public:
 		UPARAM(ref) const FGameplayTagContainer& SourceTags,
 		UPARAM(ref) const FGameplayTagContainer& TargetTags);
 
+	// 힐 주사위 굴림. 회복량만 반환 (명중/세이빙 없음).
+	UFUNCTION(BlueprintPure, Category = "Ability|Combat")
+	static float RollHeal(int32 DiceCount, int32 DiceFaces);
+
+	// 최종 회복량 계산. SourceTags/TargetTags 기반 보정 추후 확장.
+	UFUNCTION(BlueprintPure, Category = "Ability|Combat")
+	static float CalcFinalHeal(float HealRoll,
+		UPARAM(ref) const FGameplayTagContainer& SourceTags,
+		UPARAM(ref) const FGameplayTagContainer& TargetTags);
+
+	// 힐 GE 클래스 반환. 어빌리티에서 GE Spec 생성 시 사용.
+	UFUNCTION(BlueprintPure, Category = "Ability|Combat")
+	static TSubclassOf<UGameplayEffect> GetHealGEClass(const UObject* WorldContextObject);
+
 	// ==== 스탯 계산 유틸리티 ====
 
 	// 능력치 수정치 계산: floor((AbilityScore - 10) / 2)
