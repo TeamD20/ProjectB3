@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "PBItemDataAsset.h"
 #include "ProjectB3/AbilitySystem/PBAbilityGrantTypes.h"
+#include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
 #include "PBEquipmentDataAsset.generated.h"
 
 class APBEquipmentActor;
@@ -41,6 +42,40 @@ public:
 	// 장비 메시 부착 위치 Override
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	FGameplayTag AttachSlotOverride;
+
+	// --- 무기 전용 (EquipmentType == Weapon 일 때만 표시) ---
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Equipment|Weapon", meta = (EditCondition = "EquipmentType == EPBEquipmentType::Weapon", EditConditionHides))
+	FPBDiceSpec DamageSpec;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Equipment|Weapon", meta = (ClampMin = "-9", ClampMax = "9", EditCondition = "EquipmentType == EPBEquipmentType::Weapon", EditConditionHides))
+	int32 WeaponBonusModifier = 0;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Equipment|Weapon", meta = (EditCondition = "EquipmentType == EPBEquipmentType::Weapon", EditConditionHides))
+	FGameplayTag DamageTypeTag;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Equipment|Weapon", meta = (EditCondition = "EquipmentType == EPBEquipmentType::Weapon", EditConditionHides))
+	FText DamageTypeText;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Equipment|Weapon", meta = (EditCondition = "EquipmentType == EPBEquipmentType::Weapon", EditConditionHides))
+	TSoftObjectPtr<UTexture2D> DamageTypeIcon;
+
+	// --- 방어구 전용 (EquipmentType != Weapon 일 때 표시) ---
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Equipment|Armor", meta = (ClampMin = "0", EditCondition = "EquipmentType != EPBEquipmentType::Weapon", EditConditionHides))
+	int32 ArmorClass = 10;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Equipment|Armor", meta = (EditCondition = "EquipmentType != EPBEquipmentType::Weapon", EditConditionHides))
+	TSoftObjectPtr<UTexture2D> ArmorClassIcon;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Equipment|Armor", meta = (EditCondition = "EquipmentType != EPBEquipmentType::Weapon", EditConditionHides))
+	FText ArmorTypeText;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Equipment|Armor", meta = (EditCondition = "EquipmentType != EPBEquipmentType::Weapon", EditConditionHides))
+	bool bStealthDisadvantage = false;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|Equipment|Armor", meta = (EditCondition = "bStealthDisadvantage && EquipmentType != EPBEquipmentType::Weapon", EditConditionHides))
+	FText StealthWarningText;
 	
 public:
 	// EquipmentType과 WeaponHandType으로부터 허용 슬롯 목록을 도출
