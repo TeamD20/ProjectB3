@@ -22,3 +22,28 @@ bool UPBCombatSystemLibrary::IsInCombat(UObject* WorldContextObject)
 	}
 	return false;
 }
+
+bool UPBCombatSystemLibrary::IsMyTurn(AActor* Combatant)
+{
+	if (!IsValid(Combatant))
+	{
+		return false;
+	}
+
+	if (UPBCombatManagerSubsystem* CombatManager = GetCombatManager(Combatant))
+	{
+		if (!CombatManager->IsInCombat())
+		{
+			return false;
+		}
+
+		if (CombatManager->GetCombatState() != EPBCombatState::TurnInProgress)
+		{
+			return false;
+		}
+
+		return CombatManager->GetCurrentCombatant() == Combatant;
+	}
+
+	return false;
+}

@@ -12,15 +12,18 @@
 #include "PBCharacterBase.generated.h"
 
 class UNavModifierComponent;
+class UPathFollowingComponent;
 class APBEquipmentActor;
 class UPBInteractableComponent;
 class UPBCharacterAttributeSet;
 class UPBAbilitySystemComponent;
 class UPBAbilitySystemUIBridge;
 class UPBTurnResourceAttributeSet;
-class UPBAbilitySetData;
 class UPBInventoryComponent;
 class UPBEquipmentComponent;
+struct FAIRequestID;
+struct FPathFollowingResult;
+struct FTimerHandle;
 
 // 장비 부착/제거 시 브로드캐스트되는 델리게이트 (슬롯 태그)
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterEquipmentChanged, const FGameplayTag&, SlotTag);
@@ -131,13 +134,17 @@ public:
 
 	// 상호작용 컴포넌트 반환
 	virtual UPBInteractableComponent* GetInteractableComponent() const override { return InteractableComponent; }
-
-public:
-	// 장비 부착/제거 후 브로드캐스트되는 델리게이트
-	UPROPERTY(BlueprintAssignable, Category = "Equipment")
-	FOnCharacterEquipmentChanged OnCharacterEquipmentChanged;
 	
+	// 이동 상태에 따라 Pawn의 Navigation 영향 여부를 토글
+	void UpdateNavigationAffectByMoveState(bool bIsMoving);
 protected:
+	/*~ APawn Interface ~*/
+	// 컨트롤러 빙의 시 PathFollowing 이벤트 바인딩
+	virtual void PossessedBy(AController* NewController) override;
+
+	// 빙의 해제 시 PathFollowing 이벤트 언바인딩
+	virtual void UnPossessed() override;
+
 	/*~ AActor Interface ~*/
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -151,6 +158,24 @@ protected:
 	virtual void GrantDefaultItems();
 	// ASC의 OwnedTags 스택 변경 이벤트 핸들러, TagExists가 true 면 태그 추가, false면 태그 제거
 	virtual void HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, bool TagExists);
+
+private:
+	// 컨트롤러의 PathFollowingComponent에 이동 완료 이벤트를 바인딩
+	void BindPathFollowingComponent(AController* InController);
+
+	// 바인딩된 PathFollowingComponent의 이벤트를 해제
+	void UnbindPathFollowingComponent();
+
+	// PathFollowing 이동 완료 이벤트 핸들러
+	void HandlePathFollowingRequestFinished(FAIRequestID RequestID, const FPathFollowingResult& Result);
+
+	// PathFollowing 상태를 확인해 이동 상태를 갱신
+	void PollPathFollowingMoveState();
+	
+public:
+	// 장비 부착/제거 후 브로드캐스트되는 델리게이트
+	UPROPERTY(BlueprintAssignable, Category = "Equipment")
+	FOnCharacterEquipmentChanged OnCharacterEquipmentChanged;
 	
 protected:
 	// 기본 애니메이션 레이어
@@ -200,12 +225,10 @@ protected:
 	// 상호작용 컴포넌트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Interaction")
 	TObjectPtr<UPBInteractableComponent> InteractableComponent;
-	
-	// NavModifier (캐릭터 영역을 경로에서 제외)
-	/*
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Equipment")
-	TObjectPtr<UNavModifierComponent> NavModifierComponent;
-	*/
+	//
+	// // NavModifier (캐릭터 영역을 경로에서 제외)
+	// UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Navigation")
+	// TObjectPtr<UNavModifierComponent> NavModifierComponent;
 
 	// 장비 부착 대상 메시 (자식 중 VisualMesh가 있으면 해당 메시, 없으면 GetMesh)
 	UPROPERTY()
@@ -218,4 +241,14 @@ protected:
 	// 전투 중 여부
 	UPROPERTY(BlueprintReadOnly, Category = "Combat")
 	bool bIsInCombat = false;
+
+	// 현재 바인딩된 PathFollowing 컴포넌트
+	UPROPERTY(Transient)
+	TObjectPtr<UPathFollowingComponent> BoundPathFollowingComponent;
+
+	// 이전 PathFollowing 이동 상태
+	bool bWasPathFollowingMoving = false;
+
+	// PathFollowing 상태 폴링 타이머 핸들
+	FTimerHandle PathFollowingPollTimerHandle;
 };

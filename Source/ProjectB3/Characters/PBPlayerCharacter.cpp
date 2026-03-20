@@ -4,12 +4,14 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "PBCharacterPreviewComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "ProjectB3/Combat/PBCombatSystemLibrary.h"
 #include "ProjectB3/Player/PBGameplayPlayerController.h"
 #include "ProjectB3/Player/PBGameplayPlayerState.h"
+#include "ProjectB3/Player/PBPartyAIController.h"
 
 APBPlayerCharacter::APBPlayerCharacter()
 {
@@ -33,6 +35,15 @@ APBPlayerCharacter::APBPlayerCharacter()
 void APBPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// 이 플레이어 캐릭터를 조종할 인공지능 컨트롤러 생성 및 저장
+	PartyAIController = GetWorld()->SpawnActor<APBPartyAIController>(APBPartyAIController::StaticClass());
+
+	// 방금 스폰되었거나 기본 조종 중이면
+	if (PartyAIController && !GetController())
+	{
+		PartyAIController->Possess(this);
+	}
 }
 
 void APBPlayerCharacter::PossessedBy(AController* NewController)
@@ -45,6 +56,21 @@ void APBPlayerCharacter::PossessedBy(AController* NewController)
 		{
 			PC->SetControllerMode(EPBPlayerControllerMode::TurnMovement);
 			UpdatePathDisplayMovementRange(PC);
+		}
+	}
+}
+
+void APBPlayerCharacter::UnPossessed()
+{
+	Super::UnPossessed();
+	
+	// UnPossess 시 MovementMode가 None으로 바뀌는 것을 방지
+	if (UCharacterMovementComponent* CMC = GetCharacterMovement())
+	{
+		if (CMC->MovementMode == MOVE_None)
+		{
+			// 바닥 위에 있으면 Walking, 공중이면 Falling
+			CMC->SetMovementMode(CMC->IsMovingOnGround() ? MOVE_Walking : MOVE_Falling);
 		}
 	}
 }

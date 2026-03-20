@@ -3,8 +3,10 @@
 #include "PBEnvironmentSubsystem.h"
 #include "PBLineOfSightStrategy.h"
 #include "PBLoS_Trace.h"
+#include "AIController.h"
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
+#include "Navigation/PathFollowingComponent.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -111,15 +113,15 @@ float UPBEnvironmentSubsystem::CalculatePathDistance(const TArray<FVector>& Path
 	return TotalDist;
 }
 
-FPBPathCostResult UPBEnvironmentSubsystem::CalculatePathCost(const FVector& Start, const FVector& End) const
+FPBPathFindResult UPBEnvironmentSubsystem::CalculatePath(const FVector& Start, const FVector& End) const
 {
-	FPBPathCostResult Result;
+	FPBPathFindResult Result;
 
 	// 캐시 조회 (Start/End 좌표로 해시)
 	const uint64 CacheKey = HashCombine(GetTypeHash(FIntVector(Start)), GetTypeHash(FIntVector(End)));
 	if (bLoSCacheActive)
 	{
-		if (const FPBPathCostResult* CachedResult = PathCostCache.Find(CacheKey))
+		if (const FPBPathFindResult* CachedResult = PathCostCache.Find(CacheKey))
 		{
 			return *CachedResult;
 		}
@@ -157,10 +159,134 @@ FPBPathCostResult UPBEnvironmentSubsystem::CalculatePathCost(const FVector& Star
 	return Result;
 }
 
+FPBPathFindResult UPBEnvironmentSubsystem::CalculatePathForAgent(const AController* Controller, const FVector& GoalLocation, bool bAllowPartialPath) const
+{
+	FPBPathFindResult Result;
+	if (!IsValid(Controller) || !IsValid(Controller->GetPawn()))
+	{
+		return Result;
+	}
+
+	UWorld* World = GetWorld();
+	if (!IsValid(World))
+	{
+		return Result;
+	}
+
+	UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(World);
+	if (!IsValid(NavSys))
+	{
+		return Result;
+	}
+
+	const FVector AgentNavLocation = Controller->GetNavAgentLocation();
+	const ANavigationData* NavData = NavSys->GetNavDataForProps(Controller->GetNavAgentPropertiesRef(), AgentNavLocation);
+	if (!IsValid(NavData))
+	{
+		return Result;
+	}
+
+	FPathFindingQuery Query(Controller, *NavData, AgentNavLocation, GoalLocation);
+	Query.SetAllowPartialPaths(bAllowPartialPath);
+
+	const FPathFindingResult PathResult = NavSys->FindPathSync(Query);
+	if (!PathResult.IsSuccessful() || !PathResult.Path.IsValid())
+	{
+		return Result;
+	}
+
+	const TArray<FNavPathPoint>& NavPathPoints = PathResult.Path->GetPathPoints();
+	Result.PathPoints.Reserve(NavPathPoints.Num());
+	for (const FNavPathPoint& NavPathPoint : NavPathPoints)
+	{
+		Result.PathPoints.Add(NavPathPoint.Location);
+	}
+
+	Result.TotalCost = CalculatePathDistance(Result.PathPoints);
+	Result.bIsValid = true;
+	return Result;
+}
+
+bool UPBEnvironmentSubsystem::RequestMoveToLocation(AController* Controller, const FVector& GoalLocation, float AcceptanceRadius, bool bAllowPartialPath) const
+{
+	if (!IsValid(Controller) || !IsValid(Controller->GetPawn()))
+	{
+		return false;
+	}
+
+	UWorld* World = GetWorld();
+	if (!IsValid(World))
+	{
+		return false;
+	}
+
+	UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(World);
+	if (!IsValid(NavSys))
+	{
+		return false;
+	}
+
+	UPathFollowingComponent* PathFollowingComp = nullptr;
+	if (AAIController* AIController = Cast<AAIController>(Controller))
+	{
+		PathFollowingComp = AIController->GetPathFollowingComponent();
+	}
+	else
+	{
+		PathFollowingComp = Controller->FindComponentByClass<UPathFollowingComponent>();
+	}
+
+	if (!IsValid(PathFollowingComp) || !PathFollowingComp->IsPathFollowingAllowed())
+	{
+		return false;
+	}
+
+	const bool bAlreadyAtGoal = PathFollowingComp->HasReached(GoalLocation, EPathFollowingReachMode::OverlapAgent);
+	if (PathFollowingComp->GetStatus() != EPathFollowingStatus::Idle)
+	{
+		PathFollowingComp->AbortMove(*NavSys,
+			FPathFollowingResultFlags::ForcedScript | FPathFollowingResultFlags::NewRequest,
+			FAIRequestID::AnyRequest,
+			bAlreadyAtGoal ? EPathFollowingVelocityMode::Reset : EPathFollowingVelocityMode::Keep);
+	}
+
+	if (bAlreadyAtGoal)
+	{
+		PathFollowingComp->RequestMoveWithImmediateFinish(EPathFollowingResult::Success);
+		return true;
+	}
+
+	const FVector AgentNavLocation = Controller->GetNavAgentLocation();
+	const ANavigationData* NavData = NavSys->GetNavDataForProps(Controller->GetNavAgentPropertiesRef(), AgentNavLocation);
+	if (!IsValid(NavData))
+	{
+		return false;
+	}
+
+	FPathFindingQuery Query(Controller, *NavData, AgentNavLocation, GoalLocation);
+	Query.SetAllowPartialPaths(bAllowPartialPath);
+	const FPathFindingResult PathResult = NavSys->FindPathSync(Query);
+	if (!PathResult.IsSuccessful() || !PathResult.Path.IsValid())
+	{
+		if (PathFollowingComp->GetStatus() != EPathFollowingStatus::Idle)
+		{
+			PathFollowingComp->RequestMoveWithImmediateFinish(EPathFollowingResult::Invalid);
+		}
+		return false;
+	}
+
+	FAIMoveRequest MoveRequest(GoalLocation);
+	MoveRequest.SetUsePathfinding(true);
+	MoveRequest.SetAllowPartialPath(bAllowPartialPath);
+	MoveRequest.SetAcceptanceRadius(AcceptanceRadius);
+
+	PathFollowingComp->RequestMove(MoveRequest, PathResult.Path);
+	return true;
+}
+
 float UPBEnvironmentSubsystem::CalculateDistanceAlongPath(
 	const TArray<FVector>& PathPoints, const FVector& CurrentLocation) const
 {
-	// 기존 PBGameplayAbility_Move::CalculateDistanceAlongPath 로직 이관
 	// MovePathPoints의 각 세그먼트에 현재 위치를 투영(projection)하여
 	// 가장 가까운 세그먼트를 찾고, 시작점부터 해당 투영 지점까지의 경로 누적 거리를 반환
 	if (PathPoints.Num() < 2)
@@ -207,7 +333,6 @@ float UPBEnvironmentSubsystem::CalculateDistanceAlongPath(
 FVector UPBEnvironmentSubsystem::CalculateClampedDestination(
 	const TArray<FVector>& PathPoints, float MaxDistance, TArray<FVector>& OutClampedPath) const
 {
-	// 기존 PBGameplayAbility_Move::CalculateClampedDestination 로직 이관
 	if (PathPoints.Num() == 0)
 	{
 		return FVector::ZeroVector;

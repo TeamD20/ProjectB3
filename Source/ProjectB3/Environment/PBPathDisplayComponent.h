@@ -13,7 +13,7 @@ class UStaticMesh;
 // DrawDebugPath에 전달할 경로 렌더링 데이터
 struct FPBPathDrawData
 {
-	// 선분 렌더링에 사용할 포인트 배열 (terrain-snap 보정 포인트 포함)
+	// 선분 렌더링에 사용할 포인트 배열 (보정 포인트 포함)
 	TArray<FVector> PathPoints;
 	// 전체 이동 경로 거리
 	float TotalDistance  = 0.f;
@@ -21,14 +21,14 @@ struct FPBPathDrawData
 	float SplitDistance = 0.f;
 	// 원본 Nav Path 포인트
 	TArray<FVector> BasePathPoints;
-	// Terrain-snap 성공 보정 포인트
-	TArray<FVector> SnappedCorrectionPoints;
+	// 보정 포인트
+	TArray<FVector> CorrectionPoints;
 };
 
 /**
 * 외부에서 전달받은 경로 포인트 배열을 실선으로 시각화하는 컴포넌트.
 * 경로 탐색은 담당하지 않으며, 시각화만 책임진다.
-* 이동 어빌리티 활성화 시에만 표시되어야 하며, 최대 이동 거리 기준으로 색상이 구분된다.
+* 최대 이동 거리 기준으로 색상이 구분된다.
 */
 UCLASS()
 class PROJECTB3_API UPBPathDisplayComponent : public UActorComponent
@@ -74,6 +74,9 @@ private:
 	// PathPoints 배열을 기반으로 OutDrawData.PathPoints와 OutDrawData.SnappedCorrectionPoints를 삽입
 	// 긴 세그먼트에 terrain-snapped 중간 보정 포인트를 생성
 	void BuildTerrainSnappedPoints(const TArray<FVector>& NavPathPoints, FPBPathDrawData& OutDrawData) const;
+
+	// 코너 구간에 곡률용 보간 포인트를 삽입
+	void BuildCurvedInterpolationPoints(FPBPathDrawData& InOutDrawData) const;
 	
 	// OutDrawData.BasePathPoints를 기반으로 OutDrawData.TotalDistance를 계산
 	void CalculateTotalDistance(FPBPathDrawData& InOutDrawData) const;
@@ -135,6 +138,28 @@ public:
 	// Line Trace 종료 Z의 하향 여유 (cm). min(SegStart.Z, SegEnd.Z) 기준.
 	UPROPERTY(EditAnywhere, Category = "PathDisplay|TerrainSnap")
 	float TerrainTraceEndOffset = 10.0f;
+
+	/*~ Corner Smoothing Settings ~*/
+
+	// 이 각도(도) 이상 꺾이는 코너에만 곡률 보간 적용
+	UPROPERTY(EditAnywhere, Category = "PathDisplay|CornerSmoothing")
+	float CornerSmoothingMinAngleDeg = 20.0f;
+
+	// 코너 반경 비율 (각 인접 세그먼트 길이에 곱해 Entry/Exit 지점 계산)
+	UPROPERTY(EditAnywhere, Category = "PathDisplay|CornerSmoothing")
+	float CornerSmoothingRadiusRatio = 0.35f;
+
+	// 코너 반경 최대값 (cm)
+	UPROPERTY(EditAnywhere, Category = "PathDisplay|CornerSmoothing")
+	float CornerSmoothingMaxRadius = 90.0f;
+
+	// 코너당 생성할 보간 포인트 개수
+	UPROPERTY(EditAnywhere, Category = "PathDisplay|CornerSmoothing")
+	int32 CornerSmoothingSubdivisions = 3;
+
+	// 코너 스무딩 적용 최소 세그먼트 길이 (cm)
+	UPROPERTY(EditAnywhere, Category = "PathDisplay|CornerSmoothing")
+	float CornerSmoothingMinSegmentLength = 40.0f;
 
 	// Materials: 건물/나무 위에 렌더링되나, 캐릭터에는 가려져야 한다. (Custom Depth Stencil 활용)
 	// 이동 범위 내 구간에 사용할 선 머티리얼

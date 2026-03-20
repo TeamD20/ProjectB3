@@ -21,4 +21,7 @@ public:
 	
 	UFUNCTION(BlueprintCallable, meta = (WorldContext = "WorldContextObject"))
 	static bool IsInCombat(UObject* WorldContextObject);
+	
+	UFUNCTION(BlueprintCallable)
+	static bool IsMyTurn(AActor* Combatant);
 };

@@ -4,6 +4,7 @@
 #include "PBGameplayStatics.h"
 #include "Components/MeshComponent.h"
 #include "Components/ChildActorComponent.h"
+#include "ProjectB3/Environment/PBEnvironmentSubsystem.h"
 
 void UPBGameplayStatics::GetAllMeshComponents(AActor* Actor, TArray<UMeshComponent*>& OutMeshes)
 {
@@ -39,4 +40,25 @@ void UPBGameplayStatics::GetAllMeshComponents(AActor* Actor, TArray<UMeshCompone
 		GetAllMeshComponents(AttachedActor, AttachedMeshes);
 		OutMeshes.Append(AttachedMeshes);
 	}
+}
+
+bool UPBGameplayStatics::SimpleMoveToLocation(AController* Controller, const FVector& GoalLocation, float AcceptanceRadius)
+{
+	if (!IsValid(Controller))
+	{
+		return false;
+	}
+
+	UWorld* World = Controller->GetWorld();
+	if (!IsValid(World) || !IsValid(World->GetGameInstance()))
+	{
+		return false;
+	}
+
+	if (UPBEnvironmentSubsystem* EnvironmentSubsystem = World->GetGameInstance()->GetSubsystem<UPBEnvironmentSubsystem>())
+	{
+		return EnvironmentSubsystem->RequestMoveToLocation(Controller, GoalLocation, AcceptanceRadius, false);
+	}
+
+	return false;
 }

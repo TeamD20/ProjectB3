@@ -795,8 +795,8 @@ void UPBGenerateSequenceTask::OnAttackPositionQueryFinished(
 
 				if (bMPFound && RemainingMP > 0.f)
 				{
-					const FPBPathCostResult PathResult =
-						EnvSub->CalculatePathCost(
+					const FPBPathFindResult PathResult =
+						EnvSub->CalculatePath(
 							SelfActor->GetActorLocation(), Location);
 
 					if (PathResult.bIsValid

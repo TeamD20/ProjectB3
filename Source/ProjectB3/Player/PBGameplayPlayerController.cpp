@@ -1,16 +1,12 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBGameplayPlayerController.h"
-#include "NavigationSystem.h"
-#include "NavigationPath.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
-#include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "NiagaraFunctionLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemBlueprintLibrary.h"
-#include "DialogueManagerComponent.h"
 #include "PBPlayerCheatManager.h"
 #include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
 #include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
@@ -18,25 +14,30 @@
 #include "ProjectB3/Camera/PBCameraControlComponent.h"
 #include "ProjectB3/Characters/PBPlayerCharacter.h"
 #include "ProjectB3/Combat/PBTargetingComponent.h"
-#include "ProjectB3/NavigationSystem/PBPathDisplayComponent.h"
 #include "ProjectB3/UI/PBUIManagerSubsystem.h"
 #include "ProjectB3/UI/PBWidgetBase.h"
 #include "ProjectB3/Interaction/PBInteractorComponent.h"
 #include "ProjectB3/Camera/PBTacticalCameraComponent.h"
 #include "ProjectB3/Dialogue/PBDialogueManagerComponent.h"
 #include "ProjectB3/Player/PBGameplayPlayerState.h"
+#include "ProjectB3/Player/PBPartyFollowSubsystem.h"
+#include "ProjectB3/Characters/PBCharacterBase.h"
 #include "ProjectB3/Utils/PBGameplayStatics.h"
+#include "ProjectB3/Environment/PBEnvironmentSubsystem.h"
 #include "Components/MeshComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "TimerManager.h"
+#include "Navigation/CrowdFollowingComponent.h"
 
 #include "ProjectB3/Combat/IPBCombatTarget.h"
+#include "ProjectB3/Environment/PBPathDisplayComponent.h"
 
 APBGameplayPlayerController::APBGameplayPlayerController()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	CheatClass = UPBPlayerCheatManager::StaticClass();
 
+	PathFollowingComponent = CreateDefaultSubobject<UPathFollowingComponent>(TEXT("PathFollowingComponent"));
 	CameraControlComponent = CreateDefaultSubobject<UPBCameraControlComponent>(TEXT("CameraControlComponent"));
 	PathDisplayComponent = CreateDefaultSubobject<UPBPathDisplayComponent>(TEXT("PathDisplayComponent"));
 	TargetingComponent = CreateDefaultSubobject<UPBTargetingComponent>(TEXT("TargetingComponent"));
@@ -48,6 +49,11 @@ APBGameplayPlayerController::APBGameplayPlayerController()
 void APBGameplayPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
+	
+	if (PathFollowingComponent)
+	{
+		PathFollowingComponent->Initialize();
+	}
 	
 	// Enhanced Input 매핑 컨텍스트 등록
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
@@ -129,6 +135,39 @@ void APBGameplayPlayerController::Tick(float DeltaTime)
 		if (APawn* MyPawn = GetPawn())
 		{
 			PathDisplayComponent->UpdateTrackedPath(MyPawn->GetActorLocation());
+		}
+	}
+
+	// FreeMovement 모드: 리더 속도 감시 — 정지 감지 시 0.1초 디바운스 후 서브시스템에 통보
+	if (CurrentMode == EPBPlayerControllerMode::FreeMovement)
+	{
+		if (APawn* MyPawn = GetPawn())
+		{
+			const bool bMovingNow = MyPawn->GetVelocity().SizeSquared() > 100.f;
+
+			if (bWasLeaderMoving && !bMovingNow)
+			{
+				// 이동 중이었다가 속도가 떨어짐 — 0.1초 뒤에 정지 확정
+				GetWorldTimerManager().SetTimer(
+					LeaderStopDebounceTimer,
+					[this]()
+					{
+						if (UPBPartyFollowSubsystem* FollowSys = GetWorld()->GetSubsystem<UPBPartyFollowSubsystem>())
+						{
+							FollowSys->NotifyLeaderMoveStopped();
+						}
+					},
+					0.1f,
+					false
+				);
+			}
+			else if (!bWasLeaderMoving && bMovingNow)
+			{
+				// 정지 중이었다가 다시 이동 시작 — 디바운스 타이머 취소
+				GetWorldTimerManager().ClearTimer(LeaderStopDebounceTimer);
+			}
+
+			bWasLeaderMoving = bMovingNow;
 		}
 	}
 }
@@ -422,8 +461,24 @@ void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value
 		}
 
 		// 거리 제한 없이 PC가 직접 이동 명령
-		UAIBlueprintHelperLibrary::SimpleMoveToLocation(this, HitResult.Location);
+		if (UPBEnvironmentSubsystem* EnvironmentSubsystem = GetGameInstance()->GetSubsystem<UPBEnvironmentSubsystem>())
+		{
+			EnvironmentSubsystem->RequestMoveToLocation(this, HitResult.Location, 50.f, false);
+		}
 
+		// 파티 추적 서브시스템에 리더 이동 시작 통보
+		if (!bWasLeaderMoving)
+		{
+			if (UPBPartyFollowSubsystem* FollowSys = GetWorld()->GetSubsystem<UPBPartyFollowSubsystem>())
+			{
+				if (APBCharacterBase* LeaderChar = Cast<APBCharacterBase>(MyPawn))
+				{
+					FollowSys->NotifyLeaderMoveStarted(LeaderChar);
+				}
+			}
+			bWasLeaderMoving = true;		
+		}
+		
 		PathDisplayComponent->ClearPath();
 		if (IsValid(CursorVFX))
 		{
@@ -478,22 +533,21 @@ void APBGameplayPlayerController::RequestNavPathDisplay(const FVector& TargetLoc
 		return;
 	}
 
-	UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(GetWorld());
-	if (!IsValid(NavSys))
+	UPBEnvironmentSubsystem* EnvironmentSubsystem = GetGameInstance()->GetSubsystem<UPBEnvironmentSubsystem>();
+	if (!IsValid(EnvironmentSubsystem))
 	{
 		return;
 	}
 
-	UNavigationPath* NavPath = NavSys->FindPathToLocationSynchronously(
-		GetWorld(), MyPawn->GetActorLocation(), TargetLocation);
-
-	if (!IsValid(NavPath) || !NavPath->IsValid())
+	const FPBPathFindResult PathCostResult = EnvironmentSubsystem->CalculatePathForAgent(this, TargetLocation, false);
+	if (!PathCostResult.bIsValid || PathCostResult.PathPoints.IsEmpty())
 	{
 		PathDisplayComponent->ClearPath();
 		return;
 	}
 
-	PathDisplayComponent->DisplayPath(NavPath->PathPoints, true);
+	TArray<FVector> DisplayPathPoints = PathCostResult.PathPoints;
+	PathDisplayComponent->DisplayPath(DisplayPathPoints, true);
 }
 
 void APBGameplayPlayerController::UpdateCameraCutout()
