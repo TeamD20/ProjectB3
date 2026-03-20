@@ -47,6 +47,7 @@ namespace PBUIDelegate
 	/* ~턴오더 UI 델리게이트~(턴 오더 시스템 완성후 이전작업 해야함) */ 
 	DECLARE_MULTICAST_DELEGATE(FOnTurnOrderListChangedSignature);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnTurnAdvancedSignature, UPBTurnPortraitViewModel*);
+
 }
 
 
