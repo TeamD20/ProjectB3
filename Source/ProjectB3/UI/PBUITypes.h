@@ -48,8 +48,6 @@ namespace PBUIDelegate
 	DECLARE_MULTICAST_DELEGATE(FOnTurnOrderListChangedSignature);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnTurnAdvancedSignature, UPBTurnPortraitViewModel*);
 
-	// 행동 인디케이터 UI 델리게이트
-	DECLARE_MULTICAST_DELEGATE_OneParam(FOnActionIndicatorChangedSignature, const struct FPBActionIndicatorData&);
 }
 
 
