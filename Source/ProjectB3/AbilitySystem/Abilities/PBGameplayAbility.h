@@ -26,6 +26,18 @@ enum class EPBAbilityCategory : uint8
 	None         // 기타 상태
 };
 
+// AI 스코어링에서 Buff/Debuff의 HP 자동 환산 시 수정 대상 전투 수치.
+// StatModType != None이고 EstimatedHPValue == 0이면 Clearinghouse가 전투 상황 기반으로 자동 계산.
+UENUM(BlueprintType)
+enum class EPBStatModType : uint8
+{
+	None,           // 수동 EstimatedHPValue 사용 (기본값)
+	ArmorClass,     // AC 수정 → 피격 확률 변동 (d20: ±1 = 5%)
+	AttackBonus,    // 명중 보너스 수정 → 명중률 변동 (d20: ±1 = 5%)
+	SaveDC,         // 내성 DC 수정 → 내성 성공률 변동 (d20: ±1 = 5%)
+	DamageBonus,    // 데미지 보너스 수정 → 직접 피해량 변동
+};
+
 /** 프로젝트 전용 GameplayAbility 기반 클래스. 모든 어빌리티는 이 클래스를 상속해서 구현. */
 UCLASS()
 class PROJECTB3_API UPBGameplayAbility : public UGameplayAbility
@@ -83,6 +95,18 @@ public:
 	// AI 스코어링용: 효과 지속 턴 수 (Buff/Debuff/CC)
 	UFUNCTION(BlueprintPure, Category = "Ability|AI")
 	int32 GetEffectDuration() const { return EffectDuration; }
+
+	// AI 스코어링용: Buff/Debuff가 수정하는 전투 수치 유형
+	UFUNCTION(BlueprintPure, Category = "Ability|AI")
+	EPBStatModType GetStatModType() const { return StatModType; }
+
+	// AI 스코어링용: 전투 수치 수정량 (예: AC+2 → 2.0)
+	UFUNCTION(BlueprintPure, Category = "Ability|AI")
+	float GetStatModDelta() const { return StatModDelta; }
+
+	// 중복 체크용: 이 어빌리티의 GE가 타겟에 부여하는 효과 태그
+	UFUNCTION(BlueprintPure, Category = "Ability|AI")
+	FGameplayTag GetEffectGrantedTag() const { return EffectGrantedTag; }
 
 	// 어빌리티 타입 반환. 활성화 중이면 Spec의 DynamicTags 포함, 아니면 AbilityTags만 조회.
 	UFUNCTION(BlueprintPure, Category = "Ability|Definition", meta = (DisplayName = "GetAbilityType"))
@@ -216,6 +240,24 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|AI",
 		meta = (ClampMin = "1", ClampMax = "10", EditCondition = "AbilityCategory != EPBAbilityCategory::Attack && AbilityCategory != EPBAbilityCategory::Heal"))
 	int32 EffectDuration = 1;
+
+	// (선택) Buff/Debuff가 수정하는 전투 수치 유형.
+	// None이 아니고 EstimatedHPValue == 0이면 Clearinghouse가 전투 상황 기반 자동 HP 환산.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|AI",
+		meta = (EditCondition = "AbilityCategory != EPBAbilityCategory::Attack && AbilityCategory != EPBAbilityCategory::Heal"))
+	EPBStatModType StatModType = EPBStatModType::None;
+
+	// 전투 수치 수정량 (양수 = 강화/증가).
+	// 예: Shield of Faith → StatModType=ArmorClass, StatModDelta=2.0
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|AI",
+		meta = (EditCondition = "StatModType != EPBStatModType::None"))
+	float StatModDelta = 0.0f;
+
+	// 중복 체크용: 이 어빌리티의 GE가 타겟에 부여하는 GameplayTag.
+	// 타겟이 이미 이 태그를 보유하면 AI가 해당 어빌리티를 스킵.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|AI",
+		meta = (EditCondition = "AbilityCategory != EPBAbilityCategory::Attack && AbilityCategory != EPBAbilityCategory::None"))
+	FGameplayTag EffectGrantedTag;
 
 	// 턴 기반 쿨다운 턴 수 (0이면 쿨다운 없음)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Definition",
