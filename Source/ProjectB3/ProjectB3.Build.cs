@@ -31,7 +31,8 @@ public class ProjectB3 : ModuleRules
 			"Slate",
 			"SlateCore",
 			"FunctionalTesting",
-			"GameplayDebugger"
+			"GameplayDebugger",
+			"DeveloperSettings"
 		});
 	}
 }

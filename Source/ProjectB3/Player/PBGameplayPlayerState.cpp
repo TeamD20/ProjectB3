@@ -1,10 +1,12 @@
-﻿// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 
 #include "PBGameplayPlayerState.h"
 #include "GameFramework/PlayerController.h"
 #include "AbilitySystemInterface.h"
 #include "AbilitySystemComponent.h"
+#include "ProjectB3/Characters/PBPlayerCharacter.h"
+#include "ProjectB3/Player/PBPartyAIController.h"
 
 void APBGameplayPlayerState::AddGold(int32 Amount)
 {
@@ -49,6 +51,17 @@ void APBGameplayPlayerState::AddPartyMember(AActor* PartyMember)
 	{
 		SelectPartyMember(PartyMember);
 	}
+	else
+	{
+		// 대기 중인 파티원은 자기 자신의 고유 PartyAIController가 조종해야 함
+		if (APBPlayerCharacter* PlayerChar = Cast<APBPlayerCharacter>(PartyMember))
+		{
+			if (IsValid(PlayerChar->PartyAIController) && PlayerChar->GetController() != PlayerChar->PartyAIController)
+			{
+				PlayerChar->PartyAIController->Possess(PlayerChar);
+			}
+		}
+	}
 }
 
 void APBGameplayPlayerState::RemovePartyMember(AActor* PartyMember)
@@ -85,25 +98,39 @@ void APBGameplayPlayerState::SelectPartyMember(AActor* PartyMember)
 		return;
 	}
 
+	APlayerController* PC = Cast<APlayerController>(GetOwner());
+	APBPlayerCharacter* OldPlayerCharacter = PC ? PC->GetPawn<APBPlayerCharacter>() : nullptr;
+
 	SelectedPartyMember = PartyMember;
 	OnSelectedPartyMemberChanged.Broadcast(SelectedPartyMember.Get());
 
-	// 선택된 파티원이 Pawn이면 PC 빙의 대상을 교체한다.
-	if (APlayerController* PC = Cast<APlayerController>(GetOwner()))
+	if (PC)
 	{
-		if (APawn* NewPawn = Cast<APawn>(PartyMember))
+		if (APBPlayerCharacter* NewCharacter = Cast<APBPlayerCharacter>(PartyMember))
 		{
 			// Possess 전 현재 ViewTarget을 보존한다.
 			AActor* OldViewTarget = PC->GetViewTarget();
 
-			PC->Possess(NewPawn);
+			// 이 과정에서 기존 AI 컨트롤러는 자동으로 Unpossess 됩니다.
+			PC->Possess(NewCharacter);
 
 			// Possess 후 카메라가 스냅되므로, 이전 ViewTarget으로 즉시 복원 후 블렌딩한다.
 			if (IsValid(OldViewTarget) && PartyMemberCameraBlendTime > 0.0f)
 			{
 				PC->SetViewTarget(OldViewTarget);
-				PC->SetViewTargetWithBlend(NewPawn, PartyMemberCameraBlendTime, EViewTargetBlendFunction::VTBlend_Cubic);
+				PC->SetViewTargetWithBlend(NewCharacter, PartyMemberCameraBlendTime, EViewTargetBlendFunction::VTBlend_Cubic);
 			}
+			NewCharacter->UpdateNavigationAffectByMoveState(false);
+		}
+
+		// 예전 리더(OldPawn)를 소유 캐싱된 파티 AI로 빙의 전환
+		if (IsValid(OldPlayerCharacter) && OldPlayerCharacter != PC->GetPawn())
+		{
+			if (IsValid(OldPlayerCharacter->PartyAIController))
+			{
+				OldPlayerCharacter->PartyAIController->Possess(OldPlayerCharacter);
+			}
+			OldPlayerCharacter->UpdateNavigationAffectByMoveState(false);
 		}
 	}
 }

@@ -47,7 +47,7 @@ struct FPBLoSResult
  * 경로 비용 결과.
  */
 USTRUCT(BlueprintType)
-struct FPBPathCostResult
+struct FPBPathFindResult
 {
 	GENERATED_BODY()
 

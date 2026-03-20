@@ -2,8 +2,8 @@
 
 #include "PBAbilityTask_MoveToLocation.h"
 #include "AIController.h"
-#include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "GameFramework/Pawn.h"
+#include "ProjectB3/Utils/PBGameplayStatics.h"
 
 UPBAbilityTask_MoveToLocation* UPBAbilityTask_MoveToLocation::CreateTask(
 	UGameplayAbility* OwningAbility, FVector InDestination)
@@ -31,52 +31,23 @@ void UPBAbilityTask_MoveToLocation::Activate()
 		return;
 	}
 
-	// AI: AAIController::MoveTo로 직접 이동 요청
-	// SimpleMoveToLocation 대비 장점:
-	//   1. FPathFollowingRequestResult로 RequestID 직접 획득 (캡처 타이밍 문제 해소)
-	//   2. AcceptanceRadius 명시 제어 (NavMesh 투영 오차로 인한 미도착 방지)
-	//   3. AlreadyAtGoal 명시 처리
-	if (AAIController* AICon = Cast<AAIController>(Controller))
+	if (!UPBGameplayStatics::SimpleMoveToLocation(Controller, Destination, 50.f))
 	{
-		UPathFollowingComponent* PFComp = AICon->GetPathFollowingComponent();
-		if (!IsValid(PFComp))
-		{
-			OnMoveCompleted.Broadcast(EPathFollowingResult::Invalid);
-			EndTask();
-			return;
-		}
-
-		FAIMoveRequest MoveReq;
-		MoveReq.SetGoalLocation(Destination);
-		MoveReq.SetAcceptanceRadius(50.f);
-		MoveReq.SetUsePathfinding(true);
-
-		const FPathFollowingRequestResult Result = AICon->MoveTo(MoveReq);
-
-		if (Result.Code == EPathFollowingRequestResult::RequestSuccessful)
-		{
-			MoveRequestID = Result.MoveId;
-			WeakPathFollowingComp = PFComp;
-			PFComp->OnRequestFinished.AddUObject(
-				this, &UPBAbilityTask_MoveToLocation::HandleRequestFinished);
-		}
-		else if (Result.Code == EPathFollowingRequestResult::AlreadyAtGoal)
-		{
-			OnMoveCompleted.Broadcast(EPathFollowingResult::Success);
-			EndTask();
-		}
-		else
-		{
-			OnMoveCompleted.Broadcast(EPathFollowingResult::Invalid);
-			EndTask();
-		}
+		OnMoveCompleted.Broadcast(EPathFollowingResult::Invalid);
+		EndTask();
 		return;
 	}
 
-	// Player: SimpleMoveToLocation 폴백 (PlayerController용)
-	UAIBlueprintHelperLibrary::SimpleMoveToLocation(Controller, Destination);
+	UPathFollowingComponent* PFComp = nullptr;
+	if (AAIController* AICon = Cast<AAIController>(Controller))
+	{
+		PFComp = AICon->GetPathFollowingComponent();
+	}
+	else
+	{
+		PFComp = Controller->FindComponentByClass<UPathFollowingComponent>();
+	}
 
-	UPathFollowingComponent* PFComp = Controller->FindComponentByClass<UPathFollowingComponent>();
 	if (!IsValid(PFComp))
 	{
 		OnMoveCompleted.Broadcast(EPathFollowingResult::Invalid);

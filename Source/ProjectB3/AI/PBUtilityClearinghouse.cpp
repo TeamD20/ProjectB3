@@ -68,7 +68,7 @@ float UPBUtilityClearinghouse::GetNormalizedDistanceToTarget(
 
 	if (CachedEnvSubsystem)
 	{
-		const FPBPathCostResult PathResult = CachedEnvSubsystem->CalculatePathCost(
+		const FPBPathFindResult PathResult = CachedEnvSubsystem->CalculatePath(
 			ActiveTurnActor->GetActorLocation(),
 			TargetActor->GetActorLocation());
 
