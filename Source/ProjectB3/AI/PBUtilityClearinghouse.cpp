@@ -247,7 +247,7 @@ void UPBUtilityClearinghouse::CacheTurnData(AActor *CurrentTurnActor)
 	// LoS 캐시 세션 시작 — 턴 평가 중 Trace 결과 재사용
 	if (CachedEnvSubsystem)
 	{
-		CachedEnvSubsystem->BeginLoSCache();
+		CachedEnvSubsystem->BeginEnvironmentCache();
 	}
 
 	UE_LOG(LogPBUtility, Display,
@@ -478,7 +478,7 @@ void UPBUtilityClearinghouse::ClearCache()
 	// LoS 캐시 세션 종료 — Trace 결과 캐시 파기
 	if (CachedEnvSubsystem)
 	{
-		CachedEnvSubsystem->EndLoSCache();
+		CachedEnvSubsystem->EndEnvironmentCache();
 	}
 
 	UE_LOG(LogPBUtility, Log,

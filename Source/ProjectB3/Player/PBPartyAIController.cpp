@@ -93,13 +93,30 @@ void APBPartyAIController::ExecuteMoveTo(const FVector& Destination, EPBPartyMov
 		else
 		{
 			MoveState = EPBPartyMoveState::Idle;
-			OnPartyMoveCompleted.Broadcast(this, false);
+			// 다음 틱으로 지연하여 콜스택 내 재귀 방지
+			TWeakObjectPtr<APBPartyAIController> WeakThis(this);
+			World->GetTimerManager().SetTimerForNextTick([WeakThis]()
+			{
+				if (WeakThis.IsValid())
+				{
+					WeakThis->OnPartyMoveCompleted.Broadcast(WeakThis.Get(), false);
+				}
+			});
 		}
 	}
 	else
 	{
-		// 이동 요청 자체가 실패한 경우 즉시 실패 통보
+		// NavMesh 리빌드 등으로 이동 요청이 즉시 실패한 경우.
+		// 동기 브로드캐스트 시 OnFollowerMoveCompleted -> MoveToScatterPosition -> ExecuteMoveTo 재귀로
+		// 스택 오버플로우가 발생할 수 있으므로 다음 틱으로 지연한다.
 		MoveState = EPBPartyMoveState::Idle;
-		OnPartyMoveCompleted.Broadcast(this, false);
+		TWeakObjectPtr<APBPartyAIController> WeakThis(this);
+		World->GetTimerManager().SetTimerForNextTick([WeakThis]()
+		{
+			if (WeakThis.IsValid())
+			{
+				WeakThis->OnPartyMoveCompleted.Broadcast(WeakThis.Get(), false);
+			}
+		});
 	}
 }
