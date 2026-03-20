@@ -332,6 +332,11 @@ void APBCharacterBase::UpdateNavigationAffectByMoveState(bool bIsMoving)
 void APBCharacterBase::GrantInitialAbilities()
 {
 	// TODO: 레벨 전달
+	if (IsValid(InnateAbilitySet))
+	{
+		AbilitySystemComponent->GrantAbilitiesFromData(PBGameplayTags::Ability_Source_Innate, InnateAbilitySet);	
+	}
+	
 	FPBAbilityGrantedHandles Handles;
 	UPBAbilitySystemLibrary::ApplyStatsInitialization(AbilitySystemComponent,Handles,CombatIdentity.ClassTag);
 	UPBAbilitySystemLibrary::ApplyCommonAbilitySet(AbilitySystemComponent);

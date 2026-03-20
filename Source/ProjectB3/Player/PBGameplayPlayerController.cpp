@@ -50,6 +50,8 @@ void APBGameplayPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	CurrentMouseCursor = EMouseCursor::Default;
+	
 	if (PathFollowingComponent)
 	{
 		PathFollowingComponent->Initialize();
@@ -84,7 +86,7 @@ void APBGameplayPlayerController::BeginPlay()
 void APBGameplayPlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
+	
 	// 전술 카메라가 비활성 상태일 때만 기본 카메라 갱신
 	if (!TacticalCameraComponent->IsTacticalCameraActive())
 	{
@@ -296,6 +298,29 @@ void APBGameplayPlayerController::SetControllerMode(EPBPlayerControllerMode NewM
 	if (CurrentMode == NewMode)
 	{
 		return;
+	}
+	
+	if (NewMode == EPBPlayerControllerMode::Targeting)
+	{
+		if (!IsValid(TargetingCursorWidget) && IsValid(TargetingCursorWidgetClass))
+		{
+			TargetingCursorWidget = CreateWidget<UUserWidget>(this, TargetingCursorWidgetClass);
+		}
+		if (TargetingCursorWidget)
+		{
+			SetMouseCursorWidget(EMouseCursor::Default, TargetingCursorWidget);	
+		}
+	}
+	else
+	{
+		if (!IsValid(DefaultCursorWidget) && IsValid(DefaultCursorWidgetClass))
+		{
+			DefaultCursorWidget = CreateWidget<UUserWidget>(this, DefaultCursorWidgetClass);
+		}
+		if (DefaultCursorWidget)
+		{
+			SetMouseCursorWidget(EMouseCursor::Default, DefaultCursorWidget);	
+		}
 	}
 
 	// 이전 모드 종료 처리
