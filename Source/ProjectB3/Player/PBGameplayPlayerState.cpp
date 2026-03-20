@@ -5,6 +5,7 @@
 #include "GameFramework/PlayerController.h"
 #include "AbilitySystemInterface.h"
 #include "AbilitySystemComponent.h"
+#include "PBPartyFollowSubsystem.h"
 #include "ProjectB3/Characters/PBPlayerCharacter.h"
 #include "ProjectB3/Player/PBPartyAIController.h"
 
@@ -120,7 +121,6 @@ void APBGameplayPlayerState::SelectPartyMember(AActor* PartyMember)
 				PC->SetViewTarget(OldViewTarget);
 				PC->SetViewTargetWithBlend(NewCharacter, PartyMemberCameraBlendTime, EViewTargetBlendFunction::VTBlend_Cubic);
 			}
-			NewCharacter->UpdateNavigationAffectByMoveState(false);
 		}
 
 		// 예전 리더(OldPawn)를 소유 캐싱된 파티 AI로 빙의 전환
@@ -130,7 +130,11 @@ void APBGameplayPlayerState::SelectPartyMember(AActor* PartyMember)
 			{
 				OldPlayerCharacter->PartyAIController->Possess(OldPlayerCharacter);
 			}
-			OldPlayerCharacter->UpdateNavigationAffectByMoveState(false);
+		}
+		
+		if (UPBPartyFollowSubsystem* PartyFollowSubsystem = GetWorld()->GetSubsystem<UPBPartyFollowSubsystem>())
+		{
+			PartyFollowSubsystem->RebuildFollowerCache();
 		}
 	}
 }

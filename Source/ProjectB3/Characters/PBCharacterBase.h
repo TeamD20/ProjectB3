@@ -11,6 +11,7 @@
 #include "ProjectB3/ItemSystem/PBItemTypes.h"
 #include "PBCharacterBase.generated.h"
 
+class UPBAbilitySetData;
 class UNavModifierComponent;
 class UPathFollowingComponent;
 class APBEquipmentActor;
@@ -135,8 +136,6 @@ public:
 	// 상호작용 컴포넌트 반환
 	virtual UPBInteractableComponent* GetInteractableComponent() const override { return InteractableComponent; }
 	
-	// 이동 상태에 따라 Pawn의 Navigation 영향 여부를 토글
-	void UpdateNavigationAffectByMoveState(bool bIsMoving);
 protected:
 	/*~ APawn Interface ~*/
 	// 컨트롤러 빙의 시 PathFollowing 이벤트 바인딩
@@ -168,9 +167,6 @@ private:
 
 	// PathFollowing 이동 완료 이벤트 핸들러
 	void HandlePathFollowingRequestFinished(FAIRequestID RequestID, const FPathFollowingResult& Result);
-
-	// PathFollowing 상태를 확인해 이동 상태를 갱신
-	void PollPathFollowingMoveState();
 	
 public:
 	// 장비 부착/제거 후 브로드캐스트되는 델리게이트
@@ -178,6 +174,10 @@ public:
 	FOnCharacterEquipmentChanged OnCharacterEquipmentChanged;
 	
 protected:
+	// 캐릭터별 특화 어빌리티
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
+	TObjectPtr<UPBAbilitySetData> InnateAbilitySet;
+	
 	// 기본 애니메이션 레이어
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
 	TSubclassOf<UAnimInstance> DefaultAnimLayerClass;

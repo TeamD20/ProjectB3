@@ -44,4 +44,12 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Archetype",
 		meta = (ClampMin = "0.0", ClampMax = "3.0"))
 	float PositionWeight = 1.0f;
+
+	// EQS 이상적 교전 거리 배율.
+	// 어빌리티 사거리에 이 값을 곱하여 AI가 선호하는 교전 거리를 결정한다.
+	// 낮을수록 타겟에 가까이 붙고, 높을수록 사거리 끝에서 싸운다.
+	// 예: Fighter=0.5 (근접 선호), Ranger=1.0 (최대 사거리), Caster=0.85
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Archetype|Position",
+		meta = (ClampMin = "0.1", ClampMax = "1.0"))
+	float IdealDistanceMultiplier = 0.85f;
 };

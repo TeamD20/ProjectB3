@@ -6,8 +6,10 @@
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "EnvironmentQuery/EnvQuery.h"
+#include "PBAIArchetypeData.h"
 #include "PBUtilityClearinghouse.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
+#include "ProjectB3/Characters/PBEnemyCharacter.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "ProjectB3/Environment/PBEnvironmentSubsystem.h"
 #include "StateTreeExecutionContext.h"
@@ -261,11 +263,20 @@ void UPBGenerateSequenceTask::LaunchNextAttackQuery()
 	float AbilityMaxRange = 0.f;
 	float IdealDistance = 0.f;
 	float RawMinRange = 0.f; // 로그용: 안전 여유 적용 전 원본 최소 사거리
-	static constexpr float MeleeRangeThreshold = 300.f;
 	static constexpr float RangedIdealRatio = 0.85f;
 	// NavMesh 경로는 직선보다 길어서 AI가 목표 지점에 못 미칠 수 있다.
 	// 안전 여유(30%)를 적용하여 EQS가 더 가까운 위치를 선정하도록 한다.
 	static constexpr float NavMeshSafetyFactor = 0.7f;
+
+	// ArchetypeData의 IdealDistanceMultiplier 읽기 (기본 0.85)
+	float DistMultiplier = RangedIdealRatio;
+	if (const APBEnemyCharacter* AIChar = Cast<APBEnemyCharacter>(SelfActor))
+	{
+		if (const UPBAIArchetypeData* Archetype = AIChar->ArchetypeData)
+		{
+			DistMultiplier = Archetype->IdealDistanceMultiplier;
+		}
+	}
 
 	UAbilitySystemComponent* ASC =
 		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(SelfActor);
@@ -324,32 +335,28 @@ void UPBGenerateSequenceTask::LaunchNextAttackQuery()
 		CurrentAttackMinRange = RawMinRange; // 콜백에서 클램핑 후 사거리 검증용
 		AbilityMaxRange = bAnyRangeFound ? MinRange * NavMeshSafetyFactor : 0.f;
 
-		// 이상적 교전 거리 계산 (축소된 사거리 기준)
+		// 이상적 교전 거리 계산 — ArchetypeData의 IdealDistanceMultiplier 반영
+		// 근접 캐릭터(0.5)는 가까이, 원거리(1.0)는 사거리 끝에서 싸운다.
 		if (AbilityMaxRange <= 0.f)
 		{
 			static constexpr float UnlimitedIdealDistance = 800.f;
-			IdealDistance = UnlimitedIdealDistance;
-		}
-		else if (AbilityMaxRange <= MeleeRangeThreshold)
-		{
-			// 근접 어빌리티: 가능한 한 타겟에 가까이
-			IdealDistance = AbilityMaxRange * 0.5f;
+			IdealDistance = UnlimitedIdealDistance * DistMultiplier;
 		}
 		else
 		{
-			IdealDistance = AbilityMaxRange * RangedIdealRatio;
+			IdealDistance = AbilityMaxRange * DistMultiplier;
 		}
 	}
 
 	UE_LOG(LogPBStateTree, Display,
 		TEXT("[EQS] Attack 쿼리 발사: Move[%d] → 타겟(%s), "
 		     "EQSRange=%.0f (원본 MinRange=%.0f × Safety=%.2f), "
-		     "IdealDist=%.0f (큐 잔여: %d)"),
+		     "IdealDist=%.0f (DistMult=%.2f, 큐 잔여: %d)"),
 		CurrentAttackMoveIndex,
 		*GetNameSafe(MoveAction.TargetActor),
 		AbilityMaxRange,
 		RawMinRange, NavMeshSafetyFactor,
-		IdealDistance,
+		IdealDistance, DistMultiplier,
 		PendingAttackMoveIndices.Num());
 
 	CachedClearinghouse->RunAttackPositionQuery(

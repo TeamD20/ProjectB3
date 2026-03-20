@@ -1,9 +1,7 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBCharacterBase.h"
-#include "NavModifierComponent.h"
 #include "Components/CapsuleComponent.h"
-#include "NavAreas/NavArea_Null.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemLibrary.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
@@ -76,24 +74,23 @@ void APBCharacterBase::PossessedBy(AController* NewController)
 	Super::PossessedBy(NewController);
 
 	BindPathFollowingComponent(NewController);
-	PollPathFollowingMoveState();
 	
-	if (UWorld* World = GetWorld())
+	const bool bIsPlayerController = GetController() && GetController()->IsPlayerController();
+	if (bIsPlayerController)
 	{
-		World->GetTimerManager().SetTimer(
-			PathFollowingPollTimerHandle,
-			this,
-			&ThisClass::PollPathFollowingMoveState,
-			0.05f,
-			true);
+		SetCanAffectNavigationGeneration(false);
 	}
 }
 
 void APBCharacterBase::UnPossessed()
 {
 	UnbindPathFollowingComponent();
-	UpdateNavigationAffectByMoveState(false);
-
+	
+	if (!bCanAffectNavigationGeneration)
+	{
+		SetCanAffectNavigationGeneration(true);	
+	}
+	
 	Super::UnPossessed();
 }
 
@@ -298,40 +295,21 @@ void APBCharacterBase::UnbindPathFollowingComponent()
 
 void APBCharacterBase::HandlePathFollowingRequestFinished(FAIRequestID RequestID, const FPathFollowingResult& Result)
 {
-	PollPathFollowingMoveState();
-}
-
-void APBCharacterBase::PollPathFollowingMoveState()
-{
-	const bool bIsMovingNow = IsValid(BoundPathFollowingComponent)
-		&& BoundPathFollowingComponent->GetStatus() != EPathFollowingStatus::Idle;
-
-	if (bWasPathFollowingMoving == bIsMovingNow)
+	const bool bIsPlayerController = GetController() && GetController()->IsPlayerController();
+	if (!bIsPlayerController)
 	{
-		return;
-	}
-
-	bWasPathFollowingMoving = bIsMovingNow;
-	UpdateNavigationAffectByMoveState(bIsMovingNow);
-}
-
-void APBCharacterBase::UpdateNavigationAffectByMoveState(bool bIsMoving)
-{
-	const bool bIsPlayerController = GetController<APlayerController>() != nullptr;
-	if (!bIsMoving && !bIsPlayerController)
-	{
-		SetCanAffectNavigationGeneration(true, true);
-	}
-	else if (bIsPlayerController || UPBCombatSystemLibrary::IsMyTurn(this))
-	{
-		// 플레이어 조작중이거나 현재 턴인 캐릭터의 주변 영역을 활성화 해야 가까운 거리도 이동 가능하다.
-		SetCanAffectNavigationGeneration(false, true);
+		SetCanAffectNavigationGeneration(true);	
 	}
 }
 
 void APBCharacterBase::GrantInitialAbilities()
 {
 	// TODO: 레벨 전달
+	if (IsValid(InnateAbilitySet))
+	{
+		AbilitySystemComponent->GrantAbilitiesFromData(PBGameplayTags::Ability_Source_Innate, InnateAbilitySet);	
+	}
+	
 	FPBAbilityGrantedHandles Handles;
 	UPBAbilitySystemLibrary::ApplyStatsInitialization(AbilitySystemComponent,Handles,CombatIdentity.ClassTag);
 	UPBAbilitySystemLibrary::ApplyCommonAbilitySet(AbilitySystemComponent);
@@ -384,10 +362,11 @@ void APBCharacterBase::HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, 
 			}
 		}
 	}
-	if (ChangedTag == PBGameplayTags::Character_State_Dead)
+	if (ChangedTag == PBGameplayTags::Character_State_Dead && TagExists)
 	{
 		// 캐릭터 사망 영역은 NavMesh 활성화
 		SetCanAffectNavigationGeneration(false, true);
+		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 }
 

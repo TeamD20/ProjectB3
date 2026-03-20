@@ -94,17 +94,6 @@ public:
 	void ToggleInventory();
 
 protected:
-	/*~ Camera Cutout ~*/
-	// 카메라에서 파티원들을 향해 방해물을 검사하여 투명화 처리한다.
-	void UpdateCameraCutout();
-
-	// 특정 액터(투명화된 장애물 등)를 무시하고 커서 위치를 트레이스한다.
-	bool GetCursorHitWithIgnoredActors(ECollisionChannel TraceChannel, bool bTraceComplex, FHitResult& OutHitResult) const;
-
-	// 투명화 트레이스를 수행할 주기 (초)
-	UPROPERTY(EditDefaultsOnly, Category = "Camera Cutout")
-	float CutoutTraceInterval = 0.1f;
-
 	/*~ AActor Interface ~*/
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
@@ -113,6 +102,15 @@ protected:
 	virtual void SetupInputComponent() override;
 	virtual void OnPossess(APawn* InPawn) override;
 
+	
+	/*~ APBGameplayPlayerController Interface ~*/
+	/*~ Camera Cutout ~*/
+	// 카메라에서 파티원들을 향해 방해물을 검사하여 투명화 처리한다.
+	void UpdateCameraCutout();
+
+	// 특정 액터(투명화된 장애물 등)를 무시하고 커서 위치를 트레이스한다.
+	bool GetCursorHitWithIgnoredActors(ECollisionChannel TraceChannel, bool bTraceComplex, FHitResult& OutHitResult) const;
+	
 private:
 	// 마우스 좌클릭 — 모드에 따라 이동 명령 또는 타겟 선택/확정 처리
 	void OnSelectCommand(const FInputActionValue& Value);
@@ -185,18 +183,25 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UPBWidgetBase> InventoryWidgetClass;
 
-	/*~ Movement Settings ~*/
-
-	/*~ PathDisplay Settings ~*/
+	// 커섯 위젯 설정
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> DefaultCursorWidgetClass;
+	
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> TargetingCursorWidgetClass;
 
 	// 경로 갱신을 트리거하는 최소 커서 이동 거리
 	UPROPERTY(EditAnywhere, Category = "PathDisplay")
-	float PathUpdateMinDistance = 20.0f;
+	float PathUpdateMinDistance = 10.0f;
 
 	/*~ FX Settings ~*/
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UNiagaraSystem* CursorVFX;
 
+	// 투명화 트레이스를 수행할 주기 (초)
+	UPROPERTY(EditDefaultsOnly, Category = "Camera Cutout")
+	float CutoutTraceInterval = 0.1f;
+	
 private:
 	// 경로 탐색 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "Components")
@@ -260,4 +265,10 @@ private:
 
 	// 현재 투명화 상태인 장애물 액터 목록 (트레이스 무시용)
 	TSet<TWeakObjectPtr<AActor>> FadedActors;
+	
+	UPROPERTY()
+	TObjectPtr<UUserWidget> DefaultCursorWidget;
+	
+	UPROPERTY()
+	TObjectPtr<UUserWidget> TargetingCursorWidget;
 };

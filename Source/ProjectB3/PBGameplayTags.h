@@ -17,6 +17,7 @@ namespace PBGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Dead);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Incapacitated); // 행동 불능
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Lootable); // 루팅 가능 상태 (사망/기절 등)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Moving); // 루팅 가능 상태 (사망/기절 등)
 	
 	// 장비
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Equipment_Slot);
@@ -38,6 +39,7 @@ namespace PBGameplayTags
 	// 어빌리티
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Source_Common);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Source_Class);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Source_Innate);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Source_Equipment_Weapon);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Source_Equipment_Armor);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Source_Equipment_Accessory);

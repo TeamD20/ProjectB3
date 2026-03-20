@@ -21,7 +21,7 @@ void UPBEnvironmentSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 void UPBEnvironmentSubsystem::Deinitialize()
 {
-	EndLoSCache();
+	EndEnvironmentCache();
 	LoSStrategy = nullptr;
 
 	Super::Deinitialize();
@@ -37,7 +37,7 @@ FPBLoSResult UPBEnvironmentSubsystem::CheckLineOfSight(const FVector& Source, co
 	}
 
 	// 캐시 비활성 → 전략 직접 호출
-	if (!bLoSCacheActive)
+	if (!bEnvironmentCacheActive)
 	{
 		return LoSStrategy->Execute(GetWorld(), Source, Target);
 	}
@@ -117,9 +117,17 @@ FPBPathFindResult UPBEnvironmentSubsystem::CalculatePath(const FVector& Start, c
 {
 	FPBPathFindResult Result;
 
-	// 캐시 조회 (Start/End 좌표로 해시)
-	const uint64 CacheKey = HashCombine(GetTypeHash(FIntVector(Start)), GetTypeHash(FIntVector(End)));
-	if (bLoSCacheActive)
+	// 캐시 조회 (25cm 격자 양자화 키)
+	auto QuantizeVec = [](const FVector& V) -> FIntVector
+	{
+		return FIntVector(
+			FMath::RoundToInt(V.X * 0.04f),
+			FMath::RoundToInt(V.Y * 0.04f),
+			FMath::RoundToInt(V.Z * 0.04f)
+		);
+	};
+	const uint64 CacheKey = HashCombine(GetTypeHash(QuantizeVec(Start)), GetTypeHash(QuantizeVec(End)));
+	if (bEnvironmentCacheActive)
 	{
 		if (const FPBPathFindResult* CachedResult = PathCostCache.Find(CacheKey))
 		{
@@ -151,7 +159,7 @@ FPBPathFindResult UPBEnvironmentSubsystem::CalculatePath(const FVector& Start, c
 	Result.bIsValid = true;
 
 	// 캐시 저장
-	if (bLoSCacheActive)
+	if (bEnvironmentCacheActive)
 	{
 		PathCostCache.Add(CacheKey, Result);
 	}
@@ -186,6 +194,26 @@ FPBPathFindResult UPBEnvironmentSubsystem::CalculatePathForAgent(const AControll
 		return Result;
 	}
 
+	// 25cm 격자 양자화 키 — ImpactPoint와 Location의 미세한 차이 및 PathUpdateMinDistance 내 커서 드리프트 흡수
+	auto QuantizeVec = [](const FVector& V) -> FIntVector
+	{
+		return FIntVector(
+			FMath::RoundToInt(V.X * 0.04f),
+			FMath::RoundToInt(V.Y * 0.04f),
+			FMath::RoundToInt(V.Z * 0.04f)
+		);
+	};
+	const uint64 CacheKey = HashCombine(GetTypeHash(QuantizeVec(AgentNavLocation)), GetTypeHash(QuantizeVec(GoalLocation)));
+
+	// 캐시 활성 시 조회 먼저
+	if (bEnvironmentCacheActive)
+	{
+		if (const FPBPathFindResult* Cached = PathCostCache.Find(CacheKey))
+		{
+			return *Cached;
+		}
+	}
+
 	FPathFindingQuery Query(Controller, *NavData, AgentNavLocation, GoalLocation);
 	Query.SetAllowPartialPaths(bAllowPartialPath);
 
@@ -204,6 +232,14 @@ FPBPathFindResult UPBEnvironmentSubsystem::CalculatePathForAgent(const AControll
 
 	Result.TotalCost = CalculatePathDistance(Result.PathPoints);
 	Result.bIsValid = true;
+
+	// 캐시 활성 시 결과 저장 — NavPath도 함께 보관하여 RequestMoveToLocation에서 재사용
+	if (bEnvironmentCacheActive)
+	{
+		PathCostCache.Add(CacheKey, Result);
+		NavPathCache.Add(CacheKey, PathResult.Path);
+	}
+
 	return Result;
 }
 
@@ -263,24 +299,53 @@ bool UPBEnvironmentSubsystem::RequestMoveToLocation(AController* Controller, con
 		return false;
 	}
 
-	FPathFindingQuery Query(Controller, *NavData, AgentNavLocation, GoalLocation);
-	Query.SetAllowPartialPaths(bAllowPartialPath);
-	const FPathFindingResult PathResult = NavSys->FindPathSync(Query);
-	if (!PathResult.IsSuccessful() || !PathResult.Path.IsValid())
+	// 캐시 히트 시 FindPathSync 재호출 없이 저장된 NavPath 재사용 (25cm 격자 양자화)
+	auto QuantizeVec = [](const FVector& V) -> FIntVector
 	{
-		if (PathFollowingComp->GetStatus() != EPathFollowingStatus::Idle)
+		return FIntVector(
+			FMath::RoundToInt(V.X * 0.04f),
+			FMath::RoundToInt(V.Y * 0.04f),
+			FMath::RoundToInt(V.Z * 0.04f)
+		);
+	};
+	const uint64 CacheKey = HashCombine(GetTypeHash(QuantizeVec(AgentNavLocation)), GetTypeHash(QuantizeVec(GoalLocation)));
+
+	FNavPathSharedPtr PathToUse;
+	if (bEnvironmentCacheActive)
+	{
+		if (const FNavPathSharedPtr* CachedNavPath = NavPathCache.Find(CacheKey))
 		{
-			PathFollowingComp->RequestMoveWithImmediateFinish(EPathFollowingResult::Invalid);
+			if (CachedNavPath->IsValid())
+			{
+				PathToUse = *CachedNavPath;
+			}
 		}
-		return false;
 	}
+
+	if (!PathToUse.IsValid())
+	{
+		FPathFindingQuery Query(Controller, *NavData, AgentNavLocation, GoalLocation);
+		Query.SetAllowPartialPaths(bAllowPartialPath);
+		const FPathFindingResult PathResult = NavSys->FindPathSync(Query);
+		if (!PathResult.IsSuccessful() || !PathResult.Path.IsValid())
+		{
+			if (PathFollowingComp->GetStatus() != EPathFollowingStatus::Idle)
+			{
+				PathFollowingComp->RequestMoveWithImmediateFinish(EPathFollowingResult::Invalid);
+			}
+			return false;
+		}
+		PathToUse = PathResult.Path;
+	}
+
+	Controller->GetPawn()->SetCanAffectNavigationGeneration(false);
 
 	FAIMoveRequest MoveRequest(GoalLocation);
 	MoveRequest.SetUsePathfinding(true);
 	MoveRequest.SetAllowPartialPath(bAllowPartialPath);
 	MoveRequest.SetAcceptanceRadius(AcceptanceRadius);
 
-	PathFollowingComp->RequestMove(MoveRequest, PathResult.Path);
+	PathFollowingComp->RequestMove(MoveRequest, PathToUse);
 	return true;
 }
 
@@ -370,16 +435,18 @@ FVector UPBEnvironmentSubsystem::CalculateClampedDestination(
 
 // 캐시 수명 관리
 
-void UPBEnvironmentSubsystem::BeginLoSCache()
+void UPBEnvironmentSubsystem::BeginEnvironmentCache()
 {
-	bLoSCacheActive = true;
+	bEnvironmentCacheActive = true;
 	LoSCache.Empty();
 	PathCostCache.Empty();
+	NavPathCache.Empty();
 }
 
-void UPBEnvironmentSubsystem::EndLoSCache()
+void UPBEnvironmentSubsystem::EndEnvironmentCache()
 {
-	bLoSCacheActive = false;
+	bEnvironmentCacheActive = false;
 	LoSCache.Empty();
 	PathCostCache.Empty();
+	NavPathCache.Empty();
 }

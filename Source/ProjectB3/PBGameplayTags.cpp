@@ -13,6 +13,7 @@ namespace PBGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Dead, "Character.State.Dead", "캐릭터 사망 상태");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Lootable, "Character.State.Lootable", "루팅 가능 상태. 사망/기절 등 조건 달성 시 부여");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Incapacitated, "Character.State.Incapacitated", "행동 불능 상태");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Moving, "Character.State.Moving", "캐릭터 이동 중 상태");
 	
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_State_InCombat, "Combat.State.InCombat", "전투 중 상태 표시");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Hit_Critical, "Combat.Hit.Critical", "치명타 명중 — GE SourceTags로 전달해 ExecCalc/UI에서 참조");
@@ -33,6 +34,7 @@ namespace PBGameplayTags
 	// 어빌리티
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Common, "Ability.Source.Common", "공통 기본 어빌리티 출처");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Class, "Ability.Source.Class", "클래스 어빌리티 출처");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Innate, "Ability.Source.Innate", "캐릭터 특수 어빌리티 출처");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Equipment_Weapon, "Ability.Source.Equipment.Weapon", "무기 장비 어빌리티 출처");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Equipment_Armor, "Ability.Source.Equipment.Armor", "방어구 장비 어빌리티 출처");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Equipment_Accessory, "Ability.Source.Equipment.Accessory", "악세서리 장비 어빌리티 출처");

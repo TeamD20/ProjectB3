@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "NavigationPath.h"
 #include "PBEnvironmentTypes.h"
 #include "PBEnvironmentSubsystem.generated.h"
 
@@ -69,15 +70,15 @@ public:
 
 	// 캐시 세션 시작 — 이후 판정 결과를 캐싱
 	UFUNCTION(BlueprintCallable, Category = "Environment|Cache")
-	void BeginLoSCache();
+	void BeginEnvironmentCache();
 
 	// 캐시 세션 종료 — 캐시 데이터 전체 파기
 	UFUNCTION(BlueprintCallable, Category = "Environment|Cache")
-	void EndLoSCache();
+	void EndEnvironmentCache();
 
 	// 캐시 활성 여부 조회
 	UFUNCTION(BlueprintCallable, Category = "Environment|Cache")
-	bool IsLoSCacheActive() const { return bLoSCacheActive; }
+	bool IsLoSCacheActive() const { return bEnvironmentCacheActive; }
 
 private:
 	// 현재 LoS 전략
@@ -87,11 +88,14 @@ private:
 	// LoS 결과 캐시 — 캐시 세션 동안만 유효
 	mutable TMap<FPBLoSCacheKey, FPBLoSResult> LoSCache;
 
-	// 경로 비용 캐시
+	// 경로 비용 캐시 (점 배열)
 	mutable TMap<uint64, FPBPathFindResult> PathCostCache;
 
+	// NavPath 캐시 — RequestMoveToLocation에서 FindPathSync 재호출 없이 재사용
+	mutable TMap<uint64, FNavPathSharedPtr> NavPathCache;
+
 	// 캐시 활성 상태
-	bool bLoSCacheActive = false;
+	bool bEnvironmentCacheActive = false;
 
 	// Source 좌표 동일 판정 허용 오차 (기본 50cm)
 	float LoSCacheTolerance = 50.0f;

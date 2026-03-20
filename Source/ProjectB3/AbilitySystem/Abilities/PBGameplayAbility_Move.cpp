@@ -23,6 +23,8 @@ UPBGameplayAbility_Move::UPBGameplayAbility_Move()
 	TriggerData.TriggerTag = PBGameplayTags::Event_Movement_MoveCommand;
 	
 	AbilityTriggers.Add(TriggerData);
+	
+	ActivationOwnedTags.AddTag(PBGameplayTags::Character_State_Moving);
 }
 
 void UPBGameplayAbility_Move::ActivateAbility(
