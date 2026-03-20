@@ -232,6 +232,33 @@ float UPBAbilitySystemLibrary::CalcInitiativeBonus(float Dexterity)
 	return static_cast<float>(CalcAbilityModifier(Dexterity));
 }
 
+float UPBAbilitySystemLibrary::RollHeal(int32 DiceCount, int32 DiceFaces)
+{
+	float HealTotal = 0.0f;
+	for (int32 i = 0; i < DiceCount; ++i)
+	{
+		HealTotal += static_cast<float>(FMath::RandRange(1, DiceFaces));
+	}
+	return HealTotal;
+}
+
+float UPBAbilitySystemLibrary::CalcFinalHeal(float HealRoll,
+	const FGameplayTagContainer& SourceTags,
+	const FGameplayTagContainer& TargetTags)
+{
+	return FMath::FloorToFloat(FMath::Max(0.f, HealRoll));
+}
+
+TSubclassOf<UGameplayEffect> UPBAbilitySystemLibrary::GetHealGEClass(const UObject* WorldContextObject)
+{
+	const UPBAbilitySystemRegistry* Registry = UPBGameInstance::GetAbilitySystemRegistry(WorldContextObject);
+	if (!IsValid(Registry))
+	{
+		return nullptr;
+	}
+	return Registry->GetHealGEClass();
+}
+
 TSubclassOf<UGameplayEffect> UPBAbilitySystemLibrary::GetDamageGEClass(const UObject* WorldContextObject)
 {
 	const UPBAbilitySystemRegistry* Registry = UPBGameInstance::GetAbilitySystemRegistry(WorldContextObject);
