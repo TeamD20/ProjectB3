@@ -53,9 +53,59 @@ void UPBPathDisplayComponent::DisplayPath(const TArray<FVector>& PathPoints, boo
 		return;
 	}
 
+	// 표시용 시작부 포인트 정제 조건 (실제 이동 경로에는 영향 없음)
+	// - 대상 포인트: [0,1,2] 중 1번 포인트만 검사/제거 (0번은 그대로 유지)
+	// - 길이 게이트: Dist2D(P0, P1) <= 220cm 인 경우에만 제거 후보로 본다.
+	// - 제거 조건 A (직선 근접):
+	//   P1을 선분(P0->P2)에 투영했을 때 횡오프셋 Dist2D(P1, Projected) <= 45cm
+	// - 제거 조건 B (전진 기여 부족):
+	//   Dist2D(P1, P2) >= Dist2D(P0, P2) - 5cm
+	// - 제거 조건 C (진행 방향 역행):
+	//   Dot2D(Normal(P0->P1), Normal(P0->P2)) <= 0.0
+	// - 제거 조건 D (시작부 급회전):
+	//   Dot2D(Normal(P0->P1), Normal(P1->P2)) <= 0.35
+	// - A/B/C/D 중 하나라도 만족하면 1번 포인트 제거
+	// - 최대 2회 반복하여 시작부의 1~2번 잡음 포인트만 정리
+	TArray<FVector> DisplayPathPoints = PathPoints;
+	auto ShouldPruneEarlyPoint = [](const FVector& P0, const FVector& P1, const FVector& P2) -> bool
+	{
+		const float SegmentLength2D = FVector::Dist2D(P0, P1);
+		if (SegmentLength2D > 220.0f)
+		{
+			return false;
+		}
+
+		const FVector Projected = FMath::ClosestPointOnSegment(P1, P0, P2);
+		const float LateralOffset2D = FVector::Dist2D(P1, Projected);
+		const bool bNearStraightLine = LateralOffset2D <= 45.0f;
+
+		const float DistToGoalFromP0 = FVector::Dist2D(P0, P2);
+		const float DistToGoalFromP1 = FVector::Dist2D(P1, P2);
+		const bool bNoForwardProgress = DistToGoalFromP1 >= DistToGoalFromP0 - 5.0f;
+
+		const FVector Dir01 = FVector(P1.X - P0.X, P1.Y - P0.Y, 0.f).GetSafeNormal();
+		const FVector Dir02 = FVector(P2.X - P0.X, P2.Y - P0.Y, 0.f).GetSafeNormal();
+		const FVector Dir12 = FVector(P2.X - P1.X, P2.Y - P1.Y, 0.f).GetSafeNormal();
+
+		const bool bBackwardsFromStart = !Dir01.IsNearlyZero() && !Dir02.IsNearlyZero() && FVector::DotProduct(Dir01, Dir02) <= 0.0f;
+		const bool bSharpTurnAtP1 = !Dir01.IsNearlyZero() && !Dir12.IsNearlyZero() && FVector::DotProduct(Dir01, Dir12) <= 0.35f;
+
+		return bNearStraightLine || bNoForwardProgress || bBackwardsFromStart || bSharpTurnAtP1;
+	};
+
+	int32 PruneCount = 0;
+	// 시작부만 정제하기 위해 최대 2회까지만 반복
+	while (DisplayPathPoints.Num() >= 3 && PruneCount < 2 &&
+		ShouldPruneEarlyPoint(DisplayPathPoints[0], DisplayPathPoints[1], DisplayPathPoints[2]))
+	{
+		DisplayPathPoints.RemoveAt(1);
+		PruneCount++;
+	}
+
 	FPBPathDrawData DrawData;
-	DrawData.BasePathPoints = PathPoints;
-	BuildTerrainSnappedPoints(PathPoints, DrawData);
+	DrawData.BasePathPoints = DisplayPathPoints;
+	BuildTerrainSnappedPoints(DisplayPathPoints, DrawData);
+	BuildCurvedInterpolationPoints(DrawData);
 	CalculateTotalDistance(DrawData);
 	CalculateSplitDistance(DrawData);
 	//DrawDebugPath(DrawData);
@@ -155,10 +205,6 @@ void UPBPathDisplayComponent::ValidateProperties()
 	}
 
 	// 수치 프로퍼티 유효성 검증
-	if (MaxMoveDistance <= 0.0f)
-	{
-		UE_LOG(LogTemp, Error, TEXT("[PBPathDisplayComponent] MaxMoveDistance가 0 이하입니다. (%.1f) (%s)"), MaxMoveDistance, *GetOwner()->GetName());
-	}
 	if (MaxSegmentPoolSize <= 0)
 	{
 		UE_LOG(LogTemp, Error, TEXT("[PBPathDisplayComponent] MaxSegmentPoolSize가 0 이하입니다. (%d) (%s)"), MaxSegmentPoolSize, *GetOwner()->GetName());
@@ -239,7 +285,7 @@ void UPBPathDisplayComponent::BuildTerrainSnappedPoints(const TArray<FVector>& N
 				{
 					const FVector SnappedPoint = HitResult.ImpactPoint + CorrectionOffsetVec;
 					OutDrawData.PathPoints.Add(SnappedPoint);
-					OutDrawData.SnappedCorrectionPoints.Add(SnappedPoint);
+					OutDrawData.CorrectionPoints.Add(SnappedPoint);
 				}
 			}
 		}
@@ -248,13 +294,94 @@ void UPBPathDisplayComponent::BuildTerrainSnappedPoints(const TArray<FVector>& N
 	}
 }
 
+void UPBPathDisplayComponent::BuildCurvedInterpolationPoints(FPBPathDrawData& InOutDrawData) const
+{
+	if (InOutDrawData.PathPoints.Num() < 3 || CornerSmoothingSubdivisions <= 0)
+	{
+		return;
+	}
+
+	// 베지어 곡선 보간
+	const TArray<FVector> SourcePoints = InOutDrawData.PathPoints;
+	TArray<FVector> SmoothedPoints;
+	SmoothedPoints.Reserve(SourcePoints.Num() * 2);
+	SmoothedPoints.Add(SourcePoints[0]);
+
+	for (int32 i = 1; i < SourcePoints.Num() - 1; ++i)
+	{
+		const FVector& Prev = SourcePoints[i - 1];
+		const FVector& Curr = SourcePoints[i];
+		const FVector& Next = SourcePoints[i + 1];
+
+		const float LenIn2D = FVector::Dist2D(Prev, Curr);
+		const float LenOut2D = FVector::Dist2D(Curr, Next);
+		if (LenIn2D < CornerSmoothingMinSegmentLength || LenOut2D < CornerSmoothingMinSegmentLength)
+		{
+			SmoothedPoints.Add(Curr);
+			continue;
+		}
+
+		const FVector DirIn = FVector(Curr.X - Prev.X, Curr.Y - Prev.Y, 0.f).GetSafeNormal();
+		const FVector DirOut = FVector(Next.X - Curr.X, Next.Y - Curr.Y, 0.f).GetSafeNormal();
+		if (DirIn.IsNearlyZero() || DirOut.IsNearlyZero())
+		{
+			SmoothedPoints.Add(Curr);
+			continue;
+		}
+
+		const float Dot = FMath::Clamp(FVector::DotProduct(DirIn, DirOut), -1.0f, 1.0f);
+		const float AngleDeg = FMath::RadiansToDegrees(FMath::Acos(Dot));
+		if (AngleDeg < CornerSmoothingMinAngleDeg || AngleDeg > 160.0f)
+		{
+			SmoothedPoints.Add(Curr);
+			continue;
+		}
+
+		const float CornerRadius = FMath::Min3(LenIn2D * CornerSmoothingRadiusRatio, LenOut2D * CornerSmoothingRadiusRatio, CornerSmoothingMaxRadius);
+		if (CornerRadius <= KINDA_SMALL_NUMBER)
+		{
+			SmoothedPoints.Add(Curr);
+			continue;
+		}
+
+		const float TIn = FMath::Clamp(CornerRadius / LenIn2D, 0.0f, 0.49f);
+		const float TOut = FMath::Clamp(CornerRadius / LenOut2D, 0.0f, 0.49f);
+		const FVector Entry = FMath::Lerp(Curr, Prev, TIn);
+		const FVector Exit = FMath::Lerp(Curr, Next, TOut);
+
+		if (FVector::DistSquared(SmoothedPoints.Last(), Entry) > 1.0f)
+		{
+			SmoothedPoints.Add(Entry);
+			InOutDrawData.CorrectionPoints.Add(Entry);
+		}
+
+		for (int32 s = 1; s <= CornerSmoothingSubdivisions; ++s)
+		{
+			const float T = static_cast<float>(s) / static_cast<float>(CornerSmoothingSubdivisions + 1);
+			const float OneMinusT = 1.0f - T;
+			const FVector BezierPoint =
+				(OneMinusT * OneMinusT) * Entry +
+				(2.0f * OneMinusT * T) * Curr +
+				(T * T) * Exit;
+			SmoothedPoints.Add(BezierPoint);
+			InOutDrawData.CorrectionPoints.Add(BezierPoint);
+		}
+
+		SmoothedPoints.Add(Exit);
+		InOutDrawData.CorrectionPoints.Add(Exit);
+	}
+
+	SmoothedPoints.Add(SourcePoints.Last());
+	InOutDrawData.PathPoints = MoveTemp(SmoothedPoints);
+}
+
 void UPBPathDisplayComponent::CalculateTotalDistance(FPBPathDrawData& InOutDrawData) const
 {
-	// TotalDistance는 보정 point를 포함하지 않고, NavigationSystem이 계산한 거리를 사용하기 위해 BasePathPoints 활용
+	// 색상 분할/표시와 동일 기준을 유지하기 위해 보정 포인트를 포함한 PathPoints 기준으로 계산
 	InOutDrawData.TotalDistance = 0.0f;
-	for (int32 i = 1; i < InOutDrawData.BasePathPoints.Num(); ++i)
+	for (int32 i = 1; i < InOutDrawData.PathPoints.Num(); ++i)
 	{
-		const float SegmentDist = FVector::Dist(InOutDrawData.BasePathPoints[i - 1], InOutDrawData.BasePathPoints[i]);
+		const float SegmentDist = FVector::Dist(InOutDrawData.PathPoints[i - 1], InOutDrawData.PathPoints[i]);
 		InOutDrawData.TotalDistance += SegmentDist;
 	}
 }
@@ -355,7 +482,7 @@ void UPBPathDisplayComponent::DrawDebugPath(const FPBPathDrawData& InDrawData) c
 		DrawDebugSphere(World, Point + FVector(0.f, 0.f, BasePathZOffset), 7.f, 8, FColor::Blue, true, -1.f);
 	}
 	// 보정 포인트 시각화: 초록
-	for (const FVector& Point : InDrawData.SnappedCorrectionPoints)
+	for (const FVector& Point : InDrawData.CorrectionPoints)
 	{
 		DrawDebugSphere(World, Point, 5.f, 6, FColor::Green, true, -1.f);
 	}
@@ -401,16 +528,19 @@ void UPBPathDisplayComponent::RebuildLineSegments(const FPBPathDrawData& DrawDat
 	{
 		// 현재 세그먼트의 실제 거리 계산
 		const float SegmentDistance = FVector::Dist(WStart, WEnd);
-		// 방향은 유지하되, 크기가 세그먼트 거리를 과도하게 초과하지 않도록 정규화 후 스케일링
+		// 코너 곡률 확보를 위해 원본 탄젠트 크기를 보존해 스케일하고,
+		// 과도한 오버슈트만 클램프로 제한한다.
+		const float TangentScale = TangentTension * 2.0f;
+		const float MaxTangentSize = SegmentDistance * 2.5f;
 		FVector SafeStartTangent = WStartTangent;
 		if (!SafeStartTangent.IsNearlyZero())
 		{
-			SafeStartTangent = SafeStartTangent.GetSafeNormal() * (SegmentDistance * TangentTension);
+			SafeStartTangent = (SafeStartTangent * TangentScale).GetClampedToMaxSize(MaxTangentSize);
 		}
 		FVector SafeEndTangent = WEndTangent;
 		if (!SafeEndTangent.IsNearlyZero())
 		{
-			SafeEndTangent = SafeEndTangent.GetSafeNormal() * (SegmentDistance * TangentTension);
+			SafeEndTangent = (SafeEndTangent * TangentScale).GetClampedToMaxSize(MaxTangentSize);
 		}
 
 		Seg->SetStaticMesh(LineMesh);

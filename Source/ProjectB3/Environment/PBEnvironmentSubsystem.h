@@ -8,6 +8,7 @@
 #include "PBEnvironmentSubsystem.generated.h"
 
 class UPBLineOfSightStrategy;
+class AController;
 
 /**
  * AI와 플레이어가 공유하는 전술 환경 판정 서브시스템.
@@ -46,7 +47,15 @@ public:
 
 	// 두 위치 간 NavSystem 기반 경로 비용 조회
 	UFUNCTION(BlueprintCallable, Category = "Environment|Path")
-	FPBPathCostResult CalculatePathCost(const FVector& Start, const FVector& End) const;
+	FPBPathFindResult CalculatePath(const FVector& Start, const FVector& End) const;
+
+	// 컨트롤러 네비 에이전트 조건을 반영한 경로 비용 조회
+	UFUNCTION(BlueprintCallable, Category = "Environment|Path")
+	FPBPathFindResult CalculatePathForAgent(const AController* Controller, const FVector& GoalLocation, bool bAllowPartialPath = false) const;
+
+	// 컨트롤러 기준 이동 요청 (경로 계산 조건과 이동 실행 조건 일치)
+	UFUNCTION(BlueprintCallable, Category = "Environment|Path")
+	bool RequestMoveToLocation(AController* Controller, const FVector& GoalLocation, float AcceptanceRadius = 50.f, bool bAllowPartialPath = false) const;
 
 	// 경로 포인트 배열에서 특정 위치까지의 실제 이동 거리 계산
 	UFUNCTION(BlueprintCallable, Category = "Environment|Path")
@@ -79,7 +88,7 @@ private:
 	mutable TMap<FPBLoSCacheKey, FPBLoSResult> LoSCache;
 
 	// 경로 비용 캐시
-	mutable TMap<uint64, FPBPathCostResult> PathCostCache;
+	mutable TMap<uint64, FPBPathFindResult> PathCostCache;
 
 	// 캐시 활성 상태
 	bool bLoSCacheActive = false;

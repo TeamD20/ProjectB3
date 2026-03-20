@@ -4,10 +4,11 @@
 #include "PBCharacterBase.h"
 #include "PBPlayerCharacter.generated.h"
 
+class UCameraComponent;
 class APBGameplayPlayerController;
 class USpringArmComponent;
-class UCameraComponent;
 class UPBCharacterPreviewComponent;
+class APBPartyAIController;
 
 // 플레이어 전용 캐릭터. SpringArm과 Camera를 소유한다.
 UCLASS()
@@ -30,6 +31,7 @@ protected:
 	
 	/*~ APawn Interface ~*/
 	virtual void PossessedBy(AController* NewController) override;
+	virtual void UnPossessed() override;
 	
 	/*~ IPBCombatParticipant Interface ~*/
 	virtual void OnCombatBegin() override;
@@ -37,6 +39,7 @@ protected:
 	virtual void OnTurnActivated() override;
 
 	void UpdatePathDisplayMovementRange(APBGameplayPlayerController* PC);
+	
 private:
 	// 카메라 붐 (SpringArm)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
@@ -49,4 +52,9 @@ private:
 	// 인벤토리 UI용 캐릭터 3D 프리뷰 컴포넌트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UPBCharacterPreviewComponent> CharacterPreviewComponent;
+
+public:
+	// 플레이어 캐릭터 전용 파티 추적 AI 컨트롤러
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI")
+	TObjectPtr<APBPartyAIController> PartyAIController;
 };

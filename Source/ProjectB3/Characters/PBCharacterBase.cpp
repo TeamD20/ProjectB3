@@ -1,7 +1,9 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBCharacterBase.h"
+#include "NavModifierComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "NavAreas/NavArea_Null.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemLibrary.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
@@ -14,9 +16,11 @@
 #include "ProjectB3/ItemSystem/Components/PBEquipmentComponent.h"
 #include "ProjectB3/ItemSystem/Components/PBInventoryComponent.h"
 #include "ProjectB3/ItemSystem/Data/PBItemDataAsset.h"
-#include "ProjectB3/UI/PBAbilitySystemUIBridge.h"
 #include "ProjectB3/Interaction/PBInteractableComponent.h"
 #include "ProjectB3/Interaction/Actions/PBInteraction_LootAction.h"
+#include "ProjectB3/UI/PBAbilitySystemUIBridge.h"
+#include "Navigation/PathFollowingComponent.h"
+#include "TimerManager.h"
 
 APBCharacterBase::APBCharacterBase()
 {
@@ -45,10 +49,10 @@ APBCharacterBase::APBCharacterBase()
 	UPBInteraction_LootAction* LootAction = CreateDefaultSubobject<UPBInteraction_LootAction>(TEXT("LootAction"));
 	InteractableComponent->InteractionActions.Add(LootAction);
 	
-	// NavModifier
-	//NavModifierComponent = CreateDefaultSubobject<UNavModifierComponent>(TEXT("NavModifierComponent"));
-	//NavModifierComponent->AreaClass = UNavArea_Obstacle::StaticClass();
-	
+	// // NavModifier
+	// NavModifierComponent = CreateDefaultSubobject<UNavModifierComponent>(TEXT("NavModifierComponent"));
+	// NavModifierComponent->AreaClass = UNavArea_Null::StaticClass();
+	//
 	static ConstructorHelpers::FClassFinder<UAnimInstance> ABPFinder(TEXT("/Game/2_Characters/Manny/ABP_CharacterBase.ABP_CharacterBase_C"));
 	if (ABPFinder.Succeeded())
 	{
@@ -63,6 +67,34 @@ APBCharacterBase::APBCharacterBase()
 	
 	GetCapsuleComponent()->SetCanEverAffectNavigation(true);
 	GetCapsuleComponent()->bDynamicObstacle = true;
+	
+	bCanAffectNavigationGeneration = true;
+}
+
+void APBCharacterBase::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	BindPathFollowingComponent(NewController);
+	PollPathFollowingMoveState();
+	
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().SetTimer(
+			PathFollowingPollTimerHandle,
+			this,
+			&ThisClass::PollPathFollowingMoveState,
+			0.05f,
+			true);
+	}
+}
+
+void APBCharacterBase::UnPossessed()
+{
+	UnbindPathFollowingComponent();
+	UpdateNavigationAffectByMoveState(false);
+
+	Super::UnPossessed();
 }
 
 UAbilitySystemComponent* APBCharacterBase::GetAbilitySystemComponent() const
@@ -223,8 +255,77 @@ void APBCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	{
 		AbilitySystemComponent->OnGameplayTagUpdated.RemoveAll(this);
 	}
+
+	UnbindPathFollowingComponent();
 	
 	Super::EndPlay(EndPlayReason);
+}
+
+void APBCharacterBase::BindPathFollowingComponent(AController* InController)
+{
+	UnbindPathFollowingComponent();
+
+	if (!IsValid(InController))
+	{
+		return;
+	}
+
+	UPathFollowingComponent* PathFollowingComponent = InController->FindComponentByClass<UPathFollowingComponent>();
+	if (!IsValid(PathFollowingComponent))
+	{
+		return;
+	}
+
+	BoundPathFollowingComponent = PathFollowingComponent;
+	PathFollowingComponent->OnRequestFinished.AddUObject(this, &ThisClass::HandlePathFollowingRequestFinished);
+}
+
+void APBCharacterBase::UnbindPathFollowingComponent()
+{
+	if (IsValid(BoundPathFollowingComponent))
+	{
+		BoundPathFollowingComponent->OnRequestFinished.RemoveAll(this);
+		BoundPathFollowingComponent = nullptr;
+	}
+
+	bWasPathFollowingMoving = false;
+
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(PathFollowingPollTimerHandle);
+	}
+}
+
+void APBCharacterBase::HandlePathFollowingRequestFinished(FAIRequestID RequestID, const FPathFollowingResult& Result)
+{
+	PollPathFollowingMoveState();
+}
+
+void APBCharacterBase::PollPathFollowingMoveState()
+{
+	const bool bIsMovingNow = IsValid(BoundPathFollowingComponent)
+		&& BoundPathFollowingComponent->GetStatus() != EPathFollowingStatus::Idle;
+
+	if (bWasPathFollowingMoving == bIsMovingNow)
+	{
+		return;
+	}
+
+	bWasPathFollowingMoving = bIsMovingNow;
+	UpdateNavigationAffectByMoveState(bIsMovingNow);
+}
+
+void APBCharacterBase::UpdateNavigationAffectByMoveState(bool bIsMoving)
+{
+	if (UPBCombatSystemLibrary::IsMyTurn(this))
+	{
+		// 플레이어 조작중이거나 현재 턴인 캐릭터의 주변 영역을 활성화 해야 가까운 거리도 이동 가능하다.
+		SetCanAffectNavigationGeneration(false, true);	
+	}
+	else
+	{
+		SetCanAffectNavigationGeneration(!bIsMoving, true);	
+	}
 }
 
 void APBCharacterBase::GrantInitialAbilities()
