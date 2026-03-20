@@ -11,6 +11,7 @@
 #include "ProjectB3/ItemSystem/PBItemTypes.h"
 #include "PBCharacterBase.generated.h"
 
+class UPBAbilitySetData;
 class UNavModifierComponent;
 class UPathFollowingComponent;
 class APBEquipmentActor;
@@ -178,6 +179,10 @@ public:
 	FOnCharacterEquipmentChanged OnCharacterEquipmentChanged;
 	
 protected:
+	// 캐릭터별 특화 어빌리티
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
+	TObjectPtr<UPBAbilitySetData> InnateAbilitySet;
+	
 	// 기본 애니메이션 레이어
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
 	TSubclassOf<UAnimInstance> DefaultAnimLayerClass;

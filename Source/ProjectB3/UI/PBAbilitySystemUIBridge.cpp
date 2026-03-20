@@ -22,6 +22,12 @@
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "ProjectB3/AbilitySystem/Data/PBAbilitySystemRegistry.h"
+#include "ProjectB3/UI/Combat/PBCombatStateTextActor.h"
+#include "ProjectB3/UI/Combat/PBCombatStateTextWidget.h"
+#include "ProjectB3/UI/Combat/PBSkillNameFloatingActor.h"
+#include "ProjectB3/UI/Combat/PBSkillNameFloatingWidget.h"
+#include "ProjectB3/UI/Combat/PBActionIndicatorViewModel.h"
+#include "ProjectB3/Combat/PBCombatManagerSubsystem.h"
 #include "ProjectB3/Game/PBGameInstance.h"
 
 UPBAbilitySystemUIBridge::UPBAbilitySystemUIBridge()
@@ -47,10 +53,12 @@ void UPBAbilitySystemUIBridge::BeginPlay()
 	BindAbilityDelegates();
 	BindProgressTurnDelegate();
 	BindCombatResultDelegates();
+	BindCombatStateDelegate();
 }
 
 void UPBAbilitySystemUIBridge::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	UnbindCombatStateDelegate();
 	UnbindCombatResultDelegates();
 	UnbindProgressTurnDelegate();
 	UnbindAbilityDelegates();
@@ -342,10 +350,27 @@ void UPBAbilitySystemUIBridge::HandleAbilityActivated(UGameplayAbility* Ability)
 	const FGameplayAbilityActorInfo* ActorInfo = PBAbility->GetCurrentActorInfo();
 	UpdateSkillSlotActiveState(Handle, true);
 
-	// 어빌리티 사용 로그
-	if (PBAbility->GetAbilityType(Handle, ActorInfo) != EPBAbilityType::None)
+	// 스킬 이름 플로팅 UI 스폰
+	EPBAbilityType AbilityType = PBAbility->GetAbilityType(Handle, ActorInfo);
+	const FText AbilityName = PBAbility->GetAbilityDisplayName();
+	
+	if (!AbilityName.IsEmpty())
 	{
-		const FText AbilityName = PBAbility->GetAbilityDisplayName();
+		if (UWorld* World = GetWorld())
+		{
+			if (UPBCombatManagerSubsystem* CombatManager = World->GetSubsystem<UPBCombatManagerSubsystem>())
+			{
+				CombatManager->OnSkillActivated.Broadcast(GetOwner(), AbilityName, AbilityType);
+			}
+		}
+		
+		// 행동 인디케이터 갱신 (스킬 시전 중)
+		UpdateActionIndicator(EPBActionIndicatorType::SkillCast, FText::Format(NSLOCTEXT("PBUI", "CastingTarget", "{0} 시전 중"), AbilityName));
+	}
+
+	// 어빌리티 사용 로그
+	if (AbilityType != EPBAbilityType::None)
+	{
 		if (!AbilityName.IsEmpty())
 		{
 			SendCombatLogEntry(EPBCombatLogType::System,
@@ -367,6 +392,9 @@ void UPBAbilitySystemUIBridge::HandleAbilityEnded(const FAbilityEndedData& Abili
 	FGameplayAbilitySpecHandle Handle = PBAbility->GetCurrentAbilitySpecHandle();
 	const FGameplayAbilityActorInfo* ActorInfo = PBAbility->GetCurrentActorInfo();
 	UpdateSkillSlotActiveState(Handle, false);
+
+	// 행동 인디케이터 초기화 (스킬 시전 종료)
+	ClearActionIndicator();
 
 	// 어빌리티 종료 시 쿨다운이 적용되므로 스킬바 쿨다운 갱신
 	HandleProgressTurnCompleted();
@@ -722,4 +750,87 @@ FText UPBAbilitySystemUIBridge::GetSourceDisplayName(const FGameplayEffectSpec& 
 	}
 
 	return NSLOCTEXT("PBCombatLog", "UnknownSource", "알 수 없는 출처");
+}
+
+// === 전투 상태 및 스킬 플로팅 UI ===
+
+void UPBAbilitySystemUIBridge::BindCombatStateDelegate()
+{
+	UWorld* World = GetWorld();
+	if (!IsValid(World))
+	{
+		return;
+	}
+
+	UPBCombatManagerSubsystem* CombatManager = World->GetSubsystem<UPBCombatManagerSubsystem>();
+	if (!IsValid(CombatManager))
+	{
+		return;
+	}
+
+	// 전투 상태 변경 플로팅 UI 스폰은 HUD로 넘어갔으나, 브리지 내부 데이터 정리용으로 구독 유지
+	CombatStateHandle = CombatManager->OnCombatStateChanged.AddUObject(this, &ThisClass::HandleCombatStateChanged);
+}
+
+void UPBAbilitySystemUIBridge::UnbindCombatStateDelegate()
+{
+	UWorld* World = GetWorld();
+	if (!IsValid(World))
+	{
+		return;
+	}
+
+	UPBCombatManagerSubsystem* CombatManager = World->GetSubsystem<UPBCombatManagerSubsystem>();
+	if (IsValid(CombatManager) && CombatStateHandle.IsValid())
+	{
+		CombatManager->OnCombatStateChanged.Remove(CombatStateHandle);
+		CombatStateHandle.Reset();
+	}
+}
+
+void UPBAbilitySystemUIBridge::HandleCombatStateChanged(EPBCombatState NewState)
+{
+	// 전투 종료 시 브리지 내부의 인디케이터 잔재물이 있으면 정리
+	if (NewState == EPBCombatState::CombatEnding)
+	{
+		ClearActionIndicator();
+	}
+}
+
+// === 행동 인디케이터 UI ===
+
+void UPBAbilitySystemUIBridge::UpdateActionIndicator(EPBActionIndicatorType Type, const FText& Text)
+{
+	UPBViewModelSubsystem* VMSubsystem = GetViewModelSubsystem();
+	if (!IsValid(VMSubsystem))
+	{
+		return;
+	}
+
+	// 개별 대상마다 인디케이터 뷰모델이 있다.
+	UPBActionIndicatorViewModel* VM = VMSubsystem->GetOrCreateActorViewModel<UPBActionIndicatorViewModel>(GetOwner());
+	if (IsValid(VM))
+	{
+		FPBActionIndicatorData ActionData;
+		ActionData.ActionType = Type;
+		ActionData.DisplayText = Text;
+		// ActionData.Icon = ... (필요 시 AbilityType 등에 기반해 설정)
+		
+		VM->SetAction(ActionData);
+	}
+}
+
+void UPBAbilitySystemUIBridge::ClearActionIndicator()
+{
+	UPBViewModelSubsystem* VMSubsystem = GetViewModelSubsystem();
+	if (!IsValid(VMSubsystem))
+	{
+		return;
+	}
+
+	UPBActionIndicatorViewModel* VM = VMSubsystem->FindActorViewModel<UPBActionIndicatorViewModel>(GetOwner());
+	if (IsValid(VM))
+	{
+		VM->ClearAction();
+	}
 }

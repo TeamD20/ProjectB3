@@ -48,7 +48,8 @@ public:
 	bool HasFocus() const;
 
 	/** 대상 액터가 상호작용 최대 거리 이내인지 여부 반환 */
-	bool IsWithinRange(const AActor* Target) const;
+	bool IsWithinRange(const AActor* TargetActor) const;
+	bool IsWithinRange(const UPBInteractableComponent* TargetComponent) const;
 
 	/** 포커스 대상에서 제외할 액터 목록 설정 */
 	void SetIgnoreActors(const TArray<AActor*>& Actors);

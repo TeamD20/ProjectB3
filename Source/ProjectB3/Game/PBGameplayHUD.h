@@ -4,6 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
+#include "ProjectB3/Combat/PBCombatTypes.h"
+#include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
+#include "ProjectB3/UI/Combat/PBActionIndicatorTypes.h"
 #include "PBGameplayHUD.generated.h"
 
 class UPBWidgetBase;
@@ -32,8 +35,30 @@ private:
 	void HandleCombatStarted();
 	void HandleActiveTurnChanged(AActor* Combatant, int32 TurnIndex);
 
+	// 전투 상태 표시용 위젯 스폰
+	void HandleCombatStateChangedForText(EPBCombatState NewState);
+	
+	// 스킬 이름 표시용 위젯 스폰
+	void HandleSkillActivated(AActor* Caster, const FText& SkillName, EPBAbilityType AbilityType);
+
 protected:
 	// 게임 시작 시 자동으로 Push할 위젯 클래스 목록
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
 	TArray<TSubclassOf<UPBWidgetBase>> HudWidgetClasses;
+	
+public:
+	// 위젯 클래스 설정 (BP에서 지정)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Combat")
+	TSubclassOf<class UPBCombatStateTextWidget> CombatStateTextWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Combat")
+	TSubclassOf<class UPBSkillNameFloatingWidget> SkillNameFloatingWidgetClass;
+
+private:
+	// 전투 상태 인디케이터 갱신 헬퍼
+	void UpdateCombatIndicator(EPBActionIndicatorType Type, const FText& Text);
+	void ClearCombatIndicator();
+
+	// 전투 인디케이터 자동 해제 타이머
+	FTimerHandle CombatIndicatorTimerHandle;
 };

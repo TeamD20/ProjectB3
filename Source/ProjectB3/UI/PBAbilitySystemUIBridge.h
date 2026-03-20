@@ -10,6 +10,9 @@
 #include "GameplayTagContainer.h"
 #include "ProjectB3/AbilitySystem/Payload/PBFloatingTextPayload.h"
 #include "ProjectB3/UI/CombatLog/PBCombatLogTypes.h"
+#include "ProjectB3/Combat/PBCombatTypes.h"
+#include "ProjectB3/UI/Combat/PBActionIndicatorTypes.h"
+#include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
 #include "PBAbilitySystemUIBridge.generated.h"
 
 class UAbilitySystemComponent;
@@ -17,6 +20,8 @@ class UGameplayAbility;
 class UPBViewModelSubsystem;
 class UPBAbilitySystemComponent;
 class UPBCombatLogViewModel;
+class UPBCombatStateTextWidget;
+class UPBSkillNameFloatingWidget;
 struct FAbilityEndedData;
 struct FOnAttributeChangeData;
 
@@ -120,11 +125,26 @@ private:
 	// 컴뱃 로그 엔트리 생성 및 ViewModel에 전달
 	void SendCombatLogEntry(EPBCombatLogType InLogType, const FText& LogText) const;
 
+	// 전투 상태 변경 구독 (브리지 내부 상태 정리용)
+	void BindCombatStateDelegate();
+	void UnbindCombatStateDelegate();
+	void HandleCombatStateChanged(EPBCombatState NewState);
+
+	// === 행동 인디케이터 UI ===
+
+	// 행동 인디케이터 VM 갱신 
+	void UpdateActionIndicator(EPBActionIndicatorType Type, const FText& Text);
+
+	// 행동 인디케이터 초기화
+	void ClearActionIndicator();
+
+
 	// Owner 액터의 전투 표시 이름 반환
 	FText GetTargetDisplayName() const;
 
 	// GESpec의 EffectCauser에서 전투 표시 이름 반환
 	FText GetSourceDisplayName(const FGameplayEffectSpec& Spec) const;
+
 
 private:
 	// Attribute 바인딩 단위
@@ -155,4 +175,7 @@ private:
 	// 전투 결과 콜백 핸들
 	FDelegateHandle GEExecutedHandle;
 	FDelegateHandle TagUpdatedHandle;
+
+	// 전투 상태 변경 이벤트 핸들
+	FDelegateHandle CombatStateHandle;
 };

@@ -317,20 +317,26 @@ void APBCharacterBase::PollPathFollowingMoveState()
 
 void APBCharacterBase::UpdateNavigationAffectByMoveState(bool bIsMoving)
 {
-	if (UPBCombatSystemLibrary::IsMyTurn(this))
+	const bool bIsPlayerController = GetController<APlayerController>() != nullptr;
+	if (!bIsMoving && !bIsPlayerController)
+	{
+		SetCanAffectNavigationGeneration(true, true);
+	}
+	else if (bIsPlayerController || UPBCombatSystemLibrary::IsMyTurn(this))
 	{
 		// 플레이어 조작중이거나 현재 턴인 캐릭터의 주변 영역을 활성화 해야 가까운 거리도 이동 가능하다.
-		SetCanAffectNavigationGeneration(false, true);	
-	}
-	else
-	{
-		SetCanAffectNavigationGeneration(!bIsMoving, true);	
+		SetCanAffectNavigationGeneration(false, true);
 	}
 }
 
 void APBCharacterBase::GrantInitialAbilities()
 {
 	// TODO: 레벨 전달
+	if (IsValid(InnateAbilitySet))
+	{
+		AbilitySystemComponent->GrantAbilitiesFromData(PBGameplayTags::Ability_Source_Innate, InnateAbilitySet);	
+	}
+	
 	FPBAbilityGrantedHandles Handles;
 	UPBAbilitySystemLibrary::ApplyStatsInitialization(AbilitySystemComponent,Handles,CombatIdentity.ClassTag);
 	UPBAbilitySystemLibrary::ApplyCommonAbilitySet(AbilitySystemComponent);
@@ -373,7 +379,7 @@ void APBCharacterBase::GrantDefaultItems()
 
 void APBCharacterBase::HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, bool TagExists)
 {
-	if (ChangedTag == PBGameplayTags::Character_State_Dead && TagExists)
+	if (ChangedTag == PBGameplayTags::Character_State_Incapacitated && TagExists)
 	{
 		if (UPBCombatManagerSubsystem* CombatManager = UPBCombatSystemLibrary::GetCombatManager(this))
 		{
@@ -382,6 +388,11 @@ void APBCharacterBase::HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, 
 				CombatManager->NotifyCombatantIncapacitated(this);
 			}
 		}
+	}
+	if (ChangedTag == PBGameplayTags::Character_State_Dead)
+	{
+		// 캐릭터 사망 영역은 NavMesh 활성화
+		SetCanAffectNavigationGeneration(false, true);
 	}
 }
 
@@ -476,7 +487,7 @@ void APBCharacterBase::OnActionInterrupted()
 
 bool APBCharacterBase::IsIncapacitated() const
 {
-	if (AbilitySystemComponent->HasMatchingGameplayTag(PBGameplayTags::Character_State_Dead))
+	if (AbilitySystemComponent->HasMatchingGameplayTag(PBGameplayTags::Character_State_Incapacitated))
 	{
 		return true;
 	}

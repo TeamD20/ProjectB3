@@ -50,6 +50,8 @@ void APBGameplayPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	CurrentMouseCursor = EMouseCursor::Default;
+	
 	if (PathFollowingComponent)
 	{
 		PathFollowingComponent->Initialize();
@@ -84,7 +86,7 @@ void APBGameplayPlayerController::BeginPlay()
 void APBGameplayPlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
+	
 	// 전술 카메라가 비활성 상태일 때만 기본 카메라 갱신
 	if (!TacticalCameraComponent->IsTacticalCameraActive())
 	{
@@ -297,6 +299,29 @@ void APBGameplayPlayerController::SetControllerMode(EPBPlayerControllerMode NewM
 	{
 		return;
 	}
+	
+	if (NewMode == EPBPlayerControllerMode::Targeting)
+	{
+		if (!IsValid(TargetingCursorWidget) && IsValid(TargetingCursorWidgetClass))
+		{
+			TargetingCursorWidget = CreateWidget<UUserWidget>(this, TargetingCursorWidgetClass);
+		}
+		if (TargetingCursorWidget)
+		{
+			SetMouseCursorWidget(EMouseCursor::Default, TargetingCursorWidget);	
+		}
+	}
+	else
+	{
+		if (!IsValid(DefaultCursorWidget) && IsValid(DefaultCursorWidgetClass))
+		{
+			DefaultCursorWidget = CreateWidget<UUserWidget>(this, DefaultCursorWidgetClass);
+		}
+		if (DefaultCursorWidget)
+		{
+			SetMouseCursorWidget(EMouseCursor::Default, DefaultCursorWidget);	
+		}
+	}
 
 	// 이전 모드 종료 처리
 	if (CurrentMode == EPBPlayerControllerMode::Targeting)
@@ -458,6 +483,15 @@ void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value
 		if (!IsValid(MyPawn))
 		{
 			return;
+		}
+			
+		if (UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(MyPawn))
+		{
+			// 행동 불능 상태: 이동 불가
+			if (ASC->HasMatchingGameplayTag(PBGameplayTags::Character_State_Incapacitated))
+			{
+				return;
+			}
 		}
 
 		// 거리 제한 없이 PC가 직접 이동 명령
