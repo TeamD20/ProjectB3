@@ -25,8 +25,8 @@ void UPBInteractorComponent::TryFocus(AActor* Actor)
 		}
 	}
 
-	// 인터페이스 미구현 또는 범위 초과 시 포커스 해제
-	if (!Actor || !Actor->Implements<UPBInteractionInterface>() || !IsWithinRange(Actor))
+	// 인터페이스 미구현시 포커스 해제
+	if (!Actor || !Actor->Implements<UPBInteractionInterface>())
 	{
 		ClearFocus();
 		return;
@@ -67,7 +67,7 @@ void UPBInteractorComponent::SetFocus(UPBInteractableComponent* NewFocus)
 	// 신규 포커스 진입
 	if (IsValid(FocusedComponent))
 	{
-		FocusedComponent->OnFocus();
+		FocusedComponent->OnFocus(IsWithinRange(FocusedComponent));
 	}
 }
 
@@ -104,6 +104,11 @@ void UPBInteractorComponent::Interact()
 	{
 		return;
 	}
+	
+	if (!IsWithinRange(FocusedComponent))
+	{
+		return;
+	}
 
 	// 이미 유지형 상호작용 중이면 먼저 종료
 	if (ActiveAction.IsValid())
@@ -126,9 +131,9 @@ bool UPBInteractorComponent::HasFocus() const
 	return IsValid(FocusedComponent);
 }
 
-bool UPBInteractorComponent::IsWithinRange(const AActor* Target) const
+bool UPBInteractorComponent::IsWithinRange(const AActor* TargetActor) const
 {
-	if (!IsValid(Target))
+	if (!IsValid(TargetActor))
 	{
 		return false;
 	}
@@ -141,8 +146,17 @@ bool UPBInteractorComponent::IsWithinRange(const AActor* Target) const
 		return false;
 	}
 
-	const float DistSq = FVector::DistSquared(Pawn->GetActorLocation(), Target->GetActorLocation());
+	const float DistSq = FVector::DistSquared(Pawn->GetActorLocation(), TargetActor->GetActorLocation());
 	return DistSq <= FMath::Square(MaxInteractionDistance);
+}
+
+bool UPBInteractorComponent::IsWithinRange(const UPBInteractableComponent* TargetComponent) const
+{
+	if (IsValid(TargetComponent))
+	{
+		return IsWithinRange(TargetComponent->GetOwner());
+	}
+	return false;
 }
 
 void UPBInteractorComponent::EndActiveInteraction()

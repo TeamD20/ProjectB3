@@ -459,6 +459,15 @@ void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value
 		{
 			return;
 		}
+			
+		if (UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(MyPawn))
+		{
+			// 행동 불능 상태: 이동 불가
+			if (ASC->HasMatchingGameplayTag(PBGameplayTags::Character_State_Incapacitated))
+			{
+				return;
+			}
+		}
 
 		// 거리 제한 없이 PC가 직접 이동 명령
 		if (UPBEnvironmentSubsystem* EnvironmentSubsystem = GetGameInstance()->GetSubsystem<UPBEnvironmentSubsystem>())

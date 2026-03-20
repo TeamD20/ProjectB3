@@ -22,9 +22,9 @@ class PROJECTB3_API UPBInteractableComponent : public UActorComponent
 
 public:
 	UPBInteractableComponent();
-
+	
 	/** 포커스 진입 시 호출. 소유 액터의 모든 메시에 오버레이 머티리얼 적용 */
-	virtual void OnFocus();
+	virtual void OnFocus(bool bIsInRange);
 
 	/** 포커스 해제 시 호출. 소유 액터의 모든 메시에서 오버레이 머티리얼 제거 */
 	virtual void OnUnfocus();

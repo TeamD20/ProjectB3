@@ -15,6 +15,7 @@ namespace PBTraceChannel
 
 namespace PBStencilValues
 {
+	constexpr int32 DEFAULT = 1;
 	constexpr int32 INTERACTION = 10;
 	constexpr int32 TARGETING = 20;
 }

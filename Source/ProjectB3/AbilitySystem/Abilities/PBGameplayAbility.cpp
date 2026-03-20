@@ -20,6 +20,9 @@ DEFINE_LOG_CATEGORY_STATIC(LogPBGameplayAbility, Log, All);
 UPBGameplayAbility::UPBGameplayAbility()
 {
 	DiceSpec.RollType = EPBDiceRollType::None;
+	
+	// 기본적으로 사망 상태에서 Block, 사망 시점 혹은 사망 상태에서도 발동 원할 경우 에디터에서 제거
+	ActivationBlockedTags.AddTag(PBGameplayTags::Character_State_Dead);
 }
 
 APBCharacterBase* UPBGameplayAbility::K2_GetPBCharacter(EPBValidResult& Result) const
