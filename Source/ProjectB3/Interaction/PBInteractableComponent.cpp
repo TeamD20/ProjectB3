@@ -10,7 +10,7 @@ UPBInteractableComponent::UPBInteractableComponent()
 {
 }
 
-void UPBInteractableComponent::OnFocus()
+void UPBInteractableComponent::OnFocus(bool bIsInRange)
 {
 	if (bIsFocused)
 	{
@@ -30,7 +30,7 @@ void UPBInteractableComponent::OnFocus()
 			SavedCustomDepthStates.Add(TObjectPtr<UMeshComponent>(Mesh), Mesh->bRenderCustomDepth);
 
 			Mesh->SetRenderCustomDepth(true);
-			Mesh->SetCustomDepthStencilValue(PBStencilValues::INTERACTION);
+			Mesh->SetCustomDepthStencilValue(bIsInRange ? PBStencilValues::INTERACTION : PBStencilValues::DEFAULT);
 		}
 	}
 }

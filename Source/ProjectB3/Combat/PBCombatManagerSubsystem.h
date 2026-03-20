@@ -78,6 +78,9 @@ public:
 
 	// 현재 턴 인덱스 반환
 	int32 GetCurrentTurnIndex() const { return CurrentTurnIndex; }
+	
+	// 지정된 전투원의 실제 이니셔티브 인덱스 조회
+	int32 GetInitiativeTurnIndex(const AActor* Combatant) const;
 
 protected:
 	/*~ 이니셔티브 ~*/
@@ -116,8 +119,6 @@ protected:
 	// 행동불능 처리
 	void HandleIncapacitated(AActor* Combatant);
 	
-	// 조회
-	int32 GetGroupMemberTurnIndex(int32 InGroupMemberIndex) const;
 public:
 	/*~ 이벤트 ~*/
 	FOnCombatStateChangedSignature OnCombatStateChanged;

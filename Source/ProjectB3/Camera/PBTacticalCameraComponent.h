@@ -7,6 +7,7 @@
 #include "GameplayTagContainer.h"
 #include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
 #include "ProjectB3/Combat/PBCombatTypes.h"
+#include "PBTacticalCameraTypes.h"
 #include "PBTacticalCameraComponent.generated.h"
 
 class APBTacticalCameraActor;
@@ -53,8 +54,11 @@ private:
 	// 타겟 기반 스킬 발동 처리 — CameraActor TargetTransform 갱신
 	void HandleAbilityExecutionStarted(const UGameplayAbility* Ability, const FPBAbilityTargetData& TargetData);
 
-	// 피사체들이 HUD 패딩을 제외한 유효 뷰포트 안에 모두 들어오는 최소 카메라 높이 계산
-	float CalculateSkillFramingHeight(const FVector& FocusPoint, float InYaw, const TArray<FVector>& SubjectLocations) const;
+	// 모든 피사체가 현재 유효 뷰포트(패딩 제외) 안에 있는지 판정
+	bool AreSubjectsInView(const TArray<FVector>& SubjectLocations) const;
+
+	// 피사체들이 HUD 패딩을 제외한 유효 뷰포트 안에 모두 들어오는 최소 카메라 거리 계산
+	float CalculateSkillFramingHeight(const FVector& FocusPoint, float InYaw, float InPitch, const TArray<FVector>& SubjectLocations) const;
 
 	// 카메라 액터 스폰
 	void SpawnCameraActor();
@@ -84,17 +88,13 @@ public:
 	UPROPERTY(EditAnywhere, Category = "TacticalCamera")
 	float DefaultPitch = -50.0f;
 
-	// 스킬 프레이밍 Pitch
-	UPROPERTY(EditAnywhere, Category = "TacticalCamera")
-	float SkillFramingPitch = -90.0f;
-
 	// 적 진영 태그
 	UPROPERTY(EditAnywhere, Category = "TacticalCamera")
 	FGameplayTag EnemyFactionTag;
 
-	// 스킬 프레이밍 시 HUD 위아래 합산 차지 비율 (예: 0.25 = 상하 각 12.5%)
-	UPROPERTY(EditAnywhere, Category = "TacticalCamera|Framing", meta = (ClampMin = "0.0", ClampMax = "0.9"))
-	float HUDVerticalPaddingFraction = 0.4f;
+	// HUD 방향별 패딩 비율
+	UPROPERTY(EditAnywhere, Category = "TacticalCamera|Framing")
+	FPBScreenPadding ScreenPadding;
 
 	// 피사체 주변 추가 여백 (월드 단위)
 	UPROPERTY(EditAnywhere, Category = "TacticalCamera|Framing")

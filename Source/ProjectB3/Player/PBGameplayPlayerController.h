@@ -6,10 +6,10 @@
 #include "InputActionValue.h"
 #include "PBGameplayPlayerController.generated.h"
 
+class UPathFollowingComponent;
 class UPBDialogueManagerComponent;
 class UNiagaraSystem;
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnViewDataPropertyChangedSiganture);
-
+class UPBPartyFollowSubsystem;
 class UPBPathDisplayComponent;
 class UPBCameraControlComponent;
 class UPBTargetingComponent;
@@ -198,6 +198,10 @@ public:
 	UNiagaraSystem* CursorVFX;
 
 private:
+	// 경로 탐색 컴포넌트
+	UPROPERTY(VisibleAnywhere, Category = "Components")
+	TObjectPtr<UPathFollowingComponent> PathFollowingComponent;
+	
 	// 이동 경로 시각화 컴포넌트
 	UPROPERTY(VisibleAnywhere, Category = "Components")
 	TObjectPtr<UPBPathDisplayComponent> PathDisplayComponent;
@@ -239,6 +243,12 @@ private:
 
 	// 카메라 컷아웃 타이머 핸들
 	FTimerHandle CutoutTimerHandle;
+
+	// FreeMovement 중 이전 Tick에 리더가 이동 중이었는지 여부 (정지 감지용)
+	bool bWasLeaderMoving = false;
+
+	// 리더 정지 확정 디바운스 타이머 (0.1초 유지 후 서브시스템에 통보)
+	FTimerHandle LeaderStopDebounceTimer;
 
 	struct FPBMeshFadeState 
 	{

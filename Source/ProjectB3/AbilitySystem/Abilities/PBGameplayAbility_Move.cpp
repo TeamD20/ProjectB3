@@ -1,8 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBGameplayAbility_Move.h"
-#include "NavigationSystem.h"
-#include "NavigationPath.h"
 #include "ProjectB3/AbilitySystem/Tasks/PBAbilityTask_MoveToLocation.h"
 #include "Abilities/Tasks/AbilityTask_WaitGameplayEvent.h"
 #include "AbilitySystemComponent.h"
@@ -170,18 +168,22 @@ void UPBGameplayAbility_Move::HandleMoveEvent(FGameplayEventData Payload)
 
 	const FVector HitLocation = TargetPayload->TargetData.GetSingleTargetLocation();
 
-	// NavPath 탐색
-	UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(GetWorld());
-	if (!IsValid(NavSys))
+	UPBEnvironmentSubsystem* EnvSubsystem = GetEnvironmentSubsystem();
+	if (!IsValid(EnvSubsystem))
 	{
 		K2_EndAbility();
 		return;
 	}
 
-	UNavigationPath* NavPath = NavSys->FindPathToLocationSynchronously(
-		GetWorld(), MyPawn->GetActorLocation(), HitLocation);
+	AController* MoveController = MyPawn->GetController();
+	if (!IsValid(MoveController))
+	{
+		K2_EndAbility();
+		return;
+	}
 
-	if (!IsValid(NavPath) || !NavPath->IsValid())
+	const FPBPathFindResult PathCostResult = EnvSubsystem->CalculatePathForAgent(MoveController, HitLocation, false);
+	if (!PathCostResult.bIsValid || PathCostResult.PathPoints.IsEmpty())
 	{
 		K2_EndAbility();
 		return;
@@ -193,13 +195,7 @@ void UPBGameplayAbility_Move::HandleMoveEvent(FGameplayEventData Payload)
 		? ASC->GetNumericAttribute(UPBTurnResourceAttributeSet::GetMovementAttribute())
 		: -1.0f;
 	MovePathPoints.Reset();
-	UPBEnvironmentSubsystem* EnvSubsystem = GetEnvironmentSubsystem();
-	if (!IsValid(EnvSubsystem))
-	{
-		K2_EndAbility();
-		return;
-	}
-	const FVector Destination = EnvSubsystem->CalculateClampedDestination(NavPath->PathPoints, MaxDist, MovePathPoints);
+	const FVector Destination = EnvSubsystem->CalculateClampedDestination(PathCostResult.PathPoints, MaxDist, MovePathPoints);
 
 	// PBAbilityTask_MoveToLocation으로 NavMesh 경로 이동 — 완료 시 어빌리티 종료
 	ActiveMoveTask = UPBAbilityTask_MoveToLocation::CreateTask(this, Destination);

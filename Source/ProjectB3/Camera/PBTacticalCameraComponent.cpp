@@ -18,7 +18,7 @@ UPBTacticalCameraComponent::UPBTacticalCameraComponent()
 	PrimaryComponentTick.bCanEverTick = false;
 }
 
-// ─── UActorComponent ─────────────────────────────────────────────────────────
+//  UActorComponent 
 
 void UPBTacticalCameraComponent::BeginPlay()
 {
@@ -56,7 +56,7 @@ void UPBTacticalCameraComponent::EndPlay(const EEndPlayReason::Type EndPlayReaso
 	Super::EndPlay(EndPlayReason);
 }
 
-// ─── Public Query ────────────────────────────────────────────────────────────
+//  Public Query 
 
 bool UPBTacticalCameraComponent::IsTacticalCameraActive() const
 {
@@ -68,7 +68,7 @@ bool UPBTacticalCameraComponent::IsTacticalCameraActive() const
 	return IsValid(PC) && PC->GetViewTarget() == CameraActor;
 }
 
-// ─── Combat Events ──────────────────────────────────────────────────────────
+//  Combat Events 
 
 void UPBTacticalCameraComponent::HandleCombatStateChanged(EPBCombatState NewState)
 {
@@ -123,17 +123,17 @@ void UPBTacticalCameraComponent::HandleAbilityExecutionStarted(
 	{
 		return;
 	}
-	
+
 	AActor* Caster = Ability->GetAvatarActorFromActorInfo();
 	if (!IsValid(Caster))
 	{
 		return;
 	}
-	
+
 	// 모든 피사체 위치 수집 (시전자 포함)
 	TArray<FVector> SubjectLocations;
 	SubjectLocations.Add(Caster->GetActorLocation());
-	
+
 	switch (TargetData.TargetingMode)
 	{
 	case EPBTargetingMode::SingleTarget:
@@ -163,7 +163,13 @@ void UPBTacticalCameraComponent::HandleAbilityExecutionStarted(
 	default:
 		break;
 	}
-	
+
+	// 가시성 검사 — 모든 피사체가 이미 유효 뷰포트 안이면 카메라 이동 불필요
+	if (AreSubjectsInView(SubjectLocations))
+	{
+		return;
+	}
+
 	// FocusPoint = 모든 피사체의 중심
 	FVector FocusPoint = FVector::ZeroVector;
 	for (const FVector& L : SubjectLocations)
@@ -171,18 +177,38 @@ void UPBTacticalCameraComponent::HandleAbilityExecutionStarted(
 		FocusPoint += L;
 	}
 	FocusPoint /= static_cast<float>(SubjectLocations.Num());
-	
-	// 피사체가 HUD 패딩을 제외한 유효 뷰포트에 모두 들어오는 높이 계산
+
+	// 피사체 간 최대 거리 산출 → 적응형 Pitch 결정
+	float SubjectSpread = 0.0f;
+	for (int32 i = 0; i < SubjectLocations.Num(); ++i)
+	{
+		for (int32 j = i + 1; j < SubjectLocations.Num(); ++j)
+		{
+			SubjectSpread = FMath::Max(SubjectSpread, FVector::Dist(SubjectLocations[i], SubjectLocations[j]));
+		}
+	}
+
+	float DesiredPitch = CalculateDesiredPitch(SubjectSpread);
 	const FRotator CurrentCamRot = CameraActor->GetActorRotation();
-	const float Height          = CalculateSkillFramingHeight(FocusPoint, CurrentCamRot.Yaw, SubjectLocations);
-	const FVector CamLoc        = CalculateOrbitLocation(FocusPoint, CurrentCamRot.Yaw, SkillFramingPitch, Height);
-	const FRotator CamRot       = CalculateOrbitRotation(CamLoc, FocusPoint, CurrentCamRot);
-	
+	const float Yaw = CurrentCamRot.Yaw;
+
+	float Height = CalculateSkillFramingHeight(FocusPoint, Yaw, DesiredPitch, SubjectLocations);
+
+	// 극단적 줌아웃 시 수직 탑다운 폴백 — 최대 거리의 80% 초과 시 -90°로 전환
+	if (Height > FramingMaxDistance * 0.8f)
+	{
+		DesiredPitch = -90.0f;
+		Height = CalculateSkillFramingHeight(FocusPoint, Yaw, DesiredPitch, SubjectLocations);
+	}
+
+	const FVector CamLoc   = CalculateOrbitLocation(FocusPoint, Yaw, DesiredPitch, Height);
+	const FRotator CamRot  = CalculateOrbitRotation(CamLoc, FocusPoint, CurrentCamRot);
+
 	CameraActor->SetTargetTransform(FTransform(CamRot, CamLoc));
 }
 
 float UPBTacticalCameraComponent::CalculateSkillFramingHeight(
-	const FVector& FocusPoint, float InYaw, const TArray<FVector>& SubjectLocations) const
+	const FVector& FocusPoint, float InYaw, float InPitch, const TArray<FVector>& SubjectLocations) const
 {
 	if (SubjectLocations.IsEmpty())
 	{
@@ -208,18 +234,21 @@ float UPBTacticalCameraComponent::CalculateSkillFramingHeight(
 	const float TanHalfVFov  = FMath::Tan(FMath::DegreesToRadians(VFovDeg * 0.5f));
 	const float TanHalfHFov  = TanHalfVFov * AspectRatio;
 
-	// HUD를 제외한 유효 수직 비율
-	const float EffVertFrac = FMath::Max(0.1f, 1.0f - HUDVerticalPaddingFraction);
+	// 방향별 유효 반 FOV — 스크린 중심에서 각 패딩 경계까지의 실제 탄젠트
+	// 전체 폭 = 2 * TanHalfHFov * D, 좌측 패딩 = Left * 전체 폭
+	// → 중심→좌측 유효 = TanHalfHFov * (1 - 2*Left)
+	const float EffTanLeft   = TanHalfHFov * FMath::Max(0.1f, 1.0f - 2.0f * ScreenPadding.Left);
+	const float EffTanRight  = TanHalfHFov * FMath::Max(0.1f, 1.0f - 2.0f * ScreenPadding.Right);
+	const float EffTanTop    = TanHalfVFov * FMath::Max(0.1f, 1.0f - 2.0f * ScreenPadding.Top);
+	const float EffTanBottom = TanHalfVFov * FMath::Max(0.1f, 1.0f - 2.0f * ScreenPadding.Bottom);
 
-	// 카메라 스크린 축 계산
-	const FRotationMatrix CamMat(FRotator(SkillFramingPitch, InYaw, 0.0f));
+	// 카메라 스크린 축 계산 (적응형 Pitch 사용)
+	const FRotationMatrix CamMat(FRotator(InPitch, InYaw, 0.0f));
 	const FVector CamForward = CamMat.GetScaledAxis(EAxis::X);	// 카메라 전방 (피사체 깊이 계산용)
 	const FVector CamRight   = CamMat.GetScaledAxis(EAxis::Y);	// 스크린 수평 축
 	const FVector CamUp      = CamMat.GetScaledAxis(EAxis::Z);	// 스크린 수직 축
 
-	// 현재 카메라 거리를 기준으로 시작 — 피사체가 이미 유효 영역에 들어오면 줌아웃 없음
-	const float CurrentDist = (CameraActor->GetActorLocation() - FocusPoint).Size();
-	float RequiredH = FMath::Max(FramingMinDistance, CurrentDist);
+	float RequiredH = FramingMinDistance;
 
 	for (const FVector& Loc : SubjectLocations)
 	{
@@ -229,26 +258,31 @@ float UPBTacticalCameraComponent::CalculateSkillFramingHeight(
 		// (피사체가 FocusPoint보다 카메라에 가까울수록 더 넓게 보이므로 거리 보정 필요)
 		const float DepthOffset = FVector::DotProduct(Rel, CamForward);
 
-		const float ExtH = FMath::Abs(FVector::DotProduct(Rel, CamRight)) + SubjectWorldPadding;
-		const float ExtV = FMath::Abs(FVector::DotProduct(Rel, CamUp))    + SubjectWorldPadding;
+		// 부호 있는 스크린 축 투영 — 방향에 따라 해당 측 패딩 적용
+		const float ProjH = FVector::DotProduct(Rel, CamRight);	// + = 우측, - = 좌측
+		const float ProjV = FVector::DotProduct(Rel, CamUp);		// + = 상단, - = 하단
 
-		// 수평: H ≥ ExtH / TanHalfHFov + DepthOffset
-		if (TanHalfHFov > KINDA_SMALL_NUMBER)
+		// 수평: 피사체가 우측이면 Right 패딩, 좌측이면 Left 패딩 기준
+		const float AvailH = (ProjH >= 0.0f) ? EffTanRight : EffTanLeft;
+		const float ExtH = FMath::Abs(ProjH) + SubjectWorldPadding;
+		if (AvailH > KINDA_SMALL_NUMBER)
 		{
-			RequiredH = FMath::Max(RequiredH, ExtH / TanHalfHFov + DepthOffset);
+			RequiredH = FMath::Max(RequiredH, ExtH / AvailH + DepthOffset);
 		}
-		// 수직: HUD 패딩 제외한 유효 영역 기준
-		if (TanHalfVFov * EffVertFrac > KINDA_SMALL_NUMBER)
+
+		// 수직: 피사체가 상단이면 Top 패딩, 하단이면 Bottom 패딩 기준
+		const float AvailV = (ProjV >= 0.0f) ? EffTanTop : EffTanBottom;
+		const float ExtV = FMath::Abs(ProjV) + SubjectWorldPadding;
+		if (AvailV > KINDA_SMALL_NUMBER)
 		{
-			RequiredH = FMath::Max(RequiredH, ExtV / (TanHalfVFov * EffVertFrac) + DepthOffset);
+			RequiredH = FMath::Max(RequiredH, ExtV / AvailV + DepthOffset);
 		}
 	}
 
-	// 최대 거리만 클램프 (최솟값은 이미 CurrentDist와 FramingMinDistance의 max로 보장)
-	return FMath::Min(RequiredH, FramingMaxDistance);
+	return FMath::Clamp(RequiredH, FramingMinDistance, FramingMaxDistance);
 }
 
-// ─── Camera Actor ────────────────────────────────────────────────────────────
+//  Camera Actor 
 
 void UPBTacticalCameraComponent::SpawnCameraActor()
 {
@@ -271,7 +305,7 @@ void UPBTacticalCameraComponent::DestroyCameraActor()
 	}
 }
 
-// ─── ASC Subscription ────────────────────────────────────────────────────────
+//  ASC Subscription 
 
 void UPBTacticalCameraComponent::SubscribeToAbilitySystems()
 {
@@ -315,7 +349,7 @@ void UPBTacticalCameraComponent::UnsubscribeFromAbilitySystems()
 	ASCEntries.Empty();
 }
 
-// ─── Orbit Math ──────────────────────────────────────────────────────────────
+//  Orbit Math 
 
 FVector UPBTacticalCameraComponent::CalculateOrbitLocation(
 	const FVector& FocusPoint, float Yaw, float Pitch, float Distance) const
@@ -351,7 +385,47 @@ float UPBTacticalCameraComponent::CalculateDesiredPitch(float SubjectDistance) c
 	return FMath::Lerp(FramingNearPitch, FramingFarPitch, Alpha);
 }
 
-// ─── Utility ─────────────────────────────────────────────────────────────────
+//  Visibility 
+
+bool UPBTacticalCameraComponent::AreSubjectsInView(const TArray<FVector>& SubjectLocations) const
+{
+	APlayerController* PC = GetOwner<APlayerController>();
+	if (!IsValid(PC))
+	{
+		return false;
+	}
+
+	int32 ViewSizeX = 0, ViewSizeY = 0;
+	PC->GetViewportSize(ViewSizeX, ViewSizeY);
+	if (ViewSizeX == 0 || ViewSizeY == 0)
+	{
+		return false;
+	}
+
+	// 패딩을 제외한 유효 스크린 영역 (픽셀)
+	const float MinX = ScreenPadding.Left   * static_cast<float>(ViewSizeX);
+	const float MaxX = (1.0f - ScreenPadding.Right)  * static_cast<float>(ViewSizeX);
+	const float MinY = ScreenPadding.Top    * static_cast<float>(ViewSizeY);
+	const float MaxY = (1.0f - ScreenPadding.Bottom) * static_cast<float>(ViewSizeY);
+
+	for (const FVector& Loc : SubjectLocations)
+	{
+		FVector2D ScreenPos;
+		if (!PC->ProjectWorldLocationToScreen(Loc, ScreenPos))
+		{
+			return false;	// 카메라 뒤편
+		}
+
+		if (ScreenPos.X < MinX || ScreenPos.X > MaxX || ScreenPos.Y < MinY || ScreenPos.Y > MaxY)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+//  Utility 
 
 bool UPBTacticalCameraComponent::IsEnemyFaction(AActor* Actor) const
 {

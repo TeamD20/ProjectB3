@@ -15,6 +15,7 @@ namespace PBGameplayTags
 	
 	// 상태 태그
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Dead);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Incapacitated); // 행동 불능
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Lootable); // 루팅 가능 상태 (사망/기절 등)
 	
 	// 장비
