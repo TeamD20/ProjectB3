@@ -473,6 +473,7 @@ void UPBUtilityClearinghouse::ClearCache()
 	CachedMaxMovement = 1000.0f;
 	EQSTargetActor = nullptr;
 	EQSAbilityMaxRange = 0.f;
+	EQSIdealDistance = 0.f;
 
 	// LoS 캐시 세션 종료 — Trace 결과 캐시 파기
 	if (CachedEnvSubsystem)
@@ -705,6 +706,128 @@ float UPBUtilityClearinghouse::CalcExpectedDamageFromDice(
 	return ExpectedDamage;
 }
 
+/*~ StatMod 자동 HP 환산 헬퍼 ~*/
+
+float UPBUtilityClearinghouse::GetBestRawAttackDamage(
+	AActor* Attacker, AActor* Defender) const
+{
+	if (!IsValid(Attacker))
+	{
+		return 0.0f;
+	}
+
+	UAbilitySystemComponent* AttackerASC =
+		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Attacker);
+	if (!IsValid(AttackerASC))
+	{
+		return 0.0f;
+	}
+
+	UAbilitySystemComponent* DefenderASC = nullptr;
+	if (IsValid(Defender))
+	{
+		DefenderASC =
+			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Defender);
+	}
+
+	FGameplayTagContainer SourceTags, TargetTags;
+	AttackerASC->GetOwnedGameplayTags(SourceTags);
+	if (DefenderASC)
+	{
+		DefenderASC->GetOwnedGameplayTags(TargetTags);
+	}
+
+	float BestRawDmg = 0.0f;
+	const TArray<FGameplayAbilitySpec>& Specs = AttackerASC->GetActivatableAbilities();
+	for (const FGameplayAbilitySpec& Spec : Specs)
+	{
+		const UPBGameplayAbility* CDO = Cast<UPBGameplayAbility>(Spec.Ability);
+		if (!CDO || CDO->GetAbilityCategory() != EPBAbilityCategory::Attack)
+		{
+			continue;
+		}
+
+		float RawAvg = 0.0f;
+		CalcExpectedDamageFromDice(
+			AttackerASC, DefenderASC,
+			CDO->GetDiceSpec(), SourceTags, TargetTags,
+			&RawAvg);
+		BestRawDmg = FMath::Max(BestRawDmg, RawAvg);
+	}
+
+	return BestRawDmg;
+}
+
+float UPBUtilityClearinghouse::CalcAutoStatModHP(
+	EPBStatModType ModType,
+	float ModDelta,
+	AActor* Target,
+	bool bIsBuff) const
+{
+	if (ModType == EPBStatModType::None || FMath::IsNearlyZero(ModDelta))
+	{
+		return 0.0f;
+	}
+
+	const float AbsDelta = FMath::Abs(ModDelta);
+
+	switch (ModType)
+	{
+	case EPBStatModType::ArmorClass:
+	case EPBStatModType::AttackBonus:
+	case EPBStatModType::SaveDC:
+	{
+		// d20 기준: ±1 = 5% 명중/내성 확률 변동
+		// 경계값 클램핑: [0.05, 0.95] 범위 전체폭(0.90) 초과 방지
+		const float HitChanceDelta =
+			FMath::Clamp(AbsDelta * 0.05f, 0.0f, 0.90f);
+
+		if (bIsBuff)
+		{
+			if (ModType == EPBStatModType::ArmorClass)
+			{
+				// AC 버프 → 적들이 이 아군을 덜 때림
+				// 1턴 환산: Σ(적별 best raw damage) × HitChanceDelta
+				float TotalEnemyRawDmg = 0.0f;
+				for (const auto& EnemyWeak : CachedTargets)
+				{
+					AActor* Enemy = EnemyWeak.Get();
+					if (!IsValid(Enemy)) { continue; }
+					TotalEnemyRawDmg += GetBestRawAttackDamage(Enemy, Target);
+				}
+				return TotalEnemyRawDmg * HitChanceDelta;
+			}
+			// ATK/SaveDC 버프 → 이 아군이 적을 더 잘 때림
+			AActor* RepresentativeEnemy =
+				CachedTargets.Num() > 0 ? CachedTargets[0].Get() : nullptr;
+			return GetBestRawAttackDamage(Target, RepresentativeEnemy)
+				* HitChanceDelta;
+		}
+
+		// --- 디버프 ---
+		if (ModType == EPBStatModType::ArmorClass)
+		{
+			// AC 디버프 → AI가 이 적을 더 잘 때림
+			return GetBestRawAttackDamage(ActiveTurnActor, Target)
+				* HitChanceDelta;
+		}
+		// ATK/SaveDC 디버프 → 이 적이 아군을 덜 때림
+		return GetBestRawAttackDamage(Target, ActiveTurnActor)
+			* HitChanceDelta;
+	}
+
+	case EPBStatModType::DamageBonus:
+	{
+		// 직접 데미지 보너스: 턴당 1회 공격 가정
+		// DurationFactor는 호출부에서 별도 곱산
+		return AbsDelta;
+	}
+
+	default:
+		return 0.0f;
+	}
+}
+
 /*~ 스코어링 (ActionScore 산출) ~*/
 
 FPBTargetScore
@@ -842,11 +965,32 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 			if (Category == EPBAbilityCategory::Debuff
 				|| Category == EPBAbilityCategory::Control)
 			{
-				const float HPValue = AbilityCDO->GetEstimatedHPValue();
+				// 중복 체크: 타겟에 이미 같은 효과가 걸려 있으면 스킵
+				const FGameplayTag EffectTag = AbilityCDO->GetEffectGrantedTag();
+				if (EffectTag.IsValid()
+					&& TargetASC->HasMatchingGameplayTag(EffectTag))
+				{
+					continue;
+				}
+
+				float HPValue = AbilityCDO->GetEstimatedHPValue();
 				const int32 Duration = AbilityCDO->GetEffectDuration();
+
+				// 수동값 미설정 + StatModType 지정 → 자동 HP 환산
 				if (HPValue <= 0.0f)
 				{
-					continue;  // 디자이너가 값 미설정 → 스킵
+					const EPBStatModType ModType = AbilityCDO->GetStatModType();
+					if (ModType != EPBStatModType::None)
+					{
+						HPValue = CalcAutoStatModHP(
+							ModType, AbilityCDO->GetStatModDelta(),
+							TargetActor, /*bIsBuff=*/ false);
+					}
+				}
+
+				if (HPValue <= 0.0f)
+				{
+					continue;
 				}
 
 				const float DurationFactor =
@@ -1502,6 +1646,10 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 		return Score;
 	}
 
+	// 중복 체크용: 아군 타겟의 ASC
+	UAbilitySystemComponent* AllyASC =
+		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(AllyTarget);
+
 	float BestBuffValue = 0.0f;
 	FGameplayTag BestBuffTag;
 	FGameplayAbilitySpecHandle BestBuffHandle;
@@ -1545,11 +1693,32 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 			continue;
 		}
 
-		const float HPValue = AbilityCDO->GetEstimatedHPValue();
+		// 중복 체크: 아군에 이미 같은 효과가 걸려 있으면 스킵
+		const FGameplayTag EffectTag = AbilityCDO->GetEffectGrantedTag();
+		if (EffectTag.IsValid() && IsValid(AllyASC)
+			&& AllyASC->HasMatchingGameplayTag(EffectTag))
+		{
+			continue;
+		}
+
+		float HPValue = AbilityCDO->GetEstimatedHPValue();
 		const int32 Duration = AbilityCDO->GetEffectDuration();
+
+		// 수동값 미설정 + StatModType 지정 → 자동 HP 환산
 		if (HPValue <= 0.0f)
 		{
-			continue;  // 디자이너가 값 미설정 → 스킵
+			const EPBStatModType ModType = AbilityCDO->GetStatModType();
+			if (ModType != EPBStatModType::None)
+			{
+				HPValue = CalcAutoStatModHP(
+					ModType, AbilityCDO->GetStatModDelta(),
+					AllyTarget, /*bIsBuff=*/ true);
+			}
+		}
+
+		if (HPValue <= 0.0f)
+		{
+			continue;
 		}
 
 		// BaseScore = EstimatedHPValue × DurationFactor

@@ -30,9 +30,12 @@ public class ProjectB3 : ModuleRules
 		{
 			"Slate",
 			"SlateCore",
-			"FunctionalTesting",
-			"GameplayDebugger",
 			"DeveloperSettings"
 		});
+
+		if (Target.bBuildDeveloperTools)
+		{
+			PrivateDependencyModuleNames.Add("GameplayDebugger");
+		}
 	}
 }

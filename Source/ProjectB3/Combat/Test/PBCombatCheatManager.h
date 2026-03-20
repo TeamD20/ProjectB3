@@ -90,6 +90,8 @@ private:
 	bool bStatusHUDVisible = false;
 	
 public:
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<APBEnemyCharacter> AICharacterClass = APBTestCombatCharacter::StaticClass();
+	// 스폰할 적 BP 클래스 목록. 라운드 로빈으로 순환 배정.
+	// 비어있으면 APBTestCombatCharacter를 기본 사용.
+	UPROPERTY(EditDefaultsOnly, Category = "Test")
+	TArray<TSubclassOf<APBEnemyCharacter>> AICharacterClasses;
 };

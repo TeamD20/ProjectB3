@@ -14,7 +14,7 @@ class UPBCombatManagerSubsystem;
  * 더미 캐릭터 스폰/정리 및 공용 헬퍼를 제공한다.
  */
 UCLASS()
-class PROJECTB3_API APBCombatFunctionalTestBase : public AFunctionalTest
+class PROJECTB3TESTS_API APBCombatFunctionalTestBase : public AFunctionalTest
 {
 	GENERATED_BODY()
 
@@ -54,7 +54,7 @@ private:
  * - 전투 종료 후 OutOfCombat 복귀 확인
  */
 UCLASS()
-class PROJECTB3_API APBTest_CombatStartEnd : public APBCombatFunctionalTestBase
+class PROJECTB3TESTS_API APBTest_CombatStartEnd : public APBCombatFunctionalTestBase
 {
 	GENERATED_BODY()
 
@@ -69,7 +69,7 @@ protected:
  * - 라운드 시작 시 OnRoundBegin 호출 확인
  */
 UCLASS()
-class PROJECTB3_API APBTest_TurnAdvanceAndRound : public APBCombatFunctionalTestBase
+class PROJECTB3TESTS_API APBTest_TurnAdvanceAndRound : public APBCombatFunctionalTestBase
 {
 	GENERATED_BODY()
 
@@ -83,7 +83,7 @@ protected:
  * - 동점 시 DexModifier 타이브레이크 확인
  */
 UCLASS()
-class PROJECTB3_API APBTest_InitiativeSorting : public APBCombatFunctionalTestBase
+class PROJECTB3TESTS_API APBTest_InitiativeSorting : public APBCombatFunctionalTestBase
 {
 	GENERATED_BODY()
 
@@ -98,7 +98,7 @@ protected:
  * - SwitchToGroupMember로 그룹 내 전환 확인
  */
 UCLASS()
-class PROJECTB3_API APBTest_SharedTurnGroup : public APBCombatFunctionalTestBase
+class PROJECTB3TESTS_API APBTest_SharedTurnGroup : public APBCombatFunctionalTestBase
 {
 	GENERATED_BODY()
 
@@ -113,7 +113,7 @@ protected:
  * - 한 진영 전멸 시 전투 종료 확인
  */
 UCLASS()
-class PROJECTB3_API APBTest_Incapacitation : public APBCombatFunctionalTestBase
+class PROJECTB3TESTS_API APBTest_Incapacitation : public APBCombatFunctionalTestBase
 {
 	GENERATED_BODY()
 
@@ -128,7 +128,7 @@ protected:
  * - ResolveReaction(false) 시 바로 TurnInProgress 복귀 확인
  */
 UCLASS()
-class PROJECTB3_API APBTest_ReactionFlow : public APBCombatFunctionalTestBase
+class PROJECTB3TESTS_API APBTest_ReactionFlow : public APBCombatFunctionalTestBase
 {
 	GENERATED_BODY()
 
@@ -142,7 +142,7 @@ protected:
  *   각 상태 전이 시 올바른 이벤트가 발화되는지 확인
  */
 UCLASS()
-class PROJECTB3_API APBTest_DelegateEvents : public APBCombatFunctionalTestBase
+class PROJECTB3TESTS_API APBTest_DelegateEvents : public APBCombatFunctionalTestBase
 {
 	GENERATED_BODY()
 
@@ -158,7 +158,7 @@ protected:
  * - 한 라운드 내 모든 그룹 순환 후 라운드 2로 진입 확인
  */
 UCLASS()
-class PROJECTB3_API APBTest_SharedGroupCycle : public APBCombatFunctionalTestBase
+class PROJECTB3TESTS_API APBTest_SharedGroupCycle : public APBCombatFunctionalTestBase
 {
 	GENERATED_BODY()
 

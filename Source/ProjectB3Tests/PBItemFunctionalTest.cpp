@@ -1,7 +1,7 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBItemFunctionalTest.h"
-#include "PBTestItemSystemActor.h"
+#include "ProjectB3/ItemSystem/Test/PBTestItemSystemActor.h"
 #include "ProjectB3/ItemSystem/Components/PBInventoryComponent.h"
 #include "ProjectB3/ItemSystem/Components/PBEquipmentComponent.h"
 #include "ProjectB3/ItemSystem/Data/PBItemDataAsset.h"

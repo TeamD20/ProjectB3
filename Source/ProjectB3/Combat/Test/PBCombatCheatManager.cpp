@@ -91,17 +91,25 @@ void UPBCombatCheatManager::SpawnTestEnemies(int32 NumEnemies)
 		SpawnOrigin = Pawn->GetActorLocation();
 	}
 	
-	// 적 스폰
+	// 적 스폰 — AICharacterClasses 배열을 라운드 로빈으로 순환
 	for (int32 i = 0; i < NumEnemies; ++i)
 	{
+		TSubclassOf<APBEnemyCharacter> ClassToSpawn = APBTestCombatCharacter::StaticClass();
+		if (AICharacterClasses.Num() > 0)
+		{
+			ClassToSpawn = AICharacterClasses[i % AICharacterClasses.Num()];
+		}
+
 		FVector SpawnLoc = SpawnOrigin + FVector(i * 300.0f, 300.0f, 10.0f);
 		APBEnemyCharacter* Enemy = World->SpawnActor<APBEnemyCharacter>(
-			AICharacterClass, SpawnLoc, FRotator::ZeroRotator, SpawnParams);
+			ClassToSpawn, SpawnLoc, FRotator::ZeroRotator, SpawnParams);
 
 		if (IsValid(Enemy))
 		{
-			// Enemy->TestInitiativeModifier = FMath::RandRange(0, 3);
 			SpawnedEnemies.Add(Enemy);
+			UE_LOG(LogTemp, Log, TEXT("[Combat.Spawn] [%d] %s (Class: %s)"),
+				i, *Enemy->GetCombatDisplayName().ToString(),
+				*ClassToSpawn->GetName());
 		}
 	}
 }

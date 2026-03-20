@@ -12,6 +12,7 @@ class UAbilitySystemComponent;
 class UEnvQuery;
 struct FEnvQueryResult;
 class UPBEnvironmentSubsystem;
+enum class EPBStatModType : uint8;
 
 // EQS 쿼리 결과 콜백 델리게이트
 // bSuccess: 유효한 결과가 있는지
@@ -371,6 +372,19 @@ protected:
 		const FGameplayTagContainer& SourceTags,
 		const FGameplayTagContainer& TargetTags,
 		float* OutRawAvg = nullptr);
+
+	// Buff/Debuff StatModType 기반 1턴 HP 환산값 자동 계산.
+	// bIsBuff: true면 아군 대상 버프, false면 적 대상 디버프.
+	// DurationFactor는 호출부에서 별도 곱산 — 여기서는 1턴 기준값만 반환.
+	float CalcAutoStatModHP(
+		EPBStatModType ModType,
+		float ModDelta,
+		AActor* Target,
+		bool bIsBuff) const;
+
+	// 특정 액터의 Attack 카테고리 어빌리티 중 최고 RawAvg(명중 시 평균 데미지) 산출.
+	// CalcAutoStatModHP 내부에서 사용.
+	float GetBestRawAttackDamage(AActor* Attacker, AActor* Defender) const;
 
 	/*~ 튜닝 상수 ~*/
 

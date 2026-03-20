@@ -635,11 +635,15 @@ UPBExecuteSequenceTask::UpdateCurrentAction(float DeltaTime) {
 /*~ 비동기 행동 체인 ~*/
 
 void UPBExecuteSequenceTask::AdvanceToNextAction() {
-  // 이전 행동의 델리게이트 정리
-  if (CachedASC) {
-    CachedASC->OnAbilityEnded.Remove(DelegateHandle);
-    DelegateHandle.Reset();
+  // ExitState가 이미 CachedASC를 정리한 경우 — 콜백 무시
+  if (!CachedASC) {
+    bIsActionInProgress = false;
+    return;
   }
+
+  // 이전 행동의 델리게이트 정리
+  CachedASC->OnAbilityEnded.Remove(DelegateHandle);
+  DelegateHandle.Reset();
 
   // 다음 행동 확인
   if (!ExecutionSequence.HasNextAction()) {
