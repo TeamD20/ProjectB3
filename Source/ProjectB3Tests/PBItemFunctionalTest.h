@@ -17,7 +17,7 @@ class UPBEquipmentDataAsset;
  * 더미 DataAsset 생성 및 컴포넌트 부착 헬퍼를 제공한다.
  */
 UCLASS()
-class PROJECTB3_API APBItemFunctionalTestBase : public AFunctionalTest
+class PROJECTB3TESTS_API APBItemFunctionalTestBase : public AFunctionalTest
 {
 	GENERATED_BODY()
 
@@ -64,7 +64,7 @@ protected:
  * - 인벤토리 용량 초과 시 미추가 확인
  */
 UCLASS()
-class PROJECTB3_API APBTest_InventoryAddRemove : public APBItemFunctionalTestBase
+class PROJECTB3TESTS_API APBTest_InventoryAddRemove : public APBItemFunctionalTestBase
 {
 	GENERATED_BODY()
 
@@ -80,7 +80,7 @@ protected:
  * - 기존 장비 자동 교체
  */
 UCLASS()
-class PROJECTB3_API APBTest_EquipUnequip : public APBItemFunctionalTestBase
+class PROJECTB3TESTS_API APBTest_EquipUnequip : public APBItemFunctionalTestBase
 {
 	GENERATED_BODY()
 
@@ -95,7 +95,7 @@ protected:
  * - Main에 양손무기 있을 때 Off 장착 거부
  */
 UCLASS()
-class PROJECTB3_API APBTest_TwoHandedWeapon : public APBItemFunctionalTestBase
+class PROJECTB3TESTS_API APBTest_TwoHandedWeapon : public APBItemFunctionalTestBase
 {
 	GENERATED_BODY()
 
@@ -111,7 +111,7 @@ protected:
  * - 슬롯 모두 점유 시 Main 교체
  */
 UCLASS()
-class PROJECTB3_API APBTest_AutoEquipSlot : public APBItemFunctionalTestBase
+class PROJECTB3TESTS_API APBTest_AutoEquipSlot : public APBItemFunctionalTestBase
 {
 	GENERATED_BODY()
 
@@ -126,7 +126,7 @@ protected:
  * - 전환 후 재전환 (1→2→1)
  */
 UCLASS()
-class PROJECTB3_API APBTest_WeaponSetSwitch : public APBItemFunctionalTestBase
+class PROJECTB3TESTS_API APBTest_WeaponSetSwitch : public APBItemFunctionalTestBase
 {
 	GENERATED_BODY()
 

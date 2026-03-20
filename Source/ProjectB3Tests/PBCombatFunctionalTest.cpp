@@ -1,9 +1,9 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBCombatFunctionalTest.h"
-#include "PBTestCombatCharacter.h"
+#include "ProjectB3/Combat/Test/PBTestCombatCharacter.h"
 #include "ProjectB3/Combat/PBCombatManagerSubsystem.h"
-#include "ProjectB3/PBGameplayTags.h"
+#include "GameplayTagsManager.h"
 
 APBCombatFunctionalTestBase::APBCombatFunctionalTestBase()
 {
@@ -61,7 +61,7 @@ APBTestCombatCharacter* APBCombatFunctionalTestBase::SpawnAlly(int32 InitiativeM
 	if (IsValid(Char))
 	{
 		FPBCombatIdentity Identity;
-		Identity.FactionTag = PBGameplayTags::Combat_Faction_Player;
+		Identity.FactionTag = FGameplayTag::RequestGameplayTag(FName("Combat.Faction.Player"));
 		Identity.DisplayName = FText::FromString(
 			Name.IsEmpty() ? FString::Printf(TEXT("아군_%d"), ++AllyCounter) : Name);
 		Char->SetCombatIdentity(Identity);
@@ -83,7 +83,7 @@ APBTestCombatCharacter* APBCombatFunctionalTestBase::SpawnEnemy(int32 Initiative
 	if (IsValid(Char))
 	{
 		FPBCombatIdentity Identity;
-		Identity.FactionTag = PBGameplayTags::Combat_Faction_Enemy;
+		Identity.FactionTag = FGameplayTag::RequestGameplayTag(FName("Combat.Faction.Enemy"));
 		Identity.DisplayName = FText::FromString(
 			Name.IsEmpty() ? FString::Printf(TEXT("적_%d"), ++EnemyCounter) : Name);
 		Char->SetCombatIdentity(Identity);
