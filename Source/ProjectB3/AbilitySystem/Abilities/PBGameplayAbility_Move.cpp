@@ -14,6 +14,8 @@
 
 UPBGameplayAbility_Move::UPBGameplayAbility_Move()
 {
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
+	
 	FGameplayTagContainer AssetTags;
 	AssetTags.AddTag(PBGameplayTags::Ability_Active_Move);
 	SetAssetTags(AssetTags);

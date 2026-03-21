@@ -10,6 +10,7 @@
 
 class URichTextBlock;
 class UButton;
+class UImage;
 class UTextBlock;
 class UPBDialogueViewModel;
 struct FGeometry;
@@ -30,6 +31,8 @@ public:
     virtual void NativeConstruct() override;
     virtual void NativeDestruct() override;
     virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+    virtual void NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
+    virtual void NativeOnMouseLeave(const FPointerEvent& InMouseEvent) override;
 
     /** 선택지 정보와 선택 인덱스, ViewModel을 바인딩하여 위젯을 초기화 */
     void InitializeChoice(const FPBDialogueChoiceInfo& InInfo, int32 InChoiceIndex, UPBDialogueViewModel* InViewModel);
@@ -46,6 +49,18 @@ protected:
     // 비활성 사유 텍스트 (bAvailable == false 시 표시)
     UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
     TObjectPtr<URichTextBlock> UnavailableReasonText;
+
+    // 호버 시 활성화되는 인디케이터 아이콘
+    UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
+    TObjectPtr<UImage> IndicatorImage;
+
+    // 기본 텍스트 색상
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")
+    FLinearColor DefaultTextColor = FLinearColor::White;
+
+    // 호버 텍스트 색상
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")
+    FLinearColor HoveredTextColor = FLinearColor::Yellow;
 
 private:
     /** 버튼 클릭 시 ViewModel에 선택 인덱스 전달 */

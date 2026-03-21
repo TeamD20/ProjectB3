@@ -334,22 +334,6 @@ void APBGameplayHUD::HandleSelectedPartyMemberChanged(AActor* SelectedMember)
 		
 		VM->SetIsSelectedCharacter(PartyMember == SelectedMember);
 	}
-	
-	// 전투 중인 경우
-	UPBCombatManagerSubsystem* CombatManager = GetWorld()->GetSubsystem<UPBCombatManagerSubsystem>();
-	if (!IsValid(CombatManager))
-	{
-		return;
-	}
-	
-	if (CombatManager->IsInCombat())
-	{
-		TArray<AActor*> TurnGroup = CombatManager->GetCurrentSharedTurnGroup();
-		if (TurnGroup.Contains(SelectedMember))
-		{
-			CombatManager->SwitchToGroupMember(SelectedMember);
-		}
-	}
 }
 
 void APBGameplayHUD::HandleCombatStateChangedForText(EPBCombatState NewState)

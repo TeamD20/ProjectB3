@@ -97,7 +97,10 @@ void UPBTacticalCameraComponent::HandleActiveTurnChanged(AActor* NewCombatant, i
 	
 	if (!IsEnemyFaction(NewCombatant))
 	{
-		PC->SetViewTargetWithBlend(NewCombatant, BlendTime , VTBlend_Cubic);
+		if (PC->GetViewTarget() != NewCombatant)
+		{
+			PC->SetViewTargetWithBlend(NewCombatant, BlendTime , VTBlend_Cubic);	
+		}
 		return;
 	}
 	

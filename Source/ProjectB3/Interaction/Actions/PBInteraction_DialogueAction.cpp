@@ -6,8 +6,11 @@
 #include "DialogueSystemTypes.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "ProjectB3/Characters/PBCharacterBase.h"
 #include "ProjectB3/Dialogue/PBDialogueManagerComponent.h"
+#include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/Interaction/PBInteractorComponent.h"
+#include "ProjectB3/Player/PBGameplayPlayerState.h"
 #include "ProjectB3/UI/PBUIBlueprintLibrary.h"
 #include "ProjectB3/UI/Dialogue/PBDialogueViewModel.h"
 
@@ -73,9 +76,39 @@ void UPBInteraction_DialogueAction::Execute_Implementation(AActor* Interactor)
     Context.ContextObject = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBDialogueViewModel>(PC);
 
     // NpcParticipantTag가 설정되어 있으면 ParticipantActors 맵에 NPC Actor 등록
-    if (NpcParticipantTag.IsValid())
+    if (APBCharacterBase* PBCharacter = Cast<APBCharacterBase>(GetOwner()))
     {
-        Context.RegisterParticipantActor(NpcParticipantTag, GetOwner());
+        const FGameplayTag IdentityTag = PBCharacter->GetCharacterIdentity().IdentityTag;
+        if (IdentityTag.IsValid())
+        {
+            Context.RegisterParticipantActor(IdentityTag, GetOwner());
+        }
+    }
+
+    // PC가 현재 조종 중인 Pawn을 Player 태그로 등록
+    if (IsValid(Pawn))
+    {
+        Context.RegisterParticipantActor(PBGameplayTags::Player, Pawn);
+    }
+
+    // 주인공 파티 전원을 CharacterIdentityTag 기준으로 Participant 등록
+    APBGameplayPlayerState* PS = PC->GetPlayerState<APBGameplayPlayerState>();
+    if (IsValid(PS))
+    {
+        for (AActor* Member : PS->GetPartyMembers())
+        {
+            APBCharacterBase* Character = Cast<APBCharacterBase>(Member);
+            if (!IsValid(Character))
+            {
+                continue;
+            }
+
+            const FGameplayTag IdentityTag = Character->GetCharacterIdentity().IdentityTag;
+            if (IdentityTag.IsValid())
+            {
+                Context.RegisterParticipantActor(IdentityTag, Character);
+            }
+        }
     }
 
     // 대화 종료 델리게이트 바인딩

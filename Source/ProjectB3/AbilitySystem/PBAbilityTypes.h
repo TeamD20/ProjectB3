@@ -45,9 +45,12 @@ enum class EPBAbilityType : uint8
 
 	// 반응 행동 (상대 턴에 사용)
 	Reaction,
-
+	
 	// 자원 소모 없음
-	Free
+	Free,
+	
+	// 이동
+	Movement
 };
 
 /** 태그 컨테이너에서 Ability.Type.* 태그를 EPBAbilityType으로 변환. 미매칭 시 None 반환. */
@@ -57,6 +60,7 @@ inline EPBAbilityType GetAbilityTypeFromTags(const FGameplayTagContainer& Tags)
 	if (Tags.HasTag(PBGameplayTags::Ability_Type_BonusAction)) { return EPBAbilityType::BonusAction; }
 	if (Tags.HasTag(PBGameplayTags::Ability_Type_Reaction))    { return EPBAbilityType::Reaction; }
 	if (Tags.HasTag(PBGameplayTags::Ability_Type_Free))        { return EPBAbilityType::Free; }
+	if (Tags.HasTag(PBGameplayTags::Ability_Active_Move))        { return EPBAbilityType::Movement; }
 	return EPBAbilityType::None;
 }
 

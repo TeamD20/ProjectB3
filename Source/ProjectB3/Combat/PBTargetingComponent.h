@@ -31,6 +31,10 @@ class PROJECTB3_API UPBTargetingComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:
+	APawn* GetPawn() const;
+	
+	bool IsHostileTarget(AActor* InTarget) const;
+	
 	// 타겟팅 세션 시작
 	void EnterTargetingMode(const FPBTargetingRequest& Request);
 
@@ -81,7 +85,7 @@ private:
 	void EnsureRangeTelegraphComponent();
 
 	// 대상 액터의 모든 메시에 커스텀 뎁스 스텐실 10 적용 (원래 상태 저장)
-	void ApplyTargetHighlight(AActor* Actor);
+	void ApplyTargetHighlight(AActor* TargetActor);
 
 	// 저장된 상태로 커스텀 뎁스 복원
 	void ClearTargetHighlight();
@@ -108,7 +112,6 @@ public:
 	FOnPBSelectionChanged OnSelectionChanged;
 
 private:
-	
 	// 타겟팅 세션 활성 여부
 	bool bIsTargetingActive = false;
 

@@ -52,6 +52,45 @@ struct PROJECTB3_API FPBDialogueChoiceInfo
     int32 RequiredDC = 0;
 };
 
+/** 대화 카메라 배치 파라미터 */
+USTRUCT(BlueprintType)
+struct PROJECTB3_API FPBDialogueCameraParams
+{
+    GENERATED_BODY()
+
+    // 청자 기준 카메라까지의 거리 (cm)
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
+    float ArmLength = 150.f;
+
+    // 측면 오프셋 (양수 = 우측, cm)
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
+    float SideOffset = 150.f;
+
+    // 높이 오프셋 (cm)
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
+    float HeightOffset = 160.f;
+
+    // 벽 가림 보정 SphereTrace 반경 (cm)
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
+    float ProbeRadius = 12.f;
+
+    // 카메라 전환 블렌드 시간 (초, 0이면 즉시 컷)
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
+    float BlendTime = 0.f;
+
+    // 카메라 전환 시 Fade Out 시간 (초, 0이면 Fade 없음)
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Fade")
+    float FadeOutDuration = 0.1f;
+
+    // 카메라 전환 시 Fade In 시간 (초)
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Fade")
+    float FadeInDuration = 0.1f;
+
+    // Fade 색상
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera|Fade")
+    FLinearColor FadeColor = FLinearColor::Black;
+};
+
 /** 주사위 굴리기/결과 표시 정보 */
 USTRUCT(BlueprintType)
 struct PROJECTB3_API FPBDiceRollDisplayInfo
