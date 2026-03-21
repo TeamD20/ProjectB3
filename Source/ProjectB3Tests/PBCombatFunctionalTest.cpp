@@ -60,7 +60,7 @@ APBTestCombatCharacter* APBCombatFunctionalTestBase::SpawnAlly(int32 InitiativeM
 
 	if (IsValid(Char))
 	{
-		FPBCombatIdentity Identity;
+		FPBCharacterIdentity Identity;
 		Identity.FactionTag = FGameplayTag::RequestGameplayTag(FName("Combat.Faction.Player"));
 		Identity.DisplayName = FText::FromString(
 			Name.IsEmpty() ? FString::Printf(TEXT("아군_%d"), ++AllyCounter) : Name);
@@ -82,7 +82,7 @@ APBTestCombatCharacter* APBCombatFunctionalTestBase::SpawnEnemy(int32 Initiative
 
 	if (IsValid(Char))
 	{
-		FPBCombatIdentity Identity;
+		FPBCharacterIdentity Identity;
 		Identity.FactionTag = FGameplayTag::RequestGameplayTag(FName("Combat.Faction.Enemy"));
 		Identity.DisplayName = FText::FromString(
 			Name.IsEmpty() ? FString::Printf(TEXT("적_%d"), ++EnemyCounter) : Name);

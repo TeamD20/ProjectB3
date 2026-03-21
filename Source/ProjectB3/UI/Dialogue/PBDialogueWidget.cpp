@@ -35,7 +35,6 @@ void UPBDialogueWidget::NativeConstruct()
 
     BoundViewModel = ViewModel;
 
-    ViewModel->OnSpeakerChanged.AddUObject(this, &ThisClass::HandleSpeakerChanged);
     ViewModel->OnTextChanged.AddUObject(this, &ThisClass::HandleTextChanged);
     ViewModel->OnChoicesChanged.AddUObject(this, &ThisClass::HandleChoicesChanged);
     ViewModel->OnDiceRollChanged.AddUObject(this, &ThisClass::HandleDiceRollChanged);
@@ -46,7 +45,6 @@ void UPBDialogueWidget::NativeDestruct()
 {
     if (BoundViewModel.IsValid())
     {
-        BoundViewModel->OnSpeakerChanged.RemoveAll(this);
         BoundViewModel->OnTextChanged.RemoveAll(this);
         BoundViewModel->OnChoicesChanged.RemoveAll(this);
         BoundViewModel->OnDiceRollChanged.RemoveAll(this);
@@ -84,14 +82,6 @@ FReply UPBDialogueWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKe
     return Super::NativeOnKeyDown(InGeometry, InKeyEvent);
 }
 
-void UPBDialogueWidget::HandleSpeakerChanged(const FPBDialogueParticipantDisplayInfo& InInfo)
-{
-    if (IsValid(SpeakerNameText))
-    {
-        SpeakerNameText->SetText(InInfo.ParticipantName);
-    }
-}
-
 void UPBDialogueWidget::HandleTextChanged(const FText& InText)
 {
     if (IsValid(DialogueTextBlock))
@@ -123,11 +113,25 @@ void UPBDialogueWidget::HandleTextChanged(const FText& InText)
     SetKeyboardFocus();
 }
 
-void UPBDialogueWidget::HandleChoicesChanged(const TArray<FPBDialogueChoiceInfo>& InChoices)
+void UPBDialogueWidget::HandleChoicesChanged(const TArray<FPBDialogueChoiceInfo>& InChoices, const FText& InPromptText)
 {
     if (IsValid(DialogueTextBlock))
     {
         DialogueTextBlock->SetVisibility(ESlateVisibility::Collapsed);
+    }
+
+    // 이전 노드 대사 텍스트가 있으면 "[화자이름] 대사" 포맷으로 선택지 상단에 표시
+    if (IsValid(ChoicePromptTextBlock))
+    {
+        if (InPromptText.IsEmpty())
+        {
+            ChoicePromptTextBlock->SetVisibility(ESlateVisibility::Collapsed);
+        }
+        else
+        {
+            ChoicePromptTextBlock->SetText(InPromptText);
+            ChoicePromptTextBlock->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+        }
     }
 
     if (IsValid(DiceRollPanel))

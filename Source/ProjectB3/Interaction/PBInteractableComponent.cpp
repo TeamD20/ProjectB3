@@ -30,7 +30,7 @@ void UPBInteractableComponent::OnFocus(bool bIsInRange)
 			SavedCustomDepthStates.Add(TObjectPtr<UMeshComponent>(Mesh), Mesh->bRenderCustomDepth);
 
 			Mesh->SetRenderCustomDepth(true);
-			Mesh->SetCustomDepthStencilValue(bIsInRange ? PBStencilValues::INTERACTION : PBStencilValues::DEFAULT);
+			Mesh->SetCustomDepthStencilValue(bIsInRange ? PBStencilValues::INTERACTION : PBStencilValues::HIGHLIGHT);
 		}
 	}
 }
@@ -49,7 +49,7 @@ void UPBInteractableComponent::OnUnfocus()
 			continue;
 		}
 
-		Mesh->SetCustomDepthStencilValue(0);
+		Mesh->SetCustomDepthStencilValue(PBStencilValues::DEFAULT);
 
 		// 원래 상태로 복원. 저장된 값이 없으면 false로 초기화
 		const bool* bWasEnabled = SavedCustomDepthStates.Find(TObjectPtr<UMeshComponent>(Mesh));

@@ -40,10 +40,6 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dialogue")
     TObjectPtr<UDialogueData> DialogueDataAsset;
 
-    // NPC Actor를 식별하는 ParticipantTag. 설정 시 Context.ParticipantActors에 자동 등록된다
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dialogue")
-    FGameplayTag NpcParticipantTag;
-
 private:
     /** 대화 정상 종료 시 InteractorComponent에 EndActiveInteraction 요청 */
     UFUNCTION()

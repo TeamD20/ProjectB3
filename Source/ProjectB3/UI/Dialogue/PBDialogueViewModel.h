@@ -13,8 +13,8 @@ class UPBDialogueManagerComponent;
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnDialogueSpeakerChanged, const FPBDialogueParticipantDisplayInfo&);
 // 대사 텍스트 변경 이벤트
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnDialogueTextChanged, const FText&);
-// 선택지 변경 이벤트
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnDialogueChoicesChanged, const TArray<FPBDialogueChoiceInfo>&);
+// 선택지 변경 이벤트 (선택지 목록, 이전 노드 대사 프롬프트 텍스트)
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnDialogueChoicesChanged, const TArray<FPBDialogueChoiceInfo>&, const FText&);
 // 주사위 굴리기 정보 변경 이벤트
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnDialogueDiceRollChanged, const FPBDiceRollDisplayInfo&);
 // 주사위 결과 변경 이벤트
@@ -82,8 +82,15 @@ public:
     /** 현재 주사위 정보 반환 */
     const FPBDiceRollDisplayInfo& GetDiceRollInfo() const { return CachedDiceRollInfo; }
 
+    /** 선택지 표시 시 상단에 노출할 이전 노드 대사 텍스트 반환 */
+    const FText& GetChoicePromptText() const { return CachedChoicePromptText; }
+
+
     /** Manager 참조 설정 (Manager가 생성 직후 호출) */
     void SetDialogueManager(UPBDialogueManagerComponent* InManager);
+
+    /** 연결된 DialogueManager 반환 */
+    UPBDialogueManagerComponent* GetDialogueManager() const { return DialogueManager.Get(); }
 
 public:
     // 화자 정보 변경 이벤트
@@ -106,6 +113,8 @@ private:
     TArray<FPBDialogueChoiceInfo> CachedChoices;
     // 현재 주사위 굴리기 정보
     FPBDiceRollDisplayInfo CachedDiceRollInfo;
+    // 선택지 표시 시 상단에 노출할 이전 노드 대사 텍스트
+    FText CachedChoicePromptText;
     // 연결된 Manager (약참조)
     TWeakObjectPtr<UPBDialogueManagerComponent> DialogueManager;
 };
