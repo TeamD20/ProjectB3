@@ -80,10 +80,9 @@ public:
 	// 현재 Phase 반환
 	EPBPartyFollowPhase GetCurrentPhase() const { return CurrentPhase; }
 
-private:
 	// PlayerState에서 팔로워 목록을 읽어 Followers 캐시 갱신
 	void RebuildFollowerCache();
-
+private:
 	// Trail Point 기록 및 Idle 팔로워 이동 명령 (타이머 콜백, TrailRecordInterval 주기)
 	void OnTrailUpdateTimer();
 

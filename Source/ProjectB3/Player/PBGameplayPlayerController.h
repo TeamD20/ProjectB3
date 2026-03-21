@@ -192,7 +192,7 @@ public:
 
 	// 경로 갱신을 트리거하는 최소 커서 이동 거리
 	UPROPERTY(EditAnywhere, Category = "PathDisplay")
-	float PathUpdateMinDistance = 20.0f;
+	float PathUpdateMinDistance = 10.0f;
 
 	/*~ FX Settings ~*/
 	UPROPERTY(EditAnywhere, Category = "Input")

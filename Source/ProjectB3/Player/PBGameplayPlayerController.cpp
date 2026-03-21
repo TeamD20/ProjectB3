@@ -377,7 +377,6 @@ void APBGameplayPlayerController::EnterTargetingMode(const FPBTargetingRequest& 
 
 void APBGameplayPlayerController::ExitCurrentMode()
 {
-	// TODO: 전투 진행 중 -> None, 비전투 -> FreeMovement
 	SetControllerMode(EPBPlayerControllerMode::None);
 }
 
@@ -454,7 +453,14 @@ void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value
 		{
 			FGameplayEventData EventData;
 			EventData.OptionalObject = MovePayload;
-				ASC->HandleGameplayEvent(PBGameplayTags::Event_Movement_MoveCommand, &EventData);
+			// 이벤트 전송 — HandleMoveEvent가 동기적으로 실행되어 캐시를 소모
+			ASC->HandleGameplayEvent(PBGameplayTags::Event_Movement_MoveCommand, &EventData);
+		}
+
+		// 이동 이벤트 처리 완료 후 캐시 소모 종료
+		if (UPBEnvironmentSubsystem* EnvSys = GetGameInstance()->GetSubsystem<UPBEnvironmentSubsystem>())
+		{
+			EnvSys->EndEnvironmentCache();
 		}
 
 		PathDisplayComponent->ClearPath();
@@ -498,6 +504,7 @@ void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value
 		if (UPBEnvironmentSubsystem* EnvironmentSubsystem = GetGameInstance()->GetSubsystem<UPBEnvironmentSubsystem>())
 		{
 			EnvironmentSubsystem->RequestMoveToLocation(this, HitResult.Location, 50.f, false);
+			EnvironmentSubsystem->EndEnvironmentCache();
 		}
 
 		// 파티 추적 서브시스템에 리더 이동 시작 통보
@@ -572,6 +579,9 @@ void APBGameplayPlayerController::RequestNavPathDisplay(const FVector& TargetLoc
 	{
 		return;
 	}
+	
+	// hover마다 캐시를 flush하고 새로 시작 — 클릭 시 EndEnvironmentCache로 소모
+	EnvironmentSubsystem->BeginEnvironmentCache();
 
 	const FPBPathFindResult PathCostResult = EnvironmentSubsystem->CalculatePathForAgent(this, TargetLocation, false);
 	if (!PathCostResult.bIsValid || PathCostResult.PathPoints.IsEmpty())
