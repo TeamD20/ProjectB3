@@ -142,6 +142,9 @@ float UPBUtilityClearinghouse::GetTargetVulnerabilityScore(
 		   *(ActiveTurnActor ? ActiveTurnActor->GetName() : TEXT("Unknown")),
 		   *TargetActor->GetName(), CalculatedVulnerabilityScore);
 
+	const_cast<UPBUtilityClearinghouse*>(this)->CachedVulnerabilityMap.Add(
+		TargetActor, CalculatedVulnerabilityScore);
+
 	return CalculatedVulnerabilityScore;
 }
 

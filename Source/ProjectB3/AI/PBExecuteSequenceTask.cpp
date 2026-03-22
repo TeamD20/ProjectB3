@@ -187,7 +187,10 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
       CurrentAction.ActionType == EPBActionType::Attack  ? TEXT("Attack") :
       CurrentAction.ActionType == EPBActionType::Move    ? TEXT("Move") :
       CurrentAction.ActionType == EPBActionType::Heal    ? TEXT("Heal") :
-      TEXT("Other");
+      CurrentAction.ActionType == EPBActionType::Buff    ? TEXT("Buff") :
+      CurrentAction.ActionType == EPBActionType::Debuff  ? TEXT("Debuff") :
+      CurrentAction.ActionType == EPBActionType::Control ? TEXT("Control") :
+      TEXT("Unknown");
     UE_VLOG(SelfActor, LogPBStateTreeExec, Log,
       TEXT("[Execute] %s → %s (AP=%.0f, MP=%.0f)"),
       TypeStr, *TargetName,
