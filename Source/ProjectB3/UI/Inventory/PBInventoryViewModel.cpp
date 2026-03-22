@@ -229,6 +229,7 @@ FPBInventorySlotData UPBInventoryViewModel::BuildSlotData(const FPBItemInstance&
 	Result.StackCount = ItemInstance.Count;
 	Result.RarityColor = GetRarityColor(ItemInstance.ItemDataAsset->Rarity);
 	Result.InstanceID = ItemInstance.InstanceID;
+	Result.ItemType = ItemInstance.ItemDataAsset->ItemType;
 	return Result;
 }
 

@@ -13,6 +13,7 @@ class UTextBlock;
 class UPanelWidget;
 class UPBCombatStatsViewModel;
 class UPBEquipSlotWidget;
+class UPBInventoryContextMenuWidget;
 class UPBInventorySlotWidget;
 class UPBInventoryViewModel;
 
@@ -90,6 +91,12 @@ private:
 	UFUNCTION()
 	void HandleGoldChanged(int32 NewGold);
 
+	// 슬롯 우클릭 컨텍스트 메뉴 표시 요청을 처리
+	void HandleSlotContextMenuRequested(
+		const FGuid& InstanceID,
+		EPBItemType ItemType,
+		FVector2D ScreenPosition);
+
 protected:
 	// 캐릭터 3D 프리뷰 이미지 (RenderTarget 표시)
 	UPROPERTY(meta = (BindWidgetOptional))
@@ -123,6 +130,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Inventory", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UPBInventorySlotWidget> InventorySlotWidgetClass;
 
+	// 컨텍스트 메뉴 위젯 클래스
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Inventory", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UPBInventoryContextMenuWidget> ContextMenuWidgetClass;
+
 	// 인벤토리 그리드 열 수
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Inventory", meta = (AllowPrivateAccess = "true", ClampMin = "1"))
 	int32 InventoryGridColumns = 5;
@@ -147,6 +158,10 @@ private:
 	// 장비 슬롯 위젯 캐시
 	UPROPERTY(Transient)
 	TMap<EPBEquipSlot, TObjectPtr<UPBEquipSlotWidget>> EquipSlotWidgets;
+
+	// 컨텍스트 메뉴 위젯 캐시 (패널 당 1개 재사용)
+	UPROPERTY(Transient)
+	TObjectPtr<UPBInventoryContextMenuWidget> CachedContextMenuWidget;
 
 	// Inventory 슬롯 갱신 델리게이트 핸들
 	FDelegateHandle InventorySlotUpdatedHandle;

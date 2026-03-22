@@ -11,6 +11,9 @@
 #include "ProjectB3/Player/PBGameplayPlayerState.h"
 #include "ProjectB3/UI/Common/PBCombatStatsViewModel.h"
 #include "ProjectB3/UI/Inventory/PBEquipSlotWidget.h"
+#include "ProjectB3/ItemSystem/Components/PBEquipmentComponent.h"
+#include "ProjectB3/ItemSystem/Components/PBInventoryComponent.h"
+#include "ProjectB3/UI/Inventory/PBInventoryContextMenuWidget.h"
 #include "ProjectB3/UI/Inventory/PBInventorySlotWidget.h"
 #include "ProjectB3/UI/Inventory/PBInventoryViewModel.h"
 #include "ProjectB3/UI/PBUIBlueprintLibrary.h"
@@ -51,6 +54,13 @@ void UPBInventoryPanelWidget::NativeDestruct()
 	if (IsValid(InventoryViewModel))
 	{
 		InventoryViewModel->SetPreviewCaptureActive(false);
+	}
+
+	// 팝업 위젯 정리
+	if (IsValid(CachedContextMenuWidget))
+	{
+		CachedContextMenuWidget->RemoveFromParent();
+		CachedContextMenuWidget = nullptr;
 	}
 
 	UnbindAll();
@@ -249,6 +259,7 @@ void UPBInventoryPanelWidget::RebuildInventoryGridWidgets()
 		}
 
 		SlotWidget->InitializeSlot(SlotIndex, InventoryViewModel);
+		SlotWidget->OnSlotContextMenuRequested.AddUObject(this, &ThisClass::HandleSlotContextMenuRequested);
 		InventorySlotWidgets.Add(SlotWidget);
 
 		if (UUniformGridPanel* UniformGrid = Cast<UUniformGridPanel>(InventoryGrid))
@@ -399,3 +410,42 @@ void UPBInventoryPanelWidget::HandleGoldChanged(int32 NewGold)
 		GoldText->SetText(FText::AsNumber(NewGold));
 	}
 }
+
+void UPBInventoryPanelWidget::HandleSlotContextMenuRequested(
+	const FGuid& InstanceID,
+	EPBItemType ItemType,
+	FVector2D ScreenPosition)
+{
+	if (!IsValid(InventoryViewModel) || !ContextMenuWidgetClass)
+	{
+		return;
+	}
+
+	AActor* TargetActor = InventoryViewModel->GetTargetActor();
+	if (!IsValid(TargetActor))
+	{
+		return;
+	}
+
+	UPBInventoryComponent* InventoryComp = TargetActor->FindComponentByClass<UPBInventoryComponent>();
+	UPBEquipmentComponent* EquipmentComp = TargetActor->FindComponentByClass<UPBEquipmentComponent>();
+	if (!IsValid(InventoryComp))
+	{
+		return;
+	}
+
+	// 컨텍스트 메뉴 위젯 최초 생성 시 Viewport에 추가 (이후 재사용)
+	if (!IsValid(CachedContextMenuWidget))
+	{
+		CachedContextMenuWidget = CreateWidget<UPBInventoryContextMenuWidget>(this, ContextMenuWidgetClass);
+		if (!IsValid(CachedContextMenuWidget))
+		{
+			return;
+		}
+		CachedContextMenuWidget->AddToViewport(100);
+	}
+
+	CachedContextMenuWidget->Initialize(InstanceID, ItemType, InventoryComp, EquipmentComp, TargetActor, ScreenPosition);
+	CachedContextMenuWidget->SetVisibility(ESlateVisibility::Visible);
+}
+
