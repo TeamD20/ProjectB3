@@ -48,6 +48,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "DialogueSystem")
 	FDialogueSystemContext GetCurrentDialogueContext() const {return CurrentDialogueContext;}
 	
+	UFUNCTION(BlueprintCallable, Category = "DialogueSystem")
+	bool IsPlaying () const {return CurrentDialogueData != nullptr;}
+	
 protected:
 	bool CanProgress(const int32 OptionIndex);
 	void SetCurrentNodeById(const FName NodeID);

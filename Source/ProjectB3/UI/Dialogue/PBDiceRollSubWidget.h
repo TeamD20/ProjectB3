@@ -25,13 +25,25 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Dialogue")
     void InitializeDiceRoll(const FPBDiceRollDisplayInfo& InInfo);
 
-    /** 주사위 결과를 표시 */
+    /** 주사위 결과를 표시. 성공/실패에 따라 BP 애니메이션 이벤트를 호출한다 */
     UFUNCTION(BlueprintCallable, Category = "Dialogue")
     void ShowDiceResult(const FPBDiceRollDisplayInfo& InResult);
+
+    /** 결과가 표시된 상태인지 반환. DialogueWidget의 진행 입력 허용 여부 판단에 사용 */
+    UFUNCTION(BlueprintPure, Category = "Dialogue")
+    bool IsResultShown() const { return bResultShown; }
 
 protected:
     /*~ UUserWidget Interface ~*/
     virtual void NativeConstruct() override;
+
+    /** 성공 연출 애니메이션. BP에서 UMG Animation으로 구현 */
+    UFUNCTION(BlueprintImplementableEvent, Category = "Dialogue")
+    void PlaySuccessAnimation(const FPBDiceRollDisplayInfo& InResult);
+
+    /** 실패 연출 애니메이션. BP에서 UMG Animation으로 구현 */
+    UFUNCTION(BlueprintImplementableEvent, Category = "Dialogue")
+    void PlayFailureAnimation(const FPBDiceRollDisplayInfo& InResult);
 
 private:
     /** 굴리기 버튼 클릭 처리 */
@@ -62,6 +74,10 @@ protected:
     // 굴리기 버튼
     UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
     TObjectPtr<UButton> RollButton;
+
+    // 결과 표시 완료 여부.
+    UPROPERTY(BlueprintReadWrite, Category = "Dice Roll")
+    bool bResultShown = false;
 
 private:
     // 현재 표시 중인 주사위 정보
