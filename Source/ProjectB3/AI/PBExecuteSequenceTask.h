@@ -81,6 +81,9 @@ protected:
   float AbilityTimeoutRemaining = 0.0f;
   static constexpr float AbilityTimeoutSeconds = 3.0f;
 
+  // AdvanceToNextAction 이중 진입 방지 (타임아웃 + OnAbilityEnded 동시 호출 가드)
+  bool bIsAdvancing = false;
+
   // StateTree Input 바인딩은 매 Tick마다 소스(Generate)에서 재복사되어
   // CurrentActionIndex가 0으로 초기화된다. 실행 로직에서는 이 로컬 복사본을 사용하여
   // 바인딩 갱신으로부터 실행 상태를 격리한다.

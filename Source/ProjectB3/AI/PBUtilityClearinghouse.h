@@ -386,6 +386,17 @@ protected:
 	// CalcAutoStatModHP 내부에서 사용.
 	float GetBestRawAttackDamage(AActor* Attacker, AActor* Defender) const;
 
+	// --- Buff/Debuff TargetModifier 3축 헬퍼 ---
+
+	// 이니셔티브 순서 기반 우선도 (다음 행동 아군 1.3, 멀수록 감소 → 0.85)
+	float CalcInitiativeFactor(AActor* Ally) const;
+
+	// StatModType × CombatRole 시너지 매트릭스 (1.2 = 최적 조합, 0.9 = 비효율)
+	static float CalcRoleSynergyFactor(EPBStatModType ModType, EPBCombatRole Role);
+
+	// 아군에 이미 걸린 버프 수에 따른 포화도 감점 (0 → 1.15, 1 → 1.0, 2+ → 0.85)
+	float CalcBuffSaturationFactor(AActor* Source, AActor* Ally) const;
+
 	/*~ 튜닝 상수 ~*/
 
 	// 처치 보너스 배율 (처치 가능 시 1.0 + KillBonusRate 적용)

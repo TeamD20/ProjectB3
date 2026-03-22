@@ -387,6 +387,9 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	UWorld* World = SelfActor->GetWorld();
 	if (!IsValid(World))
 	{
+		UE_LOG(LogPBStateTree, Error,
+		       TEXT("GenerateSequenceTask: SelfActor [%s]의 World가 유효하지 않습니다."),
+		       *GetNameSafe(SelfActor));
 		return EStateTreeRunStatus::Failed;
 	}
 
