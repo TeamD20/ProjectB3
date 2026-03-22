@@ -215,6 +215,13 @@ void UPBDialogueWidget::HandleDiceResultChanged(const FPBDiceRollDisplayInfo& In
     {
         DiceRollPanel->ShowDiceResult(InResult);
     }
+
+    if (IsValid(ContinuePrompt))
+    {
+        ContinuePrompt->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+    }
+
+    SetKeyboardFocus();
 }
 
 bool UPBDialogueWidget::CanRequestContinueFromInput() const
@@ -229,14 +236,34 @@ bool UPBDialogueWidget::CanRequestContinueFromInput() const
         return false;
     }
 
-    return DialogueTextBlock->GetVisibility() != ESlateVisibility::Collapsed
+    // 일반 대사 표시 중
+    const bool bTextVisible = DialogueTextBlock->GetVisibility() != ESlateVisibility::Collapsed
         && DialogueTextBlock->GetVisibility() != ESlateVisibility::Hidden;
+    if (bTextVisible)
+    {
+        return true;
+    }
+
+    // 주사위 결과 표시 완료 상태
+    if (IsValid(DiceRollPanel) && DiceRollPanel->IsResultShown())
+    {
+        return true;
+    }
+
+    return false;
 }
 
 void UPBDialogueWidget::RequestContinueInternal()
 {
     if (!CanRequestContinueFromInput())
     {
+        return;
+    }
+
+    // 주사위 결과 확인 후 진행이면 성공/실패 분기 인덱스로 진행
+    if (IsValid(DiceRollPanel) && DiceRollPanel->IsResultShown())
+    {
+        BoundViewModel->RequestDiceProgress();
         return;
     }
 

@@ -50,7 +50,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "DialogueNode")
 	FGameplayTag ParticipantTag;
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "DialogueNode")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "DialogueNode")
 	FName NodeID;
 	
 	UPROPERTY(EditDefaultsOnly, Instanced, Category = "DialogueNode")

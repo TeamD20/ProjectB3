@@ -2,12 +2,12 @@
 
 #include "PBActionIndicatorHUD.h"
 #include "PBActionIndicatorViewModel.h"
-#include "ProjectB3/UI/ViewModel/PBViewModelSubsystem.h"
 #include "Components/TextBlock.h"
 #include "Components/Border.h"
 #include "Components/Image.h"
 #include "Animation/WidgetAnimation.h"
 #include "GameFramework/PlayerController.h"
+#include "ProjectB3/UI/PBUIBlueprintLibrary.h"
 
 void UPBActionIndicatorHUD::SetupViewModel(UPBActionIndicatorViewModel* InViewModel)
 {
@@ -37,25 +37,11 @@ void UPBActionIndicatorHUD::NativeConstruct()
 		IndicatorBorder->SetVisibility(ESlateVisibility::Collapsed);
 	}
 
-	// 뷰모델 자동 바인딩 로직 (BP에서 수동으로 안 해줬을 경우 대비)
+	// 뷰모델 자동 바인딩 로직
 	if (!ActionViewModel)
 	{
-		if (APlayerController* PC = GetOwningPlayer())
-		{
-			if (ULocalPlayer* LP = PC->GetLocalPlayer())
-			{
-				if (UPBViewModelSubsystem* VMSubsystem = LP->GetSubsystem<UPBViewModelSubsystem>())
-				{
-					if (APawn* MyPawn = PC->GetPawn())
-					{
-						if (UPBActionIndicatorViewModel* VM = VMSubsystem->GetOrCreateActorViewModel<UPBActionIndicatorViewModel>(MyPawn))
-						{
-							SetupViewModel(VM);
-						}
-					}
-				}
-			}
-		}
+		UPBActionIndicatorViewModel* VM = UPBUIBlueprintLibrary::GetOrCreateGlobalViewModel<UPBActionIndicatorViewModel>(GetOwningLocalPlayer());
+		SetupViewModel(VM);
 	}
 }
 
@@ -93,6 +79,13 @@ void UPBActionIndicatorHUD::HandleActionChanged(const FPBActionIndicatorData& Da
 
 void UPBActionIndicatorHUD::PlayStartAnim()
 {
+	SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+	
+	if (IsAnimationPlaying(EndAnim))
+	{
+		StopAnimation(EndAnim);
+	}
+	
 	if (IsValid(StartAnim))
 	{
 		PlayAnimation(StartAnim);
@@ -101,8 +94,17 @@ void UPBActionIndicatorHUD::PlayStartAnim()
 
 void UPBActionIndicatorHUD::PlayEndAnim()
 {
+	if (IsAnimationPlaying(StartAnim))
+	{
+		StopAnimation(StartAnim);
+	}
+	
 	if (IsValid(EndAnim))
 	{
 		PlayAnimation(EndAnim);
+	}
+	else
+	{
+		SetVisibility(ESlateVisibility::Hidden);
 	}
 }

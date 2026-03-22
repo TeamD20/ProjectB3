@@ -163,7 +163,33 @@ UDialogueNode* UDialogueGraphNode_Base::InitDialogueNode(const UDialogueNode* In
 	}
 
 	int NumNode = GetGraph()->Nodes.Num();
-	FName NodeID = FName(*FString::Printf(TEXT("Node_%d"), NumNode));
+	TSet<FName> ExistingNodeIDs;
+	for (UEdGraphNode* ExistingNode : GetGraph()->Nodes)
+	{
+		UDialogueGraphNode_Base* DGraphNode = Cast<UDialogueGraphNode_Base>(ExistingNode);
+		if (!DGraphNode)
+		{
+			continue;
+		}
+		
+		UDialogueNode* DNode = DGraphNode->DialogueNode;
+		if (!DNode)
+		{
+			continue;
+		}
+		
+		ExistingNodeIDs.Add(DNode->NodeID);
+	}
+	
+	int32 NodeIndex = NumNode;
+	FName NodeID = FName(*FString::Printf(TEXT("Node_%d"), NodeIndex));
+	
+	while (ExistingNodeIDs.Contains(NodeID))
+	{
+		NodeIndex++;
+		NodeID = FName(*FString::Printf(TEXT("Node_%d"), NodeIndex));
+	}
+	
 	NewNode->NodeID = NodeID;
 
 	DialogueNode = NewNode;

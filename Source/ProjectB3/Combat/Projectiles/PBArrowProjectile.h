@@ -22,7 +22,8 @@ public:
 	void SetupArrow(
 		const FGameplayEffectSpecHandle& InDamageSpec,
 		UAbilitySystemComponent* InSourceASC,
-		AActor* InTargetActor);
+		AActor* InTargetActor,
+		float InMaxRange);
 
 protected:
 	/*~ APBProjectile Interface ~*/
