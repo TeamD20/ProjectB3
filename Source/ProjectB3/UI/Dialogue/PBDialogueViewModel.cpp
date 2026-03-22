@@ -7,6 +7,7 @@ void UPBDialogueViewModel::InitializeForPlayer(ULocalPlayer* InLocalPlayer)
 {
     Super::InitializeForPlayer(InLocalPlayer);
     CachedChoices.Reset();
+    CachedChoicePromptText = FText::GetEmpty();
     CachedDialogueText = FText::GetEmpty();
     CachedDiceRollInfo = FPBDiceRollDisplayInfo();
     CachedSpeakerInfo = FPBDialogueParticipantDisplayInfo();
@@ -31,16 +32,23 @@ void UPBDialogueViewModel::SetSpeakerInfo(const FPBDialogueParticipantDisplayInf
 
 void UPBDialogueViewModel::ShowText(const FText& InText)
 {
-    CachedDialogueText = InText;
+    // "[화자이름] 대사 텍스트" 포맷으로 조합하여 저장
+    const FText& SpeakerName = CachedSpeakerInfo.ParticipantName;
+    CachedDialogueText = SpeakerName.IsEmpty()
+        ? InText
+        : FText::Format(NSLOCTEXT("Dialogue", "SpeakerTextFormat", "[{0}] {1}"), SpeakerName, InText);
+
     CachedChoices.Reset();
     OnTextChanged.Broadcast(CachedDialogueText);
 }
 
 void UPBDialogueViewModel::ShowChoices(const TArray<FPBDialogueChoiceInfo>& InChoices)
 {
+    // CachedDialogueText는 이미 "[화자이름] 텍스트" 포맷으로 조합된 상태
+    CachedChoicePromptText = CachedDialogueText;
     CachedChoices = InChoices;
     CachedDialogueText = FText::GetEmpty();
-    OnChoicesChanged.Broadcast(CachedChoices);
+    OnChoicesChanged.Broadcast(CachedChoices, CachedChoicePromptText);
 }
 
 void UPBDialogueViewModel::ShowDiceRoll(const FPBDiceRollDisplayInfo& InInfo)

@@ -85,11 +85,19 @@ bool UPBGameplayAbility::CanActivateAbility(
 		return false;
 	}
 
-	// 타입이 None이면 제한 없이 활성화 허용
+	// 1.타입이 None이면 제한 없이 활성화 허용
 	const EPBAbilityType AbilityType = GetAbilityType(Handle, ActorInfo); 
 	if (AbilityType == EPBAbilityType::None)
 	{
 		return true;
+	}
+	
+	// 2.타입이 턴 기반 어빌리티인 경우
+	
+	// 내 턴이 아니면 비활성화
+	if (!UPBCombatSystemLibrary::IsMyTurn(ActorInfo->AvatarActor.Get()))
+	{
+		return false;
 	}
 
 	if (const UPBAbilitySystemComponent* PBASC = GetPBAbilitySystemComponentFromActorInfo(ActorInfo))
@@ -197,8 +205,7 @@ void UPBGameplayAbility::EndAbility(
 
 UGameplayEffect* UPBGameplayAbility::GetCooldownGameplayEffect() const
 {
-	// TODO: 턴제 쿨다운은 GAS 내장 CooldownTag GE를 사용하지 않는다.
-	// 추후 턴 종료 시점에 별도 쿨다운 카운터로 관리 예정.
+	// 턴제 쿨다운은 GAS 내장 CooldownTag GE를 사용하지 않는다.
 	return nullptr;
 }
 

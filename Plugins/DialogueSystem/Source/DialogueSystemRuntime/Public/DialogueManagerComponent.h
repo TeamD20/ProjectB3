@@ -45,6 +45,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "DialogueSystem")
 	UDialogueInstance* GetCurrentDialogueInstance() const {return DialogueInstance;}
 	
+	UFUNCTION(BlueprintCallable, Category = "DialogueSystem")
+	FDialogueSystemContext GetCurrentDialogueContext() const {return CurrentDialogueContext;}
+	
 protected:
 	bool CanProgress(const int32 OptionIndex);
 	void SetCurrentNodeById(const FName NodeID);

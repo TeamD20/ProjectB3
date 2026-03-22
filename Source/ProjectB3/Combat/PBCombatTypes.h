@@ -35,31 +35,6 @@ enum class EPBTurnResourceType : uint8
 };
 
 /**
- * 캐릭터 전투 식별 정보. 진영, 표시 이름, 초상화를 묶어 관리한다.
- */
-USTRUCT(BlueprintType)
-struct FPBCombatIdentity
-{
-	GENERATED_BODY()
-
-	// 직업 태그
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Character", meta = (Categories = "Character.Class"))
-	FGameplayTag ClassTag;
-	
-	// 진영 태그 (Player/Enemy/Neutral)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat", meta = (Categories = "Combat.Faction"))
-	FGameplayTag FactionTag;
-
-	// 전투 UI 표시 이름
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
-	FText DisplayName;
-
-	// 전투 UI 초상화
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
-	TSoftObjectPtr<UTexture2D> Portrait;
-};
-
-/**
  * 반응 행동 트리거 유형.
  */
 UENUM(BlueprintType)

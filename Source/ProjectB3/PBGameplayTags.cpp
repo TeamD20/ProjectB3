@@ -6,9 +6,14 @@ namespace PBGameplayTags
 {
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(System_Test, "System.Test", "This is Test GameplayTag");
 
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Player, "Player", "플레이어 관련 태그");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_Class_Fighter, "Character.Class.Fighter", "근접 전투원"); // 임시
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_Class_Ranger, "Character.Class.Ranger", "원거리 전투원");  // 임시
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_Class_Magician, "Character.Class.Magician", "마법 전투원");  // 임시
+	
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_Identity_Varain,"Character.Identity.Varian", "주인공 전사");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_Identity_Faelis,"Character.Identity.Faelis", "주인공 궁수");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_Identity_Zadikal,"Character.Identity.Zadikal", "주인공 법사");
 	// 상태 태그
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Dead, "Character.State.Dead", "캐릭터 사망 상태");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Lootable, "Character.State.Lootable", "루팅 가능 상태. 사망/기절 등 조건 달성 시 부여");

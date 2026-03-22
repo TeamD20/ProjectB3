@@ -1,6 +1,8 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBCharacterBase.h"
+#include "NiagaraSystem.h"
+#include "NiagaraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemLibrary.h"
@@ -19,6 +21,7 @@
 #include "ProjectB3/UI/PBAbilitySystemUIBridge.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "TimerManager.h"
+#include "ProjectB3/Combat/PBCombatSettings.h"
 
 APBCharacterBase::APBCharacterBase()
 {
@@ -47,10 +50,17 @@ APBCharacterBase::APBCharacterBase()
 	UPBInteraction_LootAction* LootAction = CreateDefaultSubobject<UPBInteraction_LootAction>(TEXT("LootAction"));
 	InteractableComponent->InteractionActions.Add(LootAction);
 	
-	// // NavModifier
-	// NavModifierComponent = CreateDefaultSubobject<UNavModifierComponent>(TEXT("NavModifierComponent"));
-	// NavModifierComponent->AreaClass = UNavArea_Null::StaticClass();
-	//
+	// 진영 표시 인디케이터 VFX 설정
+	FactionIndicator = CreateDefaultSubobject<UNiagaraComponent>(TEXT("FactionIndicator"));
+	FactionIndicator->SetupAttachment(RootComponent);
+	FactionIndicator->bAutoActivate = false;
+	FactionIndicator->SetRelativeLocation(FVector(0.f,0.f,-90.f));
+	static ConstructorHelpers::FObjectFinder<UNiagaraSystem> FactionVFXFinder(TEXT("/Game/3_Effects/Telegraph/NS_Faction_Circle.NS_Faction_Circle"));
+	if (FactionVFXFinder.Succeeded())
+	{
+		FactionIndicator->SetAsset(FactionVFXFinder.Object);
+	}
+	
 	static ConstructorHelpers::FClassFinder<UAnimInstance> ABPFinder(TEXT("/Game/2_Characters/Manny/ABP_CharacterBase.ABP_CharacterBase_C"));
 	if (ABPFinder.Succeeded())
 	{
@@ -311,9 +321,9 @@ void APBCharacterBase::GrantInitialAbilities()
 	}
 	
 	FPBAbilityGrantedHandles Handles;
-	UPBAbilitySystemLibrary::ApplyStatsInitialization(AbilitySystemComponent,Handles,CombatIdentity.ClassTag);
+	UPBAbilitySystemLibrary::ApplyStatsInitialization(AbilitySystemComponent,Handles,CharacterIdentity.ClassTag);
 	UPBAbilitySystemLibrary::ApplyCommonAbilitySet(AbilitySystemComponent);
-	UPBAbilitySystemLibrary::ApplyClassAbilitySet(AbilitySystemComponent,CombatIdentity.ClassTag);
+	UPBAbilitySystemLibrary::ApplyClassAbilitySet(AbilitySystemComponent,CharacterIdentity.ClassTag);
 }
 
 void APBCharacterBase::GrantDefaultItems()
@@ -374,9 +384,9 @@ void APBCharacterBase::InitTags()
 {
 	if (AbilitySystemComponent)
 	{
-		if (CombatIdentity.ClassTag.IsValid())
+		if (CharacterIdentity.ClassTag.IsValid())
 		{
-			AbilitySystemComponent->AddLooseGameplayTag(CombatIdentity.ClassTag);	
+			AbilitySystemComponent->AddLooseGameplayTag(CharacterIdentity.ClassTag);	
 		}
 	}
 }
@@ -395,11 +405,38 @@ bool APBCharacterBase::HasInitiativeAdvantage() const
 void APBCharacterBase::OnCombatBegin()
 {
 	bIsInCombat = true;
+	
+	if (IsValid(FactionIndicator))
+	{
+		FColor FactionColor = FColor::White;
+		if (const UPBCombatSettings* const CombatSettings = GetDefault<UPBCombatSettings>())
+		{
+			if (CharacterIdentity.FactionTag.MatchesTag(PBGameplayTags::Combat_Faction_Player))
+			{
+				FactionColor = CombatSettings->FriendlyColor;
+			}
+			if (CharacterIdentity.FactionTag.MatchesTag(PBGameplayTags::Combat_Faction_Enemy))
+			{
+				FactionColor = CombatSettings->HostileColor;
+			}
+			if (CharacterIdentity.FactionTag.MatchesTag(PBGameplayTags::Combat_Faction_Neutral))
+			{
+				FactionColor = CombatSettings->NeutralColor;
+			}
+		}
+		FactionIndicator->SetColorParameter(TEXT("User.Color"), FactionColor);
+		FactionIndicator->Activate();
+	}
 }
 
 void APBCharacterBase::OnCombatEnd()
 {
 	bIsInCombat = false;
+	
+	if (IsValid(FactionIndicator))
+	{
+		FactionIndicator->Deactivate();
+	}
 }
 
 void APBCharacterBase::OnRoundBegin()
@@ -468,16 +505,16 @@ bool APBCharacterBase::IsIncapacitated() const
 	return false;
 }
 
-void APBCharacterBase::SetCombatIdentity(const FPBCombatIdentity& InIdentity)
+void APBCharacterBase::SetCombatIdentity(const FPBCharacterIdentity& InIdentity)
 {
-	CombatIdentity = InIdentity;
+	CharacterIdentity = InIdentity;
 }
 
 FGameplayTag APBCharacterBase::GetFactionTag() const
 {
-	if (CombatIdentity.FactionTag.IsValid())
+	if (CharacterIdentity.FactionTag.IsValid())
 	{
-		return CombatIdentity.FactionTag;
+		return CharacterIdentity.FactionTag;
 	}
 	return PBGameplayTags::Combat_Faction_Neutral;
 }
@@ -489,16 +526,16 @@ float APBCharacterBase::GetBaseMovementSpeed() const
 
 FText APBCharacterBase::GetCombatDisplayName() const
 {
-	if (!CombatIdentity.DisplayName.IsEmpty())
+	if (!CharacterIdentity.DisplayName.IsEmpty())
 	{
-		return CombatIdentity.DisplayName;
+		return CharacterIdentity.DisplayName;
 	}
 	return FText::FromString(GetName());
 }
 
 TSoftObjectPtr<UTexture2D> APBCharacterBase::GetCombatPortrait() const
 {
-	return CombatIdentity.Portrait;
+	return CharacterIdentity.Portrait;
 }
 
 FVector APBCharacterBase::GetCombatTargetLocation() const

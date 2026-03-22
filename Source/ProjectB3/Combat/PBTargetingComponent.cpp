@@ -3,6 +3,7 @@
 #include "PBTargetingComponent.h"
 
 #include "AbilitySystemComponent.h"
+#include "IPBCombatParticipant.h"
 #include "IPBCombatTarget.h"
 #include "ProjectB3/ProjectB3.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
@@ -11,6 +12,40 @@
 #include "Components/MeshComponent.h"
 #include "NiagaraComponent.h"
 #include "NiagaraSystem.h"
+
+APawn* UPBTargetingComponent::GetPawn() const
+{
+	if (AController* Controller = Cast<AController>(GetOwner()))
+	{
+		return Controller->GetPawn();
+	}
+	if (APawn* Pawn = Cast<APawn>(GetOwner()))
+	{
+		return Pawn;
+	}
+	return nullptr;
+}
+
+bool UPBTargetingComponent::IsHostileTarget(AActor* InTarget) const
+{
+	const IPBCombatParticipant* A = Cast<IPBCombatParticipant>(GetPawn());
+	const IPBCombatParticipant* B = Cast<IPBCombatParticipant>(InTarget);
+	
+	if (A == nullptr || B == nullptr)
+	{
+		return false;
+	}
+	
+	FGameplayTag FactionA = A->GetFactionTag();
+	FGameplayTag FactionB = B->GetFactionTag();
+	
+	if (FactionA.MatchesTag(FactionB) || FactionB.MatchesTag(FactionA))
+	{
+		return false;
+	}
+	
+	return true;
+}
 
 void UPBTargetingComponent::EnterTargetingMode(const FPBTargetingRequest& Request)
 {
@@ -376,17 +411,17 @@ void UPBTargetingComponent::HideRangeTelegraph()
 	}
 }
 
-void UPBTargetingComponent::ApplyTargetHighlight(AActor* Actor)
+void UPBTargetingComponent::ApplyTargetHighlight(AActor* TargetActor)
 {
 	ClearTargetHighlight();
 
-	if (!IsValid(Actor))
+	if (!IsValid(TargetActor))
 	{
 		return;
 	}
 
 	TArray<UMeshComponent*> Meshes;
-	UPBGameplayStatics::GetAllMeshComponents(Actor, Meshes);
+	UPBGameplayStatics::GetAllMeshComponents(TargetActor, Meshes);
 
 	SavedTargetCustomDepthStates.Reset();
 	for (UMeshComponent* Mesh : Meshes)
@@ -395,11 +430,11 @@ void UPBTargetingComponent::ApplyTargetHighlight(AActor* Actor)
 		{
 			SavedTargetCustomDepthStates.Add(TObjectPtr<UMeshComponent>(Mesh), Mesh->bRenderCustomDepth);
 			Mesh->SetRenderCustomDepth(true);
-			Mesh->SetCustomDepthStencilValue(PBStencilValues::TARGETING);
+			Mesh->SetCustomDepthStencilValue(IsHostileTarget(TargetActor) ? PBStencilValues::TARGET_HOSTILE : PBStencilValues::TARGET_FRIENDLY);
 		}
 	}
 
-	HighlightedTargetActor = Actor;
+	HighlightedTargetActor = TargetActor;
 }
 
 void UPBTargetingComponent::ClearTargetHighlight()
@@ -419,7 +454,7 @@ void UPBTargetingComponent::ClearTargetHighlight()
 			continue;
 		}
 
-		Mesh->SetCustomDepthStencilValue(0);
+		Mesh->SetCustomDepthStencilValue(PBStencilValues::DEFAULT);
 
 		const bool* bWasEnabled = SavedTargetCustomDepthStates.Find(TObjectPtr<UMeshComponent>(Mesh));
 		Mesh->SetRenderCustomDepth(bWasEnabled ? *bWasEnabled : false);
