@@ -294,6 +294,22 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
       bIsActionInProgress = false;
       return EStateTreeRunStatus::Failed;
     }
+
+    // 동기적 이동 완료 감지: GA_Move가 ActivateAbility 내에서
+    // 즉시 EndAbility를 호출한 경우 (NavMesh 부재, 즉시 도착 등).
+    // Attack/Debuff 분기와 동일한 교착 방지 패턴.
+    {
+      const FGameplayAbilitySpec* MoveSpec =
+          CachedASC->FindAbilitySpecFromHandle(ActiveSpecHandle);
+      if (!MoveSpec || !MoveSpec->IsActive()) {
+        UE_LOG(LogPBStateTreeExec, Display,
+               TEXT("Move 어빌리티가 동기적으로 종료됨. (SpecHandle=%s)"),
+               *ActiveSpecHandle.ToString());
+        CachedASC->OnAbilityEnded.Remove(DelegateHandle);
+        DelegateHandle.Reset();
+        return EStateTreeRunStatus::Succeeded;
+      }
+    }
     break;
   }
   case EPBActionType::Attack:
@@ -548,6 +564,28 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
       return EStateTreeRunStatus::Failed;
     }
 
+    // 동기적 어빌리티 완료 감지: 어빌리티가 활성화 직후 즉시 종료된 경우
+    // (예: 사거리 초과 → Cancel, 즉시 적용 완료 등).
+    // OnAbilityEnded 콜백이 이미 실행됐지만, AdvanceToNextAction의
+    // bIsAdvancing 가드에 의해 재진입이 차단되었을 수 있다.
+    // Running을 반환하면 콜백도 타임아웃도 없어 영원히 대기하므로,
+    // Succeeded로 반환하여 호출자가 다음 행동을 처리하도록 한다.
+    {
+      const FGameplayAbilitySpec* ActivatedSpec =
+          CachedASC->FindAbilitySpecFromHandle(ActiveSpecHandle);
+      if (!ActivatedSpec || !ActivatedSpec->IsActive()) {
+        UE_LOG(LogPBStateTreeExec, Display,
+               TEXT("%s 어빌리티가 동기적으로 종료됨. "
+                    "(SpecHandle=%s, AbilityTag=[%s])"),
+               ActionLabel,
+               *ActiveSpecHandle.ToString(),
+               *CurrentAction.AbilityTag.ToString());
+        CachedASC->OnAbilityEnded.Remove(DelegateHandle);
+        DelegateHandle.Reset();
+        return EStateTreeRunStatus::Succeeded;
+      }
+    }
+
     UE_LOG(LogPBStateTreeExec, Display,
            TEXT("%s 어빌리티 발동 성공. SpecHandle=%s, AbilityTag=[%s]"),
            ActionLabel,
@@ -635,49 +673,62 @@ UPBExecuteSequenceTask::UpdateCurrentAction(float DeltaTime) {
 /*~ 비동기 행동 체인 ~*/
 
 void UPBExecuteSequenceTask::AdvanceToNextAction() {
-  // ExitState가 이미 CachedASC를 정리한 경우 — 콜백 무시
-  if (!CachedASC) {
-    bIsActionInProgress = false;
-    return;
-  }
+  // 이중 진입 방지 (타임아웃 + OnAbilityEnded 동시 호출 시)
+  if (bIsAdvancing) { return; }
+  bIsAdvancing = true;
 
-  // 이전 행동의 델리게이트 정리
-  CachedASC->OnAbilityEnded.Remove(DelegateHandle);
-  DelegateHandle.Reset();
+  // 동기적 완료가 연속될 경우 스택 오버플로 방지를 위해 while 루프 사용
+  while (true)
+  {
+    // ExitState가 이미 CachedASC를 정리한 경우 — 콜백 무시
+    if (!CachedASC) {
+      bIsActionInProgress = false;
+      break;
+    }
 
-  // 다음 행동 확인
-  if (!ExecutionSequence.HasNextAction()) {
-    bIsActionInProgress = false;
+    // 이전 행동의 델리게이트 정리
+    CachedASC->OnAbilityEnded.Remove(DelegateHandle);
+    DelegateHandle.Reset();
+
+    // 다음 행동 확인
+    if (!ExecutionSequence.HasNextAction()) {
+      bIsActionInProgress = false;
+      UE_LOG(LogPBStateTreeExec, Display,
+             TEXT("[시퀀스] 모든 행동 실행 완료. 총 %d개 행동 처리."),
+             ExecutionSequence.CurrentActionIndex);
+
+      // Visual Logger: 시퀀스 실행 완료
+      UE_VLOG(SelfActor, LogPBStateTreeExec, Log,
+        TEXT("[Execute] 시퀀스 완료: %d개 행동 처리"),
+        ExecutionSequence.CurrentActionIndex);
+      break;
+    }
+
+    // 다음 행동 소비 및 실행
+    CurrentAction = ExecutionSequence.ConsumeNextAction();
     UE_LOG(LogPBStateTreeExec, Display,
-           TEXT("[시퀀스] 모든 행동 실행 완료. 총 %d개 행동 처리."),
-           ExecutionSequence.CurrentActionIndex);
+           TEXT("[시퀀스] 다음 행동으로 전진: [%d/%d]"),
+           ExecutionSequence.CurrentActionIndex,
+           ExecutionSequence.Actions.Num());
 
-    // Visual Logger: 시퀀스 실행 완료
-    UE_VLOG(SelfActor, LogPBStateTreeExec, Log,
-      TEXT("[Execute] 시퀀스 완료: %d개 행동 처리"),
-      ExecutionSequence.CurrentActionIndex);
-    return;
+    const EStateTreeRunStatus Status = ProcessSingleAction();
+
+    if (Status == EStateTreeRunStatus::Succeeded) {
+      // 동기적 완료 (타겟 사망 스킵 등) → 루프 반복으로 즉시 다음 행동 시도
+      continue;
+    }
+
+    if (Status == EStateTreeRunStatus::Failed) {
+      // 실행 실패 → 시퀀스 중단
+      bIsActionInProgress = false;
+      UE_LOG(LogPBStateTreeExec, Warning,
+             TEXT("[시퀀스] 행동 실행 실패. 시퀀스를 중단합니다."));
+    }
+    // Running → 콜백이 다시 AdvanceToNextAction을 호출할 것
+    break;
   }
 
-  // 다음 행동 소비 및 실행
-  CurrentAction = ExecutionSequence.ConsumeNextAction();
-  UE_LOG(LogPBStateTreeExec, Display,
-         TEXT("[시퀀스] 다음 행동으로 전진: [%d/%d]"),
-         ExecutionSequence.CurrentActionIndex,
-         ExecutionSequence.Actions.Num());
-
-  const EStateTreeRunStatus Status = ProcessSingleAction();
-
-  if (Status == EStateTreeRunStatus::Succeeded) {
-    // 동기적 완료 (타겟 사망 스킵 등) → 즉시 다음 행동 시도
-    AdvanceToNextAction();
-  } else if (Status == EStateTreeRunStatus::Failed) {
-    // 실행 실패 → 시퀀스 중단
-    bIsActionInProgress = false;
-    UE_LOG(LogPBStateTreeExec, Warning,
-           TEXT("[시퀀스] 행동 실행 실패. 시퀀스를 중단합니다."));
-  }
-  // Running → 콜백이 다시 AdvanceToNextAction을 호출할 것
+  bIsAdvancing = false;
 }
 
 void UPBExecuteSequenceTask::InvalidateActionsForDeadTarget(
