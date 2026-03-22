@@ -12,6 +12,7 @@
 #include "ProjectB3/Characters/PBCharacterBase.h"
 #include "ProjectB3/Characters/PBEnemyCharacter.h"
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
+#include "ProjectB3/Combat/PBCombatManagerSubsystem.h"
 #include "PBGE_RestoreTurnResources.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
@@ -758,6 +759,120 @@ float UPBUtilityClearinghouse::GetBestRawAttackDamage(
 	return BestRawDmg;
 }
 
+/*~ Buff/Debuff TargetModifier 3축 헬퍼 ~*/
+
+float UPBUtilityClearinghouse::CalcInitiativeFactor(AActor* Ally) const
+{
+	// CombatManager에서 이니셔티브 순서를 조회하여
+	// 현재 턴 액터 기준으로 Ally까지의 거리(턴 수)를 계산한다.
+	// 가까운 순서일수록 버프 효과가 즉시 발휘되므로 높은 점수를 부여.
+	const UWorld* World = GetWorld();
+	if (!World) { return 1.0f; }
+
+	const UPBCombatManagerSubsystem* CombatMgr =
+		World->GetSubsystem<UPBCombatManagerSubsystem>();
+	if (!CombatMgr) { return 1.0f; }
+
+	const TArray<FPBInitiativeEntry>& Order = CombatMgr->GetInitiativeOrder();
+	const int32 TotalEntries = Order.Num();
+	if (TotalEntries <= 1) { return 1.0f; }
+
+	const int32 CurrentIdx = CombatMgr->GetCurrentTurnIndex();
+	const int32 AllyIdx = CombatMgr->GetInitiativeTurnIndex(Ally);
+	if (AllyIdx == INDEX_NONE) { return 1.0f; }
+
+	// 원형 큐에서의 거리: (AllyIdx - CurrentIdx) mod Total
+	// 자기 자신이면 TurnsUntilAct = 0
+	const int32 TurnsUntilAct =
+		(AllyIdx - CurrentIdx + TotalEntries) % TotalEntries;
+
+	// TurnsUntilAct → Factor 매핑:
+	//   0 (자기 자신): 1.0
+	//   1 (바로 다음):  1.3
+	//   2:             1.1
+	//   3:             0.95
+	//   4+:            0.85
+	switch (TurnsUntilAct)
+	{
+	case 0:  return 1.0f;
+	case 1:  return 1.3f;
+	case 2:  return 1.1f;
+	case 3:  return 0.95f;
+	default: return 0.85f;
+	}
+}
+
+float UPBUtilityClearinghouse::CalcRoleSynergyFactor(
+	EPBStatModType ModType, EPBCombatRole Role)
+{
+	// StatModType × CombatRole 시너지 매트릭스
+	//        Melee  Ranged  Caster  Healer  Tank
+	// AC     1.2    1.0     0.9     1.1     1.2
+	// ATK    1.2    1.1     0.9     0.9     1.0
+	// SaveDC 0.9    0.9     1.2     1.1     0.9
+	// DMG    1.2    1.1     1.0     0.9     1.0
+	// None   1.0    1.0     1.0     1.0     1.0
+
+	if (ModType == EPBStatModType::None) { return 1.0f; }
+
+	// 2D 매핑: [ModType][Role]
+	// ModType 순서: AC=0, ATK=1, SaveDC=2, DMG=3
+	// Role   순서: Melee=0, Ranged=1, Caster=2, Healer=3, Tank=4
+	static constexpr float Matrix[4][5] = {
+		/* AC     */ { 1.2f, 1.0f, 0.9f, 1.1f, 1.2f },
+		/* ATK    */ { 1.2f, 1.1f, 0.9f, 0.9f, 1.0f },
+		/* SaveDC */ { 0.9f, 0.9f, 1.2f, 1.1f, 0.9f },
+		/* DMG    */ { 1.2f, 1.1f, 1.0f, 0.9f, 1.0f },
+	};
+
+	const int32 ModIdx = static_cast<int32>(ModType) - 1; // None=0이므로 -1
+	const int32 RoleIdx = static_cast<int32>(Role);
+
+	if (ModIdx < 0 || ModIdx >= 4 || RoleIdx < 0 || RoleIdx >= 5)
+	{
+		return 1.0f;
+	}
+
+	return Matrix[ModIdx][RoleIdx];
+}
+
+float UPBUtilityClearinghouse::CalcBuffSaturationFactor(
+	AActor* Source, AActor* Ally) const
+{
+	// Source(시전자)가 보유한 버프 어빌리티의 EffectGrantedTag 중
+	// Ally에 이미 걸려 있는 태그 개수를 세어 포화도를 판정한다.
+	// 0개: 1.15 (버프 필요성 높음)
+	// 1개: 1.0  (보통)
+	// 2+:  0.85 (포화 — 다른 대상 우선)
+	if (!IsValid(Source) || !IsValid(Ally)) { return 1.0f; }
+
+	UAbilitySystemComponent* SourceASC =
+		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Source);
+	UAbilitySystemComponent* AllyASC =
+		UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Ally);
+	if (!IsValid(SourceASC) || !IsValid(AllyASC)) { return 1.0f; }
+
+	int32 ExistingBuffCount = 0;
+	const TArray<FGameplayAbilitySpec>& Specs = SourceASC->GetActivatableAbilities();
+	for (const FGameplayAbilitySpec& Spec : Specs)
+	{
+		const UPBGameplayAbility* AbilityCDO =
+			Cast<UPBGameplayAbility>(Spec.Ability);
+		if (!AbilityCDO) { continue; }
+		if (AbilityCDO->GetAbilityCategory() != EPBAbilityCategory::Buff) { continue; }
+
+		const FGameplayTag EffectTag = AbilityCDO->GetEffectGrantedTag();
+		if (EffectTag.IsValid() && AllyASC->HasMatchingGameplayTag(EffectTag))
+		{
+			++ExistingBuffCount;
+		}
+	}
+
+	if (ExistingBuffCount == 0) { return 1.15f; }
+	if (ExistingBuffCount == 1) { return 1.0f; }
+	return 0.85f;
+}
+
 float UPBUtilityClearinghouse::CalcAutoStatModHP(
 	EPBStatModType ModType,
 	float ModDelta,
@@ -918,14 +1033,15 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 			UPBCharacterAttributeSet::GetHPAttribute(), bHPFound);
 
 		const TArray<FGameplayAbilitySpec> &Specs = SourceASC->GetActivatableAbilities();
-		UE_LOG(LogTemp, Warning,TEXT("found Specs Num : %d") , Specs.Num());
+		UE_LOG(LogPBUtility, Display, TEXT("[Buff/Debuff] 평가 대상 어빌리티 수: %d"), Specs.Num());
 		for (const FGameplayAbilitySpec &Spec : Specs)
 		{
 			
 			// 발동 불가 어빌리티 스킵 (쿨다운, 자원 부족 등)
 			// UGameplayAbility::CanActivateAbility는 public이므로 Spec.Ability를 통해 호출
-			if (!Spec.Ability || !Spec.Ability->CanActivateAbility(
-									 Spec.Handle, SourceASC->AbilityActorInfo.Get()))
+			if (!Spec.Ability || !SourceASC->AbilityActorInfo.IsValid()
+				|| !Spec.Ability->CanActivateAbility(
+					Spec.Handle, SourceASC->AbilityActorInfo.Get()))
 			{
 				continue;
 			}
@@ -995,7 +1111,13 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 
 				const float DurationFactor =
 					FMath::Min(static_cast<float>(Duration), 3.0f) / 3.0f;
-				const float CandidateScore = HPValue * DurationFactor;
+				// RoleSynergyFactor: 디버프 대상 역할에 맞는 약화일수록 가점
+				const EPBStatModType DebuffModType = AbilityCDO->GetStatModType();
+				const EPBCombatRole EnemyRole = DetermineCombatRole(TargetActor);
+				const float DebuffRoleSynergy =
+					CalcRoleSynergyFactor(DebuffModType, EnemyRole);
+				const float CandidateScore =
+					HPValue * DurationFactor * DebuffRoleSynergy;
 
 				const FPBCostData Cost = ExtractAbilityCost(SourceASC, Spec.Handle);
 				const bool bIsBA = (Cost.BonusActionCost > 0.0f);
@@ -1433,8 +1555,9 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateHealScore(AActor* AllyTarget)
 	const TArray<FGameplayAbilitySpec>& Specs = SourceASC->GetActivatableAbilities();
 	for (const FGameplayAbilitySpec& Spec : Specs)
 	{
-		if (!Spec.Ability || !Spec.Ability->CanActivateAbility(
-								 Spec.Handle, SourceASC->AbilityActorInfo.Get()))
+		if (!Spec.Ability || !SourceASC->AbilityActorInfo.IsValid()
+			|| !Spec.Ability->CanActivateAbility(
+				Spec.Handle, SourceASC->AbilityActorInfo.Get()))
 		{
 			continue;
 		}
@@ -1669,8 +1792,9 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 	const TArray<FGameplayAbilitySpec>& Specs = SourceASC->GetActivatableAbilities();
 	for (const FGameplayAbilitySpec& Spec : Specs)
 	{
-		if (!Spec.Ability || !Spec.Ability->CanActivateAbility(
-								 Spec.Handle, SourceASC->AbilityActorInfo.Get()))
+		if (!Spec.Ability || !SourceASC->AbilityActorInfo.IsValid()
+			|| !Spec.Ability->CanActivateAbility(
+				Spec.Handle, SourceASC->AbilityActorInfo.Get()))
 		{
 			continue;
 		}
@@ -1721,11 +1845,14 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 			continue;
 		}
 
-		// BaseScore = EstimatedHPValue × DurationFactor
+		// BaseScore = EstimatedHPValue × DurationFactor × RoleSynergyFactor
 		// DurationFactor = min(EffectDuration, 3) / 3.0
 		const float DurationFactor =
 			FMath::Min(static_cast<float>(Duration), 3.0f) / 3.0f;
-		const float CandidateScore = HPValue * DurationFactor;
+		const EPBStatModType ModType = AbilityCDO->GetStatModType();
+		const EPBCombatRole AllyRole = DetermineCombatRole(AllyTarget);
+		const float RoleSynergy = CalcRoleSynergyFactor(ModType, AllyRole);
+		const float CandidateScore = HPValue * DurationFactor * RoleSynergy;
 
 		// --- 자원 유형별 최고 어빌리티 추적 ---
 		const FPBCostData BuffCost = ExtractAbilityCost(SourceASC, Spec.Handle);
@@ -1777,13 +1904,19 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 		return Score;
 	}
 
+	// --- TargetModifier 산출 (타겟별 공통 — 루프 외부) ---
+	const float InitFactor = CalcInitiativeFactor(AllyTarget);
+	const float SatFactor = CalcBuffSaturationFactor(ActiveTurnActor, AllyTarget);
+	const float BuffTargetModifier = InitFactor * SatFactor;
+
 	// --- Score 조립 ---
-	// ActionScore = BaseScore × BuffWeight
-	// TargetModifier = 1.0 (아군에 Threat/Role 미적용)
+	// ActionScore = (BaseScore × TargetModifier) × BuffWeight
+	// TargetModifier = InitiativeFactor × BuffSaturationFactor
+	// (RoleSynergyFactor는 CandidateScore에 이미 반영)
 	Score.ExpectedDamage = BestBuffValue;  // FPBTargetScore 재활용: "기대 효과량"
 	Score.AbilityTag = BestBuffTag;
 	Score.AbilitySpecHandle = BestBuffHandle;
-	Score.TargetModifier = 1.0f;
+	Score.TargetModifier = BuffTargetModifier;
 	Score.SituationalBonus = 0.0f;
 	Score.ArchetypeWeight = CachedArchetypeWeights.BuffWeight;
 
@@ -1791,11 +1924,11 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 
 	UE_LOG(LogPBUtility, Log,
 		TEXT("[BuffScoring] AI [%s] → 아군 [%s]: "
-			 "BaseScore=%.1f, BuffWeight=%.2f → Score=%.2f "
-			 "(Ability=%s)"),
+			 "BaseScore=%.1f, TM=%.2f (Init=%.2f × Sat=%.2f), "
+			 "BuffWeight=%.2f → Score=%.2f (Ability=%s)"),
 		*(ActiveTurnActor ? ActiveTurnActor->GetName() : TEXT("Unknown")),
 		*AllyTarget->GetName(),
-		BestBuffValue,
+		BestBuffValue, BuffTargetModifier, InitFactor, SatFactor,
 		CachedArchetypeWeights.BuffWeight,
 		FinalScore, *BestBuffTag.ToString());
 
@@ -1810,7 +1943,7 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 		APScore.ExpectedDamage = BestAPBuff;
 		APScore.AbilityTag = BestAPBuffTag;
 		APScore.AbilitySpecHandle = BestAPBuffHandle;
-		APScore.TargetModifier = 1.0f;
+		APScore.TargetModifier = BuffTargetModifier;
 		APScore.SituationalBonus = 0.0f;
 		APScore.ArchetypeWeight = CachedArchetypeWeights.BuffWeight;
 		CachedAPBuffScoreMap.Add(AllyTarget, APScore);
@@ -1822,7 +1955,7 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 		BAScore.ExpectedDamage = BestBABuff;
 		BAScore.AbilityTag = BestBABuffTag;
 		BAScore.AbilitySpecHandle = BestBABuffHandle;
-		BAScore.TargetModifier = 1.0f;
+		BAScore.TargetModifier = BuffTargetModifier;
 		BAScore.SituationalBonus = 0.0f;
 		BAScore.ArchetypeWeight = CachedArchetypeWeights.BuffWeight;
 		CachedBABuffScoreMap.Add(AllyTarget, BAScore);
@@ -1831,7 +1964,7 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 	// --- Phase 3: 로컬 버프 배열 → CachedAllBuffScores 변환 ---
 	for (FPBTargetScore& Entry : LocalBuffScores)
 	{
-		Entry.TargetModifier = 1.0f;
+		Entry.TargetModifier = BuffTargetModifier;
 		Entry.ArchetypeWeight = CachedArchetypeWeights.BuffWeight;
 		CachedAllBuffScores.Add(MoveTemp(Entry));
 	}
@@ -2878,6 +3011,17 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			if (!IsValid(Target))
 			{
 				continue;
+			}
+
+			// 사망 타겟 스킵 (턴 중 사망 시 캐시에 잔류하므로 런타임 체크 필요)
+			if (const UAbilitySystemComponent* TargetASC =
+					UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Target))
+			{
+				if (TargetASC->HasMatchingGameplayTag(
+						PBGameplayTags::Character_State_Dead))
+				{
+					continue;
+				}
 			}
 
 			if (ScoreData.GetActionScore() <= 0.0f)
