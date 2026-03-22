@@ -240,6 +240,11 @@ void UPBAbilitySystemComponent::NotifyAbilityExecution(
 	OnAbilityExecutionStarted.Broadcast(Ability, TargetData);
 }
 
+void UPBAbilitySystemComponent::NotifyPBAbilityEnded(FGameplayAbilitySpecHandle Handle, bool bWasCancelled)
+{
+	OnPBAbilityEnded.Broadcast(Handle, bWasCancelled);
+}
+
 void UPBAbilitySystemComponent::BeginPlay()
 {
 	Super::BeginPlay();

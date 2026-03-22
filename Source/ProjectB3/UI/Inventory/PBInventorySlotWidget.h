@@ -3,8 +3,15 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "ProjectB3/ItemSystem/PBItemTypes.h"
 #include "ProjectB3/UI/PBWidgetBase.h"
 #include "PBInventorySlotWidget.generated.h"
+
+// 슬롯 우클릭 시 컨텍스트 메뉴 표시 요청 델리게이트
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnSlotContextMenuRequestedSignature,
+	const FGuid&  /*InstanceID*/,
+	EPBItemType   /*ItemType*/,
+	FVector2D     /*ScreenPosition*/)
 
 class UBorder;
 class UButton;
@@ -55,13 +62,20 @@ protected:
 	// 마우스 포인터 이탈 시 툴팁 숨김
 	virtual void NativeOnMouseLeave(const FPointerEvent& InMouseEvent) override;
 
+public:
+	// 우클릭 시 브로드캐스트 — PBInventoryPanelWidget이 구독하여 컨텍스트 메뉴를 표시
+	FOnSlotContextMenuRequestedSignature OnSlotContextMenuRequested;
+
 private:
 	// 좌클릭 선택 동작을 처리
 	UFUNCTION()
 	void OnSlotClicked();
 
-	// 우클릭 자동 장착 동작을 처리
-	void OnSlotRightClicked();
+	// 우클릭 컨텍스트 메뉴 요청 동작을 처리
+	void OnSlotRightClicked(FVector2D ScreenPosition);
+
+	// 더블클릭 자동 장착 동작을 처리
+	void OnSlotDoubleClicked();
 
 	// 현재 슬롯의 유효한 아이템 데이터를 조회
 	bool GetCurrentSlotData(FPBInventorySlotData& OutSlotData) const;

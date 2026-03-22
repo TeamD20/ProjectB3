@@ -43,6 +43,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item", meta = (ClampMin = "1"))
 	int32 MaxStackSize = 1;
 
+	// 필드 드롭 시 월드에 표시할 스태틱 메시 (없으면 FieldDropActor 기본 메시 사용)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item|WorldDrop")
+	TObjectPtr<UStaticMesh> DropMesh;
+
 	// --- 소모품 전용 필드 (ItemType == Consumable 일 때만 에디터에 표시) ---
 
 	// 사용 시 즉각적인 효과 설명 (예: "3d4+3 회복")

@@ -95,7 +95,8 @@ bool UPBGameplayAbility::CanActivateAbility(
 	// 2.타입이 턴 기반 어빌리티인 경우
 	
 	// 내 턴이 아니면 비활성화
-	if (!UPBCombatSystemLibrary::IsMyTurn(ActorInfo->AvatarActor.Get()))
+	if (UPBCombatSystemLibrary::IsInCombat(ActorInfo->AvatarActor.Get()) &&
+		!UPBCombatSystemLibrary::IsMyTurn(ActorInfo->AvatarActor.Get()))
 	{
 		return false;
 	}
@@ -198,6 +199,12 @@ void UPBGameplayAbility::EndAbility(
 				PBPC->SetControllerMode(EPBPlayerControllerMode::TurnMovement);
 			}
 		}
+	}
+
+	// 어빌리티 종료 통지 (UseConsumable 등 외부 감시자가 구독 가능)
+	if (UPBAbilitySystemComponent* PBASC = GetPBAbilitySystemComponentFromActorInfo(ActorInfo))
+	{
+		PBASC->NotifyPBAbilityEnded(Handle, bWasCancelled);
 	}
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);

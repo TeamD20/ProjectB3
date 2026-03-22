@@ -129,7 +129,13 @@ FReply UPBInventorySlotWidget::NativeOnMouseButtonDown(const FGeometry& InGeomet
 {
 	if (InMouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
 	{
-		OnSlotRightClicked();
+		// GetMousePosition은 뷰포트 기준 물리 픽셀 좌표를 반환 — 위젯 중첩 깊이와 무관하게 정확함
+		float MouseX = 0.f, MouseY = 0.f;
+		if (APlayerController* PC = GetOwningPlayer())
+		{
+			PC->GetMousePosition(MouseX, MouseY);
+		}
+		OnSlotRightClicked(FVector2D(MouseX, MouseY));
 		return FReply::Handled();
 	}
 
@@ -150,7 +156,7 @@ FReply UPBInventorySlotWidget::NativeOnMouseButtonDoubleClick(const FGeometry& I
 {
 	if (InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
 	{
-		OnSlotRightClicked();
+		OnSlotDoubleClicked();
 		return FReply::Handled();
 	}
 
@@ -319,15 +325,31 @@ bool UPBInventorySlotWidget::NativeOnDrop(
 	return Super::NativeOnDrop(InGeometry, InDragDropEvent, InOperation);
 }
 
-void UPBInventorySlotWidget::OnSlotRightClicked()
+void UPBInventorySlotWidget::OnSlotRightClicked(FVector2D ScreenPosition)
 {
+	FPBInventorySlotData SlotData;
+	if (!GetCurrentSlotData(SlotData))
+	{
+		return;
+	}
+
+	// 컨텍스트 메뉴 표시 요청 — PBInventoryPanelWidget이 구독하여 처리
+	OnSlotContextMenuRequested.Broadcast(
+		SlotData.InstanceID,
+		SlotData.ItemType,
+		ScreenPosition);
+}
+
+void UPBInventorySlotWidget::OnSlotDoubleClicked()
+{
+	// 더블클릭은 기존 자동 장착 경로 유지
 	if (!InventoryViewModel.IsValid())
 	{
 		return;
 	}
 
 	FPBInventorySlotData SlotData;
-	if (!InventoryViewModel->GetInventorySlotData(SlotIndex, SlotData) || SlotData.bIsEmpty)
+	if (!GetCurrentSlotData(SlotData))
 	{
 		return;
 	}
@@ -351,7 +373,6 @@ void UPBInventorySlotWidget::OnSlotRightClicked()
 		return;
 	}
 
-	// 우클릭/더블클릭은 동일한 자동 장착 경로로 통일
 	EquipmentComponent->AutoEquipItem(SlotData.InstanceID, InventoryComponent);
 }
 

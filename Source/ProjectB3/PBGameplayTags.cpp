@@ -85,6 +85,9 @@ namespace PBGameplayTags
 	// SetByCaller 회복 태그
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Heal_Amount, "SetByCaller.Heal.Amount", "회복량");
 
+	// 아이템 이벤트 태그
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_Item_UseConsumable, "Event.Item.UseConsumable", "소비 아이템 사용 요청 이벤트 — UseConsumable 어빌리티 트리거용");
+
 	// UI 이벤트 태그
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_UI_FloatingText, "Event.UI.FloatingText", "플로팅 텍스트 위젯 표시 이벤트");
 }
