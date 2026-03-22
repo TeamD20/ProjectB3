@@ -86,3 +86,11 @@ void UPBDialogueViewModel::RequestDiceRoll()
         Manager->RequestDiceRoll();
     }
 }
+
+void UPBDialogueViewModel::RequestDiceProgress()
+{
+    if (UPBDialogueManagerComponent* Manager = DialogueManager.Get())
+    {
+        Manager->ProgressDiceResult();
+    }
+}

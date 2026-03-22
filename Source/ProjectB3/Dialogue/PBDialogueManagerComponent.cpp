@@ -8,6 +8,7 @@
 #include "DialogueFeatures/DNodeFeature_Branch.h"
 #include "GameFramework/PlayerController.h"
 #include "ProjectB3/Camera/PBDialogueCameraActor.h"
+#include "ProjectB3/Dialogue/Dice/PBDiceRollActor.h"
 #include "ProjectB3/Characters/PBCharacterBase.h"
 #include "ProjectB3/UI/Dialogue/PBDialogueViewModel.h"
 #include "ProjectB3/UI/Dialogue/PBDialogueWidget.h"
@@ -15,6 +16,35 @@
 #include "ProjectB3/UI/PBUIManagerSubsystem.h"
 #include "ProjectB3/UI/PBUITags.h"
 #include "ProjectB3/UI/ViewModel/PBViewModelSubsystem.h"
+
+void UPBDialogueManagerComponent::BeginPlay()
+{
+    Super::BeginPlay();
+
+    if (!IsValid(DiceRollActorClass))
+    {
+        return;
+    }
+
+    UWorld* World = GetWorld();
+    if (!IsValid(World))
+    {
+        return;
+    }
+
+    DiceRollActor = World->SpawnActor<APBDiceRollActor>(DiceRollActorClass, DiceActorSpawnTransform);
+}
+
+void UPBDialogueManagerComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    if (IsValid(DiceRollActor))
+    {
+        DiceRollActor->Destroy();
+        DiceRollActor = nullptr;
+    }
+
+    Super::EndPlay(EndPlayReason);
+}
 
 void UPBDialogueManagerComponent::PreStartDialogue(UDialogueData* InDialogueData, const FDialogueSystemContext& InContext)
 {
@@ -185,14 +215,36 @@ void UPBDialogueManagerComponent::RequestDiceRoll()
     Result.bSuccess = bSuccess;
     Result.bNatural20 = (Roll == 20);
 
-    // 현재 노드의 Branch에 결과 전달 (0=성공, 1=실패)
-    if (UDialogueNode* Node = GetCurrentDialogueNode())
+    // 분기 인덱스 저장 (0=성공, 1=실패)
+    PendingDiceOptionId = bSuccess ? 0 : 1;
+
+    // 3D 연출이 있으면 완료 후 결과 표시, 없으면 즉시 표시
+    if (IsValid(DiceRollActor))
     {
-        if (UDNodeFeature_Branch* Branch = Node->FindBranch())
-        {
-            Branch->SelectBranchIndex(bSuccess ? 0 : 1);
-        }
+        PendingDiceResult = Result;
+        DiceRollActor->OnDiceRollFinished.AddDynamic(this, &ThisClass::OnDiceAnimationFinished);
+        DiceRollActor->RollToNumber(Total);
+    }
+    else
+    {
+        DialogueViewModel->ShowDiceResult(Result);
+    }
+}
+
+void UPBDialogueManagerComponent::ProgressDiceResult()
+{
+    ProgressDialogue(PendingDiceOptionId);
+}
+
+void UPBDialogueManagerComponent::OnDiceAnimationFinished(int32 ResultNumber)
+{
+    if (IsValid(DiceRollActor))
+    {
+        DiceRollActor->OnDiceRollFinished.RemoveDynamic(this, &ThisClass::OnDiceAnimationFinished);
     }
 
-    DialogueViewModel->ShowDiceResult(Result);
+    if (IsValid(DialogueViewModel))
+    {
+        DialogueViewModel->ShowDiceResult(PendingDiceResult);
+    }
 }

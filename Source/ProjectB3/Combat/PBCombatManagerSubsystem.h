@@ -126,7 +126,6 @@ public:
 	FOnRoundChangedSignature OnRoundChanged;
 	FOnCombatantIncapacitatedSignature OnCombatantIncapacitated;
 	FOnReactionTriggeredSignature OnReactionTriggered;
-	FOnSkillActivatedSignature OnSkillActivated;
 	
 private:
 	// 등록된 전투 참가자 목록

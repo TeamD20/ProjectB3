@@ -43,17 +43,21 @@ void UPBDiceRollSubWidget::InitializeDiceRoll(const FPBDiceRollDisplayInfo& InIn
     if (IsValid(ResultText))
     {
         ResultText->SetText(FText::GetEmpty());
+        ResultText->SetVisibility(ESlateVisibility::Hidden);
     }
 
     if (IsValid(OutcomeText))
     {
         OutcomeText->SetText(FText::GetEmpty());
+        OutcomeText->SetVisibility(ESlateVisibility::Hidden);
     }
 
     if (IsValid(RollButton))
     {
         RollButton->SetIsEnabled(true);
     }
+
+    bResultShown = false;
 }
 
 void UPBDiceRollSubWidget::ShowDiceResult(const FPBDiceRollDisplayInfo& InResult)
@@ -63,25 +67,22 @@ void UPBDiceRollSubWidget::ShowDiceResult(const FPBDiceRollDisplayInfo& InResult
     if (IsValid(ResultText))
     {
         ResultText->SetText(FText::AsNumber(InResult.TotalResult));
-    }
-
-    if (IsValid(OutcomeText))
-    {
-        if (InResult.bSuccess)
-        {
-            OutcomeText->SetText(FText::FromString(TEXT("성공!")));
-            OutcomeText->SetColorAndOpacity(FSlateColor(FLinearColor::Green));
-        }
-        else
-        {
-            OutcomeText->SetText(FText::FromString(TEXT("실패")));
-            OutcomeText->SetColorAndOpacity(FSlateColor(FLinearColor::Red));
-        }
+        ResultText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
     }
 
     if (IsValid(RollButton))
     {
         RollButton->SetIsEnabled(false);
+    }
+
+    // 성공/실패 텍스트 및 색상은 BP 애니메이션에서 처리
+    if (InResult.bSuccess)
+    {
+        PlaySuccessAnimation(InResult);
+    }
+    else
+    {
+        PlayFailureAnimation(InResult);
     }
 }
 

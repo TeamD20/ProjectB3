@@ -105,7 +105,6 @@ void APBGameplayHUD::BindGameStateEvents()
 	if (UPBCombatManagerSubsystem* CombatManager = GetWorld()->GetSubsystem<UPBCombatManagerSubsystem>())
 	{
 		CombatManager->OnCombatStateChanged.AddUObject(this, &ThisClass::HandleCombatStateChangedForText);
-		CombatManager->OnSkillActivated.AddUObject(this, &ThisClass::HandleSkillActivated);
 	}
 }
 
@@ -128,7 +127,6 @@ void APBGameplayHUD::UnbindGameStateEvents()
 	if (UPBCombatManagerSubsystem* CombatManager = GetWorld()->GetSubsystem<UPBCombatManagerSubsystem>())
 	{
 		CombatManager->OnCombatStateChanged.RemoveAll(this);
-		CombatManager->OnSkillActivated.RemoveAll(this);
 	}
 }
 
@@ -419,7 +417,7 @@ void APBGameplayHUD::UpdateCombatIndicator(EPBActionIndicatorType Type, const FT
 		return;
 	}
 
-	UPBActionIndicatorViewModel* VM = VMSubsystem->GetOrCreateActorViewModel<UPBActionIndicatorViewModel>(MyPawn);
+	UPBActionIndicatorViewModel* VM = VMSubsystem->GetOrCreateGlobalViewModel<UPBActionIndicatorViewModel>();
 	if (IsValid(VM))
 	{
 		FPBActionIndicatorData ActionData;
@@ -463,7 +461,7 @@ void APBGameplayHUD::ClearCombatIndicator()
 		return;
 	}
 
-	UPBActionIndicatorViewModel* VM = VMSubsystem->GetOrCreateActorViewModel<UPBActionIndicatorViewModel>(MyPawn);
+	UPBActionIndicatorViewModel* VM = VMSubsystem->GetOrCreateGlobalViewModel<UPBActionIndicatorViewModel>();
 	if (IsValid(VM))
 	{
 		VM->ClearAction();
