@@ -10,7 +10,7 @@
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnActionIndicatorChangedSignature, const FPBActionIndicatorData&);
 
 /**
- * 행동 인디케이터 상태를 관리하는 ViewModel
+ * 행동 인디케이터 상태를 관리하는 Global ViewModel
  */
 UCLASS()
 class PROJECTB3_API UPBActionIndicatorViewModel : public UPBViewModelBase

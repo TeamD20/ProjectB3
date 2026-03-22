@@ -356,16 +356,8 @@ void UPBAbilitySystemUIBridge::HandleAbilityActivated(UGameplayAbility* Ability)
 	
 	if (!AbilityName.IsEmpty())
 	{
-		if (UWorld* World = GetWorld())
-		{
-			if (UPBCombatManagerSubsystem* CombatManager = World->GetSubsystem<UPBCombatManagerSubsystem>())
-			{
-				CombatManager->OnSkillActivated.Broadcast(GetOwner(), AbilityName, AbilityType);
-			}
-		}
-		
 		// 행동 인디케이터 갱신 (스킬 시전 중)
-		UpdateActionIndicator(EPBActionIndicatorType::SkillCast, FText::Format(NSLOCTEXT("PBUI", "CastingTarget", "{0} 시전 중"), AbilityName));
+		UpdateActionIndicator(EPBActionIndicatorType::SkillCast,PBAbility);
 	}
 
 	// 어빌리티 사용 로그
@@ -387,7 +379,6 @@ void UPBAbilitySystemUIBridge::HandleAbilityEnded(const FAbilityEndedData& Abili
 	{
 		return;
 	}
-	
 
 	FGameplayAbilitySpecHandle Handle = PBAbility->GetCurrentAbilitySpecHandle();
 	const FGameplayAbilityActorInfo* ActorInfo = PBAbility->GetCurrentActorInfo();
@@ -799,7 +790,7 @@ void UPBAbilitySystemUIBridge::HandleCombatStateChanged(EPBCombatState NewState)
 
 // === 행동 인디케이터 UI ===
 
-void UPBAbilitySystemUIBridge::UpdateActionIndicator(EPBActionIndicatorType Type, const FText& Text)
+void UPBAbilitySystemUIBridge::UpdateActionIndicator(EPBActionIndicatorType Type, const UPBGameplayAbility* PBAbility)
 {
 	UPBViewModelSubsystem* VMSubsystem = GetViewModelSubsystem();
 	if (!IsValid(VMSubsystem))
@@ -807,14 +798,13 @@ void UPBAbilitySystemUIBridge::UpdateActionIndicator(EPBActionIndicatorType Type
 		return;
 	}
 
-	// 개별 대상마다 인디케이터 뷰모델이 있다.
-	UPBActionIndicatorViewModel* VM = VMSubsystem->GetOrCreateActorViewModel<UPBActionIndicatorViewModel>(GetOwner());
+	UPBActionIndicatorViewModel* VM = VMSubsystem->GetOrCreateGlobalViewModel<UPBActionIndicatorViewModel>();
 	if (IsValid(VM))
 	{
 		FPBActionIndicatorData ActionData;
 		ActionData.ActionType = Type;
-		ActionData.DisplayText = Text;
-		// ActionData.Icon = ... (필요 시 AbilityType 등에 기반해 설정)
+		ActionData.DisplayText = PBAbility->GetAbilityDisplayName();
+		ActionData.Icon = PBAbility->GetAbilityIcon();
 		
 		VM->SetAction(ActionData);
 	}
@@ -828,7 +818,7 @@ void UPBAbilitySystemUIBridge::ClearActionIndicator()
 		return;
 	}
 
-	UPBActionIndicatorViewModel* VM = VMSubsystem->FindActorViewModel<UPBActionIndicatorViewModel>(GetOwner());
+	UPBActionIndicatorViewModel* VM = VMSubsystem->GetOrCreateGlobalViewModel<UPBActionIndicatorViewModel>();
 	if (IsValid(VM))
 	{
 		VM->ClearAction();
