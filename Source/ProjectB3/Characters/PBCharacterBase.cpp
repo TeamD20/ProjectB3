@@ -377,6 +377,7 @@ void APBCharacterBase::HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, 
 		// 캐릭터 사망 영역은 NavMesh 활성화
 		SetCanAffectNavigationGeneration(false, true);
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		FactionIndicator->Deactivate();
 	}
 }
 

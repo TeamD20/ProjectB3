@@ -7,11 +7,13 @@
 void APBArrowProjectile::SetupArrow(
 	const FGameplayEffectSpecHandle& InDamageSpec,
 	UAbilitySystemComponent* InSourceASC,
-	AActor* InTargetActor)
+	AActor* InTargetActor,
+	float InMaxRange)
 {
 	DamageSpecHandle = InDamageSpec;
 	SourceASC = InSourceASC;
 	TargetActor = InTargetActor;
+	MaxRange = InMaxRange;
 }
 
 void APBArrowProjectile::OnProjectileOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
