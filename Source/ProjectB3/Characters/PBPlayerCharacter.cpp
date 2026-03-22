@@ -100,12 +100,27 @@ void APBPlayerCharacter::OnTurnActivated()
 {
 	Super::OnTurnActivated();
 
+	if (APBGameplayPlayerController* PC = GetController<APBGameplayPlayerController>())
+	{
+		PC->SetControllerMode(EPBPlayerControllerMode::TurnMovement);
+	}
+	
 	if (APBGameplayPlayerState* PS = Cast<APBGameplayPlayerState>(UGameplayStatics::GetPlayerState(this, 0)))
 	{
 		if (PS->GetSelectedPartyMember() != this)
 		{
 			PS->SelectPartyMember(this);
 		}
+	}
+}
+
+void APBPlayerCharacter::OnTurnEnd()
+{
+	Super::OnTurnEnd();
+	
+	if (APBGameplayPlayerController* PC = GetController<APBGameplayPlayerController>())
+	{
+		PC->SetControllerMode(EPBPlayerControllerMode::None);
 	}
 }
 
