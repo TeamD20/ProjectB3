@@ -2,8 +2,9 @@
 
 #include "PBDialogueChoiceEntryWidget.h"
 #include "Components/Button.h"
-#include "InputCoreTypes.h"
+#include "Components/Image.h"
 #include "Components/RichTextBlock.h"
+#include "InputCoreTypes.h"
 #include "ProjectB3/UI/Dialogue/PBDialogueViewModel.h"
 
 void UPBDialogueChoiceEntryWidget::NativeConstruct()
@@ -13,6 +14,18 @@ void UPBDialogueChoiceEntryWidget::NativeConstruct()
     if (IsValid(ChoiceButton))
     {
         ChoiceButton->OnClicked.AddDynamic(this, &ThisClass::HandleChoiceButtonClicked);
+    }
+
+    // 인디케이터 초기 상태: 숨김
+    if (IsValid(IndicatorImage))
+    {
+        IndicatorImage->SetVisibility(ESlateVisibility::Hidden);
+    }
+
+    // 텍스트 초기 색상 설정
+    if (IsValid(ChoiceText))
+    {
+        ChoiceText->SetDefaultColorAndOpacity(FSlateColor(DefaultTextColor));
     }
 }
 
@@ -72,6 +85,36 @@ void UPBDialogueChoiceEntryWidget::InitializeChoice(const FPBDialogueChoiceInfo&
         {
             UnavailableReasonText->SetVisibility(ESlateVisibility::Collapsed);
         }
+    }
+}
+
+void UPBDialogueChoiceEntryWidget::NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+    Super::NativeOnMouseEnter(InGeometry, InMouseEvent);
+
+    if (IsValid(ChoiceText))
+    {
+        ChoiceText->SetDefaultColorAndOpacity(FSlateColor(HoveredTextColor));
+    }
+
+    if (IsValid(IndicatorImage))
+    {
+        IndicatorImage->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+    }
+}
+
+void UPBDialogueChoiceEntryWidget::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
+{
+    Super::NativeOnMouseLeave(InMouseEvent);
+
+    if (IsValid(ChoiceText))
+    {
+        ChoiceText->SetDefaultColorAndOpacity(FSlateColor(DefaultTextColor));
+    }
+
+    if (IsValid(IndicatorImage))
+    {
+        IndicatorImage->SetVisibility(ESlateVisibility::Hidden);
     }
 }
 

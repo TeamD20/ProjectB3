@@ -7,6 +7,7 @@
 #include "AbilitySystemComponent.h"
 #include "PBPartyFollowSubsystem.h"
 #include "ProjectB3/Characters/PBPlayerCharacter.h"
+#include "ProjectB3/Combat/PBCombatManagerSubsystem.h"
 #include "ProjectB3/Player/PBPartyAIController.h"
 
 void APBGameplayPlayerState::AddGold(int32 Amount)
@@ -97,6 +98,19 @@ void APBGameplayPlayerState::SelectPartyMember(AActor* PartyMember)
 	if (SelectedPartyMember.Get() == PartyMember)
 	{
 		return;
+	}
+	
+	// 전투 중인 경우
+	if (UPBCombatManagerSubsystem* CombatManager = GetWorld()->GetSubsystem<UPBCombatManagerSubsystem>())
+	{
+		if (CombatManager->IsInCombat())
+		{
+			TArray<AActor*> TurnGroup = CombatManager->GetCurrentSharedTurnGroup();
+			if (TurnGroup.Contains(PartyMember))
+			{
+				CombatManager->SwitchToGroupMember(PartyMember);
+			}
+		}
 	}
 
 	APlayerController* PC = Cast<APlayerController>(GetOwner());

@@ -52,14 +52,11 @@ protected:
     virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
 protected:
-    /** 화자 정보 변경 처리 — 이름, 색상 갱신 */
-    void HandleSpeakerChanged(const FPBDialogueParticipantDisplayInfo& InInfo);
-
-    /** 대사 텍스트 변경 처리 — 선택지/주사위 숨기고 대사 패널 표시 */
+    /** 대사 텍스트 변경 처리 — [화자이름] 텍스트 포맷으로 표시, 선택지/주사위 숨김 */
     void HandleTextChanged(const FText& InText);
 
-    /** 선택지 변경 처리 — 대사/주사위 숨기고 선택지 버튼 생성 */
-    void HandleChoicesChanged(const TArray<FPBDialogueChoiceInfo>& InChoices);
+    /** 선택지 변경 처리 — 대사/주사위 숨기고 선택지 버튼 생성. 프롬프트 텍스트가 있으면 상단에 표시 */
+    void HandleChoicesChanged(const TArray<FPBDialogueChoiceInfo>& InChoices, const FText& InPromptText);
 
     /** 주사위 굴리기 정보 변경 처리 — 대사/선택지 숨기고 주사위 패널 표시 */
     void HandleDiceRollChanged(const FPBDiceRollDisplayInfo& InInfo);
@@ -68,13 +65,13 @@ protected:
     void HandleDiceResultChanged(const FPBDiceRollDisplayInfo& InResult);
 
 protected:
-    // 화자 이름 텍스트 블록
-    UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
-    TObjectPtr<UTextBlock> SpeakerNameText;
-
-    // 대사 텍스트 블록 (Rich Text 지원)
+    // 대사 텍스트 블록 (Rich Text 지원, "[화자이름] 대사" 형태로 표시)
     UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
     TObjectPtr<URichTextBlock> DialogueTextBlock;
+
+    // 선택지 표시 시 상단에 노출할 이전 노드 대사 텍스트 블록
+    UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
+    TObjectPtr<URichTextBlock> ChoicePromptTextBlock;
 
     // 선택지 컨테이너
     UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))

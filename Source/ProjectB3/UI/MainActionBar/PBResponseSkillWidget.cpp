@@ -45,14 +45,14 @@ void UPBResponseSkillWidget::RefreshResponseSkills()
 
 	if (!SkillBarViewModel)
 	{
-		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("[ResponseSkillArea] SkillBarViewModel is NULL!"));
+		//if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("[ResponseSkillArea] SkillBarViewModel is NULL!"));
 		SetVisibility(ESlateVisibility::Collapsed);
 		return;
 	}
 
 	if (SkillBarViewModel->ResponseActions.Num() == 0)
 	{
-		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow, TEXT("[ResponseSkillArea] 0 ResponseActions in ViewModel. Hiding."));
+		//if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Yellow, TEXT("[ResponseSkillArea] 0 ResponseActions in ViewModel. Hiding."));
 		SetVisibility(ESlateVisibility::Collapsed);
 		return;
 	}
@@ -62,7 +62,7 @@ void UPBResponseSkillWidget::RefreshResponseSkills()
 
 	if (!SkillSlotWidgetClass)
 	{
-		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, TEXT("[ERROR] ResponseSkillArea: SkillSlotWidgetClass is NULL! Please attach it in Blueprint Details panel."));
+		//if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Red, TEXT("[ERROR] ResponseSkillArea: SkillSlotWidgetClass is NULL! Please attach it in Blueprint Details panel."));
 		UE_LOG(LogTemp, Error, TEXT("[PBResponseSkillWidget] SkillSlotWidgetClass is NULL. Cannot create dynamic slots."));
 		return;
 	}

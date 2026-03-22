@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "DialogueFeatures/DNodeFeature_Text.h"
+#include "ProjectB3/Dialogue/PBDialogueTypes.h"
 #include "PBDNodeFeature_Text.generated.h"
 
 /**
@@ -19,13 +20,14 @@ public:
     /*~ UDNodeFeature Interface ~*/
     /** ViewModel->ShowText()를 호출하여 대사 텍스트 표시를 구동 */
     virtual void OnStartDialogueNode_Implementation(const UDialogueNode* InDialogueNode, const FDialogueSystemContext& InDialogueContext) override;
-
+    FPBDialogueParticipantDisplayInfo BuildSpeakerInfo(const UDialogueNode* InDialogueNode, const FDialogueSystemContext& InDialogueContext);
+    
+protected:
+    /*~ UDNodeFeature_Text Interface ~*/
+    virtual FText GetDialogueText_Implementation() const override { return DialogueText; }
+    
 public:
     // 표시할 대사 텍스트
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dialogue")
     FText DialogueText;
-
-protected:
-    /*~ UDNodeFeature_Text Interface ~*/
-    virtual FText GetDialogueText_Implementation() const override { return DialogueText; }
 };

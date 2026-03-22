@@ -22,7 +22,7 @@ public:
     /*~ UDNodeFeature Interface ~*/
     /** 대상 참여자를 찾아 AnimMontage를 재생 */
     virtual void OnStartDialogueNode_Implementation(const UDialogueNode* InDialogueNode, const FDialogueSystemContext& InDialogueContext) override;
-
+    virtual void OnEndDialogueNode_Implementation(const UDialogueNode* InDialogueNode, const FDialogueSystemContext& InDialogueContext) override;
 public:
     // 애니메이션을 재생할 참여자 태그
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation")

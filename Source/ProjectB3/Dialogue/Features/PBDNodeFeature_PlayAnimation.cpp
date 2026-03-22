@@ -34,3 +34,37 @@ void UPBDNodeFeature_PlayAnimation::OnStartDialogueNode_Implementation(const UDi
 
     AnimInstance->Montage_Play(AnimMontage);
 }
+
+void UPBDNodeFeature_PlayAnimation::OnEndDialogueNode_Implementation(const UDialogueNode* InDialogueNode,
+    const FDialogueSystemContext& InDialogueContext)
+{
+    Super::OnEndDialogueNode_Implementation(InDialogueNode, InDialogueContext);
+    
+    if (!IsValid(AnimMontage))
+    {
+        return;
+    }
+
+    AActor* TargetActor = FindParticipantActor(InDialogueContext, TargetParticipantTag);
+    if (!IsValid(TargetActor))
+    {
+        return;
+    }
+
+    USkeletalMeshComponent* Mesh = TargetActor->FindComponentByClass<USkeletalMeshComponent>();
+    if (!IsValid(Mesh))
+    {
+        return;
+    }
+
+    UAnimInstance* AnimInstance = Mesh->GetAnimInstance();
+    if (!IsValid(AnimInstance))
+    {
+        return;
+    }
+    
+    if (AnimInstance->Montage_IsPlaying(AnimMontage))
+    {
+        AnimInstance->StopAllMontages(0.1f);
+    }
+}

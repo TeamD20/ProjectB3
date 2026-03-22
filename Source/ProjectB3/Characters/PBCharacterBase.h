@@ -6,11 +6,13 @@
 
 #include "GameFramework/Character.h"
 #include "AbilitySystemInterface.h"
+#include "PBCharacterTypes.h"
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
 #include "ProjectB3/Interaction/PBInteractionInterface.h"
 #include "ProjectB3/ItemSystem/PBItemTypes.h"
 #include "PBCharacterBase.generated.h"
 
+class UNiagaraComponent;
 class UPBAbilitySetData;
 class UNavModifierComponent;
 class UPathFollowingComponent;
@@ -96,10 +98,10 @@ public:
 
 	/*~ APBCharacterBase Interface ~*/
 	// 전투 식별 정보 설정
-	void SetCombatIdentity(const FPBCombatIdentity& InIdentity);
+	void SetCombatIdentity(const FPBCharacterIdentity& InIdentity);
 
 	// 전투 식별 정보 반환
-	const FPBCombatIdentity& GetCombatIdentity() const { return CombatIdentity; }
+	const FPBCharacterIdentity& GetCharacterIdentity() const { return CharacterIdentity; }
 
 	// AbilitySystemComponent 반환 (타입 지정)
 	UPBAbilitySystemComponent* GetPBAbilitySystemComponent() const { return AbilitySystemComponent; }
@@ -123,7 +125,7 @@ public:
 	
 	// VisualMesh 설정
 	void SetupVisualMesh();
-
+	
 	// 인벤토리 컴포넌트 반환
 	UPBInventoryComponent* GetInventoryComponent() const { return InventoryComponent; }
 
@@ -174,6 +176,10 @@ public:
 	FOnCharacterEquipmentChanged OnCharacterEquipmentChanged;
 	
 protected:
+	// 캐릭터 식별 정보 (진영, 표시 이름, 초상화)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
+	FPBCharacterIdentity CharacterIdentity;
+	
 	// 캐릭터별 특화 어빌리티
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Equipment")
 	TObjectPtr<UPBAbilitySetData> InnateAbilitySet;
@@ -198,6 +204,7 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Equipment")
 	TMap<FGameplayTag, APBEquipmentActor*> AttachedEquipments;
 	
+	// ======= Components ========
 	// AbilitySystemComponent
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AbilitySystem")
 	TObjectPtr<UPBAbilitySystemComponent> AbilitySystemComponent;
@@ -225,21 +232,17 @@ protected:
 	// 상호작용 컴포넌트
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Interaction")
 	TObjectPtr<UPBInteractableComponent> InteractableComponent;
-	//
-	// // NavModifier (캐릭터 영역을 경로에서 제외)
-	// UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Navigation")
-	// TObjectPtr<UNavModifierComponent> NavModifierComponent;
-
+	
+	// 진영 표시 VFX
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Interaction")
+	TObjectPtr<UNiagaraComponent> FactionIndicator;
+	
 	// 장비 부착 대상 메시 (자식 중 VisualMesh가 있으면 해당 메시, 없으면 GetMesh)
 	UPROPERTY()
 	TObjectPtr<USkeletalMeshComponent> CachedVisualMesh;
 
-	// 전투 식별 정보 (진영, 표시 이름, 초상화)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
-	FPBCombatIdentity CombatIdentity;
-	
+private:
 	// 전투 중 여부
-	UPROPERTY(BlueprintReadOnly, Category = "Combat")
 	bool bIsInCombat = false;
 
 	// 현재 바인딩된 PathFollowing 컴포넌트

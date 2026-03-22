@@ -7,6 +7,8 @@
 #include "DialogueSystemTypes.h"
 #include "DialogueFeatures/DNodeFeature_Branch.h"
 #include "GameFramework/PlayerController.h"
+#include "ProjectB3/Camera/PBDialogueCameraActor.h"
+#include "ProjectB3/Characters/PBCharacterBase.h"
 #include "ProjectB3/UI/Dialogue/PBDialogueViewModel.h"
 #include "ProjectB3/UI/Dialogue/PBDialogueWidget.h"
 #include "ProjectB3/UI/PBUIBlueprintLibrary.h"
@@ -73,15 +75,6 @@ void UPBDialogueManagerComponent::OnDialogueStart(UDialogueNode* CurrentNode)
 void UPBDialogueManagerComponent::OnDialogueChanged(UDialogueNode* CurrentNode)
 {
     Super::OnDialogueChanged(CurrentNode);
-    
-    if (!IsValid(DialogueViewModel) || !IsValid(CurrentNode))
-    {
-        return;
-    }
-
-    // 화자 정보를 구성하여 ViewModel에 전달
-    FPBDialogueParticipantDisplayInfo SpeakerInfo = BuildSpeakerInfo(CurrentNode);
-    DialogueViewModel->SetSpeakerInfo(SpeakerInfo);
 }
 
 void UPBDialogueManagerComponent::OnDialogueEnd(UDialogueNode* CurrentNode)
@@ -113,38 +106,60 @@ void UPBDialogueManagerComponent::OnDialogueEnd(UDialogueNode* CurrentNode)
 
         DialogueViewModel = nullptr;
     }
-    
+
+    // 대화 카메라 전부 파괴 후 Pawn 카메라로 원복
+    DestroyAllDialogueCameras();
+    PC->SetViewTargetWithBlend(PC->GetPawn(), 0.5f);
+
     if (UPBViewModelSubsystem* ViewModelSubsystem = UPBUIBlueprintLibrary::GetViewModelSubsystem(PC))
     {
         ViewModelSubsystem->SetVisibilityByTag(PBUITags::UI_ViewModel_SkillBar, true);
     }
-    
+
     Super::OnDialogueEnd(CurrentNode);
 }
 
-FPBDialogueParticipantDisplayInfo UPBDialogueManagerComponent::BuildSpeakerInfo(UDialogueNode* Node) const
+APBDialogueCameraActor* UPBDialogueManagerComponent::GetOrCreateCamera(const FGameplayTag& InParticipantTag)
 {
-    FPBDialogueParticipantDisplayInfo Info;
-    if (!IsValid(Node))
+    // 이미 생성된 카메라가 있으면 반환
+    if (TObjectPtr<APBDialogueCameraActor>* Found = ParticipantCameraMap.Find(InParticipantTag))
     {
-        return Info;
-    }
-
-    Info.ParticipantTag = Node->ParticipantTag;
-
-    // DialogueData의 Participants에서 색상 정보 조회
-    if (IsValid(GetCurrentDialogueData()))
-    {
-        FDialogueParticipantInfo ParticipantInfo;
-        if (GetCurrentDialogueData()->DialogueParticipants.TryGetParticipantInfo(Node->ParticipantTag, ParticipantInfo))
+        if (IsValid(*Found))
         {
-            Info.ParticipantName = FText::FromName(ParticipantInfo.ParticipantID);
-            Info.ParticipantColor = FLinearColor(ParticipantInfo.ParticipantColor);
+            return *Found;
         }
     }
 
-    return Info;
+    UWorld* World = GetWorld();
+    if (!IsValid(World))
+    {
+        return nullptr;
+    }
+
+    // 카메라 스폰 후 Map에 등록
+    APBDialogueCameraActor* NewCamera = World->SpawnActor<APBDialogueCameraActor>();
+    if (IsValid(NewCamera))
+    {
+        ParticipantCameraMap.Add(InParticipantTag, NewCamera);
+    }
+
+    return NewCamera;
 }
+
+void UPBDialogueManagerComponent::DestroyAllDialogueCameras()
+{
+    for (auto& Pair : ParticipantCameraMap)
+    {
+        if (IsValid(Pair.Value))
+        {
+            Pair.Value->Destroy();
+        }
+    }
+
+    ParticipantCameraMap.Empty();
+}
+
+
 
 void UPBDialogueManagerComponent::RequestDiceRoll()
 {

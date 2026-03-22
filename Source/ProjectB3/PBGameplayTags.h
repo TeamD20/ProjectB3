@@ -8,10 +8,16 @@
 namespace PBGameplayTags
 {
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(System_Test);
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Player); // 플레이어 관련 태그
 	// 캐릭터
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Fighter); // 임시
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Ranger);  // 임시
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Class_Magician);  // 임시
+	
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Identity_Varain); // 주인공 전사
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Identity_Faelis); // 주인공 궁수
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_Identity_Zadikal); // 주인공 법사
 	
 	// 상태 태그
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Dead);
