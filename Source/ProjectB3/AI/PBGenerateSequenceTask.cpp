@@ -695,7 +695,11 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 				A.ActionType == EPBActionType::Attack  ? TEXT("Atk") :
 				A.ActionType == EPBActionType::Move    ? TEXT("Mov") :
 				A.ActionType == EPBActionType::Heal    ? TEXT("Heal") :
-				TEXT("Other");
+				A.ActionType == EPBActionType::Buff    ? TEXT("Buff") :
+				A.ActionType == EPBActionType::Debuff  ? TEXT("Debf") :
+				A.ActionType == EPBActionType::Control ? TEXT("Ctrl") :
+				A.ActionType == EPBActionType::None    ? TEXT("None") :
+				TEXT("?");
 			const FString TgtName = IsValid(A.TargetActor)
 				? A.TargetActor->GetName() : TEXT("Pos");
 			SeqSummary += FString::Printf(TEXT("[%d]%s→%s "), i, T, *TgtName);
@@ -704,6 +708,65 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 			TEXT("[Generate] Score=%.2f %s%s"),
 			GeneratedSequence.TotalUtilityScore, *SeqSummary,
 			bWaitingForEQS ? TEXT("[EQS pending]") : TEXT("[Ready]"));
+
+		// Visual Logger: 시퀀스 경로 시각화 (AI → 행동1 → 행동2 → ...)
+		FVector PrevPos = SelfActor->GetActorLocation();
+		for (int32 i = 0; i < GeneratedSequence.Actions.Num(); ++i)
+		{
+			const FPBSequenceAction& A = GeneratedSequence.Actions[i];
+
+			// 행동별 목표 위치 결정
+			FVector ActionPos = FVector::ZeroVector;
+			if (A.ActionType == EPBActionType::Move && !A.TargetLocation.IsZero())
+			{
+				ActionPos = A.TargetLocation;
+			}
+			else if (IsValid(A.TargetActor))
+			{
+				ActionPos = A.TargetActor->GetActorLocation();
+			}
+
+			if (ActionPos.IsZero()) continue;
+
+			// 행동 타입별 색상
+			const FColor SegColor =
+				A.ActionType == EPBActionType::Move    ? FColor::White :
+				A.ActionType == EPBActionType::Attack  ? FColor::Red :
+				A.ActionType == EPBActionType::Heal    ? FColor::Green :
+				A.ActionType == EPBActionType::Buff    ? FColor::Cyan :
+				A.ActionType == EPBActionType::Debuff  ? FColor::Magenta :
+				A.ActionType == EPBActionType::Control ? FColor::Yellow :
+				FColor::Silver;
+
+			const TCHAR* Label =
+				A.ActionType == EPBActionType::Move    ? TEXT("Mov") :
+				A.ActionType == EPBActionType::Attack  ? TEXT("Atk") :
+				A.ActionType == EPBActionType::Heal    ? TEXT("Heal") :
+				A.ActionType == EPBActionType::Buff    ? TEXT("Buff") :
+				A.ActionType == EPBActionType::Debuff  ? TEXT("Debf") :
+				A.ActionType == EPBActionType::Control ? TEXT("Ctrl") :
+				TEXT("?");
+			UE_VLOG_SEGMENT(SelfActor, LogPBStateTree, Log,
+				PrevPos, ActionPos, SegColor,
+				TEXT("[%d] %s"), i, Label);
+
+			// 행동 위치에 마커
+			UE_VLOG_LOCATION(SelfActor, LogPBStateTree, Log,
+				ActionPos, 20.0f, SegColor,
+				TEXT("[%d]"), i);
+
+			// Move 행동은 다음 행동의 시작점을 갱신
+			if (A.ActionType == EPBActionType::Move)
+			{
+				PrevPos = ActionPos;
+			}
+		}
+	}
+
+	// 디버거용 시퀀스 캐싱 (EQS 미사용 시 이것이 최종본)
+	if (CachedClearinghouse)
+	{
+		CachedClearinghouse->SetLastGeneratedSequence(GeneratedSequence);
 	}
 
 	// StateTree 하위 State(Execute)가 유지되도록 Running 반환
@@ -731,6 +794,12 @@ EStateTreeRunStatus UPBGenerateSequenceTask::Tick(
 			bWaitingForEQS = false;
 			PendingEQSQueryCount = 0;
 			GeneratedSequence.bIsReady = true;
+
+			// 디버거용 시퀀스 캐싱 갱신 (EQS 타임아웃 후 최종본)
+			if (CachedClearinghouse)
+			{
+				CachedClearinghouse->SetLastGeneratedSequence(GeneratedSequence);
+			}
 		}
 	}
 
@@ -1210,6 +1279,12 @@ void UPBGenerateSequenceTask::CheckAllEQSComplete()
 		}
 
 		GeneratedSequence.bIsReady = true;
+
+		// 디버거용 시퀀스 캐싱 갱신 (EQS 완료 후 최종본)
+		if (CachedClearinghouse)
+		{
+			CachedClearinghouse->SetLastGeneratedSequence(GeneratedSequence);
+		}
 
 		UE_LOG(LogPBStateTree, Display,
 			TEXT("[EQS] 모든 EQS 쿼리 완료. 시퀀스 준비 완료."));

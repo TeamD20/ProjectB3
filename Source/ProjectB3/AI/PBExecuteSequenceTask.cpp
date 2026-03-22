@@ -12,6 +12,7 @@
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
 #include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
+#include "ProjectB3/AI/PBUtilityClearinghouse.h"
 #include "ProjectB3/Environment/PBEnvironmentSubsystem.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "StateTreeExecutionContext.h"
@@ -72,6 +73,7 @@ EStateTreeRunStatus UPBExecuteSequenceTask::EnterState(
   // 행동 실행을 보류하고 Tick에서 bIsReady를 폴링한다.
   if (!SequenceToExecute.bIsReady) {
     bWaitingForSequenceReady = true;
+    UpdateExecutionDebugState();
     UE_LOG(LogPBStateTreeExec, Display,
            TEXT("ExecuteSequenceTask: EQS 좌표 최적화 대기 중. "
                 "Tick에서 준비 완료 후 실행을 시작합니다."));
@@ -174,6 +176,7 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
   }
 
   bIsActionInProgress = true;
+  UpdateExecutionDebugState();
   FString TargetName = IsValid(CurrentAction.TargetActor)
                            ? CurrentAction.TargetActor->GetName()
                            : TEXT("None");
@@ -693,6 +696,7 @@ void UPBExecuteSequenceTask::AdvanceToNextAction() {
     // 다음 행동 확인
     if (!ExecutionSequence.HasNextAction()) {
       bIsActionInProgress = false;
+      UpdateExecutionDebugState();
       UE_LOG(LogPBStateTreeExec, Display,
              TEXT("[시퀀스] 모든 행동 실행 완료. 총 %d개 행동 처리."),
              ExecutionSequence.CurrentActionIndex);
@@ -758,4 +762,38 @@ void UPBExecuteSequenceTask::InvalidateActionsForDeadTarget(
            TEXT("[ValidateRemaining] 타겟 [%s] 사망 → 잔여 %d개 행동 무효화 (자원 보존)"),
            *DeadTarget->GetName(), InvalidatedCount);
   }
+}
+
+void UPBExecuteSequenceTask::UpdateExecutionDebugState() const {
+  if (!IsValid(SelfActor)) return;
+
+  UWorld* World = SelfActor->GetWorld();
+  if (!World) return;
+
+  UPBUtilityClearinghouse* CH = World->GetSubsystem<UPBUtilityClearinghouse>();
+  if (!CH) return;
+
+  UPBUtilityClearinghouse::FExecutionDebugState State;
+  State.bWaitingForSequenceReady = bWaitingForSequenceReady;
+  State.bExecuting = bIsActionInProgress;
+  State.CurrentActionIndex = FMath::Max(0, ExecutionSequence.CurrentActionIndex - 1);
+  State.TotalActions = ExecutionSequence.Actions.Num();
+
+  // 현재 행동 설명 조립
+  if (bIsActionInProgress) {
+    const TCHAR* TypeStr =
+        CurrentAction.ActionType == EPBActionType::Move    ? TEXT("Move") :
+        CurrentAction.ActionType == EPBActionType::Attack  ? TEXT("Attack") :
+        CurrentAction.ActionType == EPBActionType::Heal    ? TEXT("Heal") :
+        CurrentAction.ActionType == EPBActionType::Buff    ? TEXT("Buff") :
+        CurrentAction.ActionType == EPBActionType::Debuff  ? TEXT("Debuff") :
+        CurrentAction.ActionType == EPBActionType::Control ? TEXT("Control") :
+        CurrentAction.ActionType == EPBActionType::None    ? TEXT("None") :
+        TEXT("?");
+    const FString TargetName = IsValid(CurrentAction.TargetActor)
+        ? CurrentAction.TargetActor->GetName() : TEXT("-");
+    State.CurrentActionDesc = FString::Printf(TEXT("%s → %s"), TypeStr, *TargetName);
+  }
+
+  CH->SetExecutionDebugState(State);
 }

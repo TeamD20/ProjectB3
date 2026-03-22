@@ -92,4 +92,7 @@ protected:
   // 사망한 타겟을 참조하는 잔여 행동을 일괄 무효화한다.
   // ActionType=None + Cost=0으로 교체하여 자원을 보존한다.
   void InvalidateActionsForDeadTarget(const AActor* DeadTarget);
+
+  // 디버거용: 현재 실행 상태를 Clearinghouse에 캐싱
+  void UpdateExecutionDebugState() const;
 };
