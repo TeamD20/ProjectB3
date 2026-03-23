@@ -42,20 +42,24 @@ protected:
 	virtual void OnAnimationFinished_Implementation(const UWidgetAnimation* Animation) override;
 
 protected:
+	// 아이콘 이미지 위젯 (BP에서 설정, 타입별로 선택적 사용 가능)
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional))
+	TObjectPtr<class UImage> IconImage;
+
 	// 수치 표시 텍스트블록 ("-12", "+8" 등)
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
 	TObjectPtr<UTextBlock> MagnitudeText;
 
 	// 라벨 텍스트블록 ("Miss", "Save Success" 등)
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(BlueprintReadOnly, meta = (BindWidget))
 	TObjectPtr<UTextBlock> LabelText;
 
 	// 일반 팝업 + 페이드아웃 애니메이션 (BP에서 설정)
-	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UPROPERTY(BlueprintReadOnly, Transient, meta = (BindWidgetAnimOptional))
 	TObjectPtr<UWidgetAnimation> DefaultAnim;
 
 	// 크리티컬 강조 애니메이션 (BP에서 설정)
-	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UPROPERTY(BlueprintReadOnly, Transient, meta = (BindWidgetAnimOptional))
 	TObjectPtr<UWidgetAnimation> CriticalAnim;
 
 private:

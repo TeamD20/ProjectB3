@@ -52,6 +52,8 @@ namespace PBGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Result_Miss);         // 명중 실패
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Result_Save_Success); // 내성 성공 (데미지 반감)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Result_Save_Failed);  // 내성 실패 (데미지 전량)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Combat_Damage);   // 데미지 GameplayCue
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Combat_Heal);     // 힐 GameplayCue
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Faction_Player);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Faction_Enemy);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Faction_Neutral);

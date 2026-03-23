@@ -4,6 +4,7 @@
 
 #include "Animation/WidgetAnimation.h"
 #include "Components/TextBlock.h"
+#include "Components/Image.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/AbilitySystem/Payload/PBFloatingTextPayload.h"
 
@@ -39,6 +40,20 @@ void UPBFloatingTextWidget::SetPayload(UPBFloatingTextPayload* Payload)
 	else
 	{
 		LabelText->SetVisibility(ESlateVisibility::Collapsed);
+	}
+
+	// 아이콘 처리
+	if (IconImage)
+	{
+		if (!Payload->Icon.IsNull())
+		{
+			IconImage->SetBrushFromSoftTexture(Payload->Icon);
+			IconImage->SetVisibility(ESlateVisibility::HitTestInvisible);
+		}
+		else
+		{
+			IconImage->SetVisibility(ESlateVisibility::Collapsed);
+		}
 	}
 }
 

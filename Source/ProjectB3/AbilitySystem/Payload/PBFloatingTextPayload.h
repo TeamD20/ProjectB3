@@ -55,4 +55,8 @@ public:
 	// 부가 의미 전달용 메타 태그 (예: Combat.Hit.Critical, 상태 태그 등)
 	UPROPERTY(BlueprintReadWrite, Category = "FloatingText")
 	FGameplayTag MetaTag;
+
+	// 플로팅 텍스트용 아이콘 (속성 데미지 아이콘, 상태이상 아이콘 등)
+	UPROPERTY(BlueprintReadWrite, Category = "FloatingText")
+	TSoftObjectPtr<UTexture2D> Icon;
 };
