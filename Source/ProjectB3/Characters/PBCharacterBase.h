@@ -78,6 +78,9 @@ public:
 	// 행동 중단 통지
 	virtual void OnActionInterrupted() override;
 
+	// 사망 여부
+	virtual bool IsDead() const override;
+	
 	// 무력화 여부
 	virtual bool IsIncapacitated() const override;
 
@@ -163,7 +166,8 @@ protected:
 	virtual void GrantDefaultItems();
 	// ASC의 OwnedTags 스택 변경 이벤트 핸들러, TagExists가 true 면 태그 추가, false면 태그 제거
 	virtual void HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, bool TagExists);
-
+	// 사망 로직 처리
+	virtual void HandleDeath();
 private:
 	// 컨트롤러의 PathFollowingComponent에 이동 완료 이벤트를 바인딩
 	void BindPathFollowingComponent(AController* InController);

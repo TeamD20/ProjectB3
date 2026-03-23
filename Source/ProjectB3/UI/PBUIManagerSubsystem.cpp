@@ -3,6 +3,34 @@
 #include "PBUIManagerSubsystem.h"
 #include "GameFramework/PlayerController.h"
 
+void UPBUIManagerSubsystem::Deinitialize()
+{
+	ResetSystem();
+	Super::Deinitialize();
+}
+
+void UPBUIManagerSubsystem::ResetSystem()
+{
+	for (int32 Index = UIStack.Num() - 1; Index >= 0; --Index)
+	{
+		UPBWidgetBase* Widget = UIStack[Index];
+		if (!IsValid(Widget))
+		{
+			continue;
+		}
+		
+		Widget->RemoveFromParent();
+	}
+	UIStack.Reset();
+	
+	if (APlayerController* PC = GetLocalPlayer() ? GetLocalPlayer()->GetPlayerController(GetWorld()) : nullptr)
+	{
+		FInputModeGameAndUI InputMode;
+		InputMode.SetHideCursorDuringCapture(false);
+		PC->SetInputMode(InputMode);
+	}
+}
+
 UPBWidgetBase* UPBUIManagerSubsystem::PushUI(TSubclassOf<UPBWidgetBase> WidgetClass)
 {
 	if (!WidgetClass)

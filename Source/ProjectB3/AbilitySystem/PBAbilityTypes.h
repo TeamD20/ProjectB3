@@ -263,6 +263,31 @@ struct PROJECTB3_API FPBDamageRollResult
 
 class UPBGameplayAbility_Targeted;
 
+/** 투사체 경로 프리뷰 컨텍스트. FPBTargetingRequest에 내장. */
+USTRUCT(BlueprintType)
+struct PROJECTB3_API FPBProjectilePathContext
+{
+	GENERATED_BODY()
+
+	// 투사체 경로 프리뷰 표시 여부
+	UPROPERTY(BlueprintReadWrite, Category = "Targeting|Projectile")
+	bool bShowPath = false;
+
+	// 투사체 발사 지점 (무기 소켓 위치)
+	UPROPERTY(BlueprintReadWrite, Category = "Targeting|Projectile")
+	FVector LaunchLocation = FVector::ZeroVector;
+
+	// Bezier 호 높이 파라미터 (APBProjectile CDO에서 복사)
+	UPROPERTY(BlueprintReadWrite, Category = "Targeting|Projectile")
+	float ArcHeightRatio = 0.3f;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Targeting|Projectile")
+	float MinArcHeight = 50.f;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Targeting|Projectile")
+	float MaxArcHeight = 500.f;
+};
+
 /** UPBTargetingComponent에 타겟팅 세션을 요청할 때 전달하는 구조체. */
 USTRUCT(BlueprintType)
 struct PROJECTB3_API FPBTargetingRequest
@@ -298,5 +323,9 @@ struct PROJECTB3_API FPBTargetingRequest
 	
 	UPROPERTY(BlueprintReadWrite, Category = "Ability|Targeting")
 	bool bCanTargetSelf = false;
+
+	// 투사체 경로 프리뷰 컨텍스트 (투사체 어빌리티에서만 설정)
+	UPROPERTY(BlueprintReadWrite, Category = "Ability|Targeting")
+	FPBProjectilePathContext ProjectileContext;
 };
 

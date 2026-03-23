@@ -7,7 +7,7 @@
 #include "ProjectB3/ItemSystem/PBEquipmentActor.h"
 #include "ProjectB3/PBGameplayTags.h"
 
-void UPBGameplayAbility_RangedAttack::FireArrow(const FGameplayEffectSpecHandle& DamageSpecHandle, const FVector& TargetLocation, AActor* TargetActor)
+void UPBGameplayAbility_RangedAttack::FireProjectile(const FGameplayEffectSpecHandle& DamageSpecHandle, const FVector& TargetLocation, AActor* TargetActor)
 {
 	// 시전자 캐릭터 획득
 	APBCharacterBase* Character = GetPBCharacter();
@@ -29,42 +29,69 @@ void UPBGameplayAbility_RangedAttack::FireArrow(const FGameplayEffectSpecHandle&
 		return;
 	}
 
-	// 화살 콜백에서 EndAbility 호출 시 사용할 핸들·정보 캐싱
+	// 투사체 콜백에서 EndAbility 호출 시 사용할 핸들·정보 캐싱
 	CachedHandle = GetCurrentAbilitySpecHandle();
 	CachedActorInfo = *GetCurrentActorInfo();
 	CachedActivationInfo = GetCurrentActivationInfo();
 
-	// 발사 기점 Transform 결정 (무기 소켓 → 폴백: 캐릭터 위치)
-	APBEquipmentActor* WeaponActor = GetEquippedWeaponActor();
-	const FTransform LaunchTransform = IsValid(WeaponActor)
-		? WeaponActor->GetProjectileLaunchTransform()
-		: Character->GetActorTransform();
+	// 발사 기점 Transform 결정
+	const FTransform LaunchTransform = GetProjectileLaunchTransform();
 
-	// 발사 방향 계산 (발사 기점 → TargetLocation)
-	const FVector LaunchDirection = (TargetLocation - LaunchTransform.GetLocation()).GetSafeNormal();
-
-	// 최대 거리
-	const float MaxRange = FVector::Dist2D(TargetLocation,LaunchTransform.GetLocation()) + 30.f;
-	
-	// 화살 투사체 스폰
+	// 투사체 스폰
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	SpawnParams.Instigator = Character;
 
-	APBArrowProjectile* Arrow = GetWorld()->SpawnActor<APBArrowProjectile>(
+	APBArrowProjectile* Projectile = GetWorld()->SpawnActor<APBArrowProjectile>(
 		ProjectileClass, LaunchTransform, SpawnParams);
 
-	if (!IsValid(Arrow))
+	if (!IsValid(Projectile))
 	{
 		EndAbility(CachedHandle, &CachedActorInfo, CachedActivationInfo, true, true);
 		return;
 	}
 
-	// 화살 초기화 및 발사
-	Arrow->SetupArrow(DamageSpecHandle, GetAbilitySystemComponentFromActorInfo(), TargetActor, MaxRange);
-	Arrow->OnArrowResolved.BindUObject(this, &UPBGameplayAbility_RangedAttack::OnArrowResolved);
-	Arrow->Launch(LaunchDirection);
-	// EndMode == Manual — 화살 OnArrowResolved 콜백에서 EndAbility 호출
+	// 초기화 및 발사
+	Projectile->SetupArrow(DamageSpecHandle, GetAbilitySystemComponentFromActorInfo(), TargetActor);
+	Projectile->OnArrowResolved.BindUObject(this, &UPBGameplayAbility_RangedAttack::OnArrowResolved);
+	Projectile->Launch(TargetLocation);
+	// EndMode == Manual — 투사체 OnArrowResolved 콜백에서 EndAbility 호출
+}
+
+FPBTargetingRequest UPBGameplayAbility_RangedAttack::MakeTargetingRequest() const
+{
+	FPBTargetingRequest Request = Super::MakeTargetingRequest();
+
+	// 투사체 경로 프리뷰 컨텍스트 세팅
+	if (ProjectileClass)
+	{
+		const APBArrowProjectile* CDO = ProjectileClass.GetDefaultObject();
+
+		Request.ProjectileContext.bShowPath = true;
+		Request.ProjectileContext.LaunchLocation = GetProjectileLaunchTransform().GetLocation();
+		Request.ProjectileContext.ArcHeightRatio = CDO->GetArcHeightRatio();
+		Request.ProjectileContext.MinArcHeight = CDO->GetMinArcHeight();
+		Request.ProjectileContext.MaxArcHeight = CDO->GetMaxArcHeight();
+	}
+
+	return Request;
+}
+
+FVector UPBGameplayAbility_RangedAttack::GetProjectileLaunchLocation() const
+{
+	return GetProjectileLaunchTransform().GetLocation();
+}
+
+FTransform UPBGameplayAbility_RangedAttack::GetProjectileLaunchTransform() const
+{
+	APBEquipmentActor* WeaponActor = GetEquippedWeaponActor();
+	if (IsValid(WeaponActor))
+	{
+		return WeaponActor->GetProjectileLaunchTransform();
+	}
+
+	APBCharacterBase* Character = GetPBCharacter();
+	return IsValid(Character) ? Character->GetActorTransform() : FTransform();
 }
 
 APBEquipmentActor* UPBGameplayAbility_RangedAttack::GetEquippedWeaponActor() const

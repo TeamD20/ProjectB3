@@ -54,8 +54,12 @@ public:
 	// 지면 타겟 허용 여부 조회
 	bool IsGroundTargetAllowed() const { return bAllowGroundTarget; }
 
-	// 현재 어빌리티 프로퍼티로 타겟팅 요청 구조체 생성
-	FPBTargetingRequest MakeTargetingRequest() const;
+	// 현재 어빌리티 프로퍼티로 타겟팅 요청 구조체 생성. 서브클래스에서 오버라이드하여 추가 컨텍스트 세팅 가능.
+	virtual FPBTargetingRequest MakeTargetingRequest() const;
+
+	// 투사체 발사 지점의 현재 월드 위치 반환. 타겟팅 중 매 프레임 호출되어 경로 프리뷰 시작점 갱신.
+	// 기본 반환값: ZeroVector (투사체 미사용 어빌리티). 서브클래스에서 오버라이드.
+	virtual FVector GetProjectileLaunchLocation() const { return FVector::ZeroVector; }
 
 protected:
 	/*~ UGameplayAbility Interface ~*/

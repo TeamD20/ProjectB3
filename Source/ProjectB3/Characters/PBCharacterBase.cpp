@@ -382,11 +382,16 @@ void APBCharacterBase::HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, 
 	}
 	if (ChangedTag == PBGameplayTags::Character_State_Dead && TagExists)
 	{
-		// 캐릭터 사망 영역은 NavMesh 활성화
-		SetCanAffectNavigationGeneration(false, true);
-		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		FactionIndicator->Deactivate();
+		HandleDeath();
 	}
+}
+
+void APBCharacterBase::HandleDeath()
+{
+	// 캐릭터 사망 영역은 NavMesh 활성화
+	SetCanAffectNavigationGeneration(false, true);
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	FactionIndicator->Deactivate();
 }
 
 void APBCharacterBase::InitTags()
@@ -503,6 +508,15 @@ void APBCharacterBase::OnReactionOpportunity(const FPBReactionContext& Context)
 void APBCharacterBase::OnActionInterrupted()
 {
 	// 기본 구현: 아무 것도 하지 않음 (하위 클래스에서 override)
+}
+
+bool APBCharacterBase::IsDead() const
+{
+	if (AbilitySystemComponent)
+	{
+		return AbilitySystemComponent->HasMatchingGameplayTag(PBGameplayTags::Character_State_Dead);
+	}
+	return false;
 }
 
 bool APBCharacterBase::IsIncapacitated() const

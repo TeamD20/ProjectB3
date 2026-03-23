@@ -112,3 +112,38 @@ void APBGameplayGameMode::InitiateCombat(const TArray<AActor*>& Combatants)
 		GS->NotifyCombatStarted();
 	}
 }
+
+bool APBGameplayGameMode::CheckGameOver() const
+{
+	if (!GetWorld())
+	{
+		return false;
+	}
+	
+	APlayerController* PC = GetWorld()->GetFirstPlayerController();
+	if (!IsValid(PC))
+	{
+		return false;
+	}
+	
+	APBGameplayPlayerState* PS = PC->GetPlayerState<APBGameplayPlayerState>();
+	if (!IsValid(PS))
+	{
+		return false;
+	}
+	
+	for (AActor* PartyMember : PS->GetPartyMembers())
+	{
+		if (IPBCombatParticipant* CPI = Cast<IPBCombatParticipant>(PartyMember))
+		{
+			// 한 명이라도 살아있으면 GameOver 실패
+			if (!CPI->IsDead())
+			{
+				return false;
+			}
+		}
+	}
+	
+	// 파티 전멸 -> GameOver
+	return true;
+}

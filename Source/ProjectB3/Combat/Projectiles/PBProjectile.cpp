@@ -1,9 +1,9 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBProjectile.h"
+#include "PBProjectileUtils.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
-#include "GameFramework/ProjectileMovementComponent.h"
 
 APBProjectile::APBProjectile()
 {
@@ -11,64 +11,72 @@ APBProjectile::APBProjectile()
 
 	CollisionComponent = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionComponent"));
 	CollisionComponent->InitSphereRadius(15.f);
-	CollisionComponent->SetCollisionProfileName(TEXT("Projectile"));
+	CollisionComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	SetRootComponent(CollisionComponent);
 
 	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
 	MeshComponent->SetupAttachment(CollisionComponent);
 	MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-
-	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
-	ProjectileMovement->SetUpdatedComponent(CollisionComponent);
-	// Launch() 호출 전까지 이동하지 않도록 비활성 상태로 생성
-	ProjectileMovement->bAutoActivate = false;
-	ProjectileMovement->bRotationFollowsVelocity = true;
-	ProjectileMovement->bShouldBounce = false;
-
-	CollisionComponent->OnComponentBeginOverlap.AddDynamic(this, &ThisClass::HandleOverlap);
 }
 
-void APBProjectile::Launch(const FVector& Direction)
+void APBProjectile::Launch(const FVector& TargetLocation)
 {
-	// 사거리 계산 기준점 기록
-	LaunchOrigin2D = FVector2D(GetActorLocation().X, GetActorLocation().Y);
-	bLaunched = true;
+	BezierP0 = GetActorLocation();
+	BezierP2 = TargetLocation;
+	BezierP1 = PBProjectileUtils::CalcMidControlPoint(
+		BezierP0, BezierP2, ArcHeightRatio, MinArcHeight, MaxArcHeight);
 
-	ProjectileMovement->MaxSpeed = MaxSpeed;
-	ProjectileMovement->Velocity = Direction.GetSafeNormal() * InitialSpeed;
-	ProjectileMovement->Activate();
+	// 비행 시간 결정: 수동 설정값 우선, 미설정 시 거리/속도 기반 자동 계산
+	if (FlightDuration > 0.f)
+	{
+		ActiveFlightDuration = FlightDuration;
+	}
+	else
+	{
+		const float Dist = FVector::Dist(BezierP0, BezierP2);
+		ActiveFlightDuration = Dist / InitialSpeed;
+	}
+
+	Alpha = 0.f;
+	bLaunched = true;
 }
 
 void APBProjectile::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	if (!bLaunched || MaxRange <= 0.f)
+	if (!bLaunched)
 	{
 		return;
 	}
 
-	// XY 평면 기준 이동 거리가 MaxRange를 초과하면 소멸 처리
-	const FVector2D CurrentXY(GetActorLocation().X, GetActorLocation().Y);
-	if ((CurrentXY - LaunchOrigin2D).Size() >= MaxRange)
+	Alpha += DeltaSeconds / ActiveFlightDuration;
+
+	if (Alpha >= 1.f)
 	{
-		OnRangeExceeded();
+		Alpha = 1.f;
+		SetActorLocation(BezierP2);
+		InternalOnArrived();
+		return;
 	}
+
+	const FVector Pos = PBProjectileUtils::BezierPoint(BezierP0, BezierP1, BezierP2, Alpha);
+	const FVector Tangent = PBProjectileUtils::BezierTangent(BezierP0, BezierP1, BezierP2, Alpha);
+
+	SetActorLocationAndRotation(Pos, Tangent.ToOrientationQuat());
 }
 
-void APBProjectile::OnRangeExceeded()
+void APBProjectile::OnArrived()
 {
 	Destroy();
 }
 
-void APBProjectile::OnProjectileOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void APBProjectile::InternalOnArrived()
 {
+	K2_OnArrived();
 }
 
-
-void APBProjectile::HandleOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void APBProjectile::K2_OnArrived_Implementation()
 {
-	OnProjectileOverlap(OverlappedComponent, OtherActor, OtherComp, OtherBodyIndex,bFromSweep,SweepResult);
+	OnArrived();
 }

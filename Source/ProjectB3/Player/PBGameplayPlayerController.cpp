@@ -127,6 +127,16 @@ void APBGameplayPlayerController::Tick(float DeltaTime)
 		if (CurrentMode == EPBPlayerControllerMode::Targeting)
 		{
 			TargetingComponent->UpdateTargetingFromHit(CursorHit);
+
+			// 타겟팅 중 폰을 커서 방향으로 회전
+			if (APawn* MyPawn = GetPawn())
+			{
+				const FVector PawnLocation = MyPawn->GetActorLocation();
+				const FVector ToTarget = CursorHit.ImpactPoint - PawnLocation;
+				const FRotator TargetRotation = FRotator(0.f, ToTarget.Rotation().Yaw, 0.f);
+				MyPawn->SetActorRotation(FMath::RInterpTo(
+					MyPawn->GetActorRotation(), TargetRotation, DeltaTime, 10.f));
+			}
 		}
 	}
 	else if (CurrentMode == EPBPlayerControllerMode::TurnMovement || CurrentMode == EPBPlayerControllerMode::FreeMovement)
@@ -405,6 +415,24 @@ void APBGameplayPlayerController::ToggleInventory()
 	}
 }
 
+void APBGameplayPlayerController::OnGameOver()
+{
+	SetControllerMode(EPBPlayerControllerMode::None);
+	
+	if (!IsValid(GameOverWidgetClass))
+	{
+		return;
+	}
+	
+	UPBUIManagerSubsystem* UIManager = ULocalPlayer::GetSubsystem<UPBUIManagerSubsystem>(GetLocalPlayer());
+	if (!IsValid(UIManager) || !IsValid(InventoryWidgetClass))
+	{
+		return;
+	}
+	
+	UIManager->PushUI(GameOverWidgetClass);
+}
+
 void APBGameplayPlayerController::OnToggleInventory(const FInputActionValue& Value)
 {
 	ToggleInventory();
@@ -467,7 +495,10 @@ void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value
 			EnvSys->EndEnvironmentCache();
 		}
 
+		// 기존 미리보기 경로 지움
 		PathDisplayComponent->ClearPath();
+			
+		// 클릭 위치에 VFX 소환
 		if (IsValid(CursorVFX))
 		{
 			UNiagaraFunctionLibrary::SpawnSystemAtLocation(this, CursorVFX, HitResult.Location, FRotator::ZeroRotator, FVector(1.f, 1.f, 1.f), true, true, ENCPoolMethod::None, true);
@@ -514,9 +545,9 @@ void APBGameplayPlayerController::OnSelectCommand(const FInputActionValue& Value
 		// 파티 추적 서브시스템에 리더 이동 시작 통보
 		if (!bWasLeaderMoving)
 		{
-			if (UPBPartyFollowSubsystem* FollowSys = GetWorld()->GetSubsystem<UPBPartyFollowSubsystem>())
+			if (APBCharacterBase* LeaderChar = Cast<APBCharacterBase>(MyPawn))
 			{
-				if (APBCharacterBase* LeaderChar = Cast<APBCharacterBase>(MyPawn))
+				if (UPBPartyFollowSubsystem* FollowSys = GetWorld()->GetSubsystem<UPBPartyFollowSubsystem>())
 				{
 					FollowSys->NotifyLeaderMoveStarted(LeaderChar);
 				}
@@ -645,47 +676,48 @@ void APBGameplayPlayerController::UpdateCameraCutout()
 			QueryParams
 		);
 
-		if (bHit)
+		if (!bHit)
 		{
-			for (const FHitResult& Hit : HitResults)
+			continue;
+		}
+		
+		for (const FHitResult& Hit : HitResults)
+		{
+			AActor* HitActor = Hit.GetActor();
+			if (!IsValid(HitActor))
 			{
-				AActor* HitActor = Hit.GetActor();
-				if (!IsValid(HitActor))
+				continue;
+			}
+
+			CurrentActorHits.Add(HitActor);
+
+			TArray<UMeshComponent*> HitMeshes;
+			UPBGameplayStatics::GetAllMeshComponents(HitActor, HitMeshes);
+
+			for (UMeshComponent* Mesh : HitMeshes)
+			{
+				if (!IsValid(Mesh))
 				{
 					continue;
 				}
 
-				CurrentActorHits.Add(HitActor);
+				FPBMeshFadeState& State = CurrentHits.FindOrAdd(Mesh);
+				State.bHitByMember[Index] = true;
 
-				TArray<UMeshComponent*> HitMeshes;
-				UPBGameplayStatics::GetAllMeshComponents(HitActor, HitMeshes);
-
-				for (UMeshComponent* Mesh : HitMeshes)
+				int32 NumMaterials = Mesh->GetNumMaterials();
+				for (int32 i = 0; i < NumMaterials; ++i)
 				{
-					if (!IsValid(Mesh))
+					UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(Mesh->GetMaterial(i));
+					if (IsValid(MID))
 					{
-						continue;
+						FName LocParamName = FName(*FString::Printf(TEXT("HitLocation%d"), Index));
+						FName FadeParamName = FName(*FString::Printf(TEXT("TraceFadeAmount%d"), Index));
+						MID->SetVectorParameterValue(LocParamName, Hit.ImpactPoint);
+						MID->SetScalarParameterValue(FadeParamName, 1.0f);
 					}
-
-					FPBMeshFadeState& State = CurrentHits.FindOrAdd(Mesh);
-					State.bHitByMember[Index] = true;
-
-					int32 NumMaterials = Mesh->GetNumMaterials();
-					for (int32 i = 0; i < NumMaterials; ++i)
+					else
 					{
-						UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(Mesh->GetMaterial(i));
-						if (!IsValid(MID))
-						{
-							MID = Mesh->CreateAndSetMaterialInstanceDynamic(i);
-						}
-
-						if (IsValid(MID))
-						{
-							FName LocParamName = FName(*FString::Printf(TEXT("HitLocation%d"), Index));
-							FName FadeParamName = FName(*FString::Printf(TEXT("TraceFadeAmount%d"), Index));
-							MID->SetVectorParameterValue(LocParamName, Hit.ImpactPoint);
-							MID->SetScalarParameterValue(FadeParamName, 1.0f);
-						}
+						MID = Mesh->CreateAndSetMaterialInstanceDynamic(i);
 					}
 				}
 			}
@@ -718,17 +750,21 @@ void APBGameplayPlayerController::UpdateCameraCutout()
 		for (int32 i = 0; i < NumMaterials; ++i)
 		{
 			UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(Mesh->GetMaterial(i));
-			if (IsValid(MID))
+			if (!IsValid(MID))
 			{
-				for (int32 idx = 0; idx < 4; ++idx)
+				continue;
+			}
+			
+			for (int32 idx = 0; idx < 4; ++idx)
+			{
+				// 이전에는 가려졌는데(true), 현재 안 가려짐(false) -> 파라미터 0 반환
+				if (!OldState.bHitByMember[idx] || bNewHit[idx])
 				{
-					// 이전에는 가려졌는데(true), 현재 안 가려짐(false) -> 파라미터 0 반환
-					if (OldState.bHitByMember[idx] && !bNewHit[idx])
-					{
-						FName FadeParamName = FName(*FString::Printf(TEXT("TraceFadeAmount%d"), idx));
-						MID->SetScalarParameterValue(FadeParamName, 0.0f);
-					}
+					continue;
 				}
+				
+				FName FadeParamName = FName(*FString::Printf(TEXT("TraceFadeAmount%d"), idx));
+				MID->SetScalarParameterValue(FadeParamName, 0.0f);
 			}
 		}
 	}

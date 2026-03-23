@@ -17,6 +17,11 @@ class PROJECTB3_API UPBUIManagerSubsystem : public ULocalPlayerSubsystem
 	GENERATED_BODY()
 
 public:
+	virtual void Deinitialize() override;
+	
+	UFUNCTION(BlueprintCallable, Category = "UI")
+	void ResetSystem();
+	
 	// 위젯을 스택에 Push
 	UFUNCTION(BlueprintCallable, Category = "UI", meta = (DeterminesOutputType = "WidgetClass"))
 	UPBWidgetBase* PushUI(TSubclassOf<UPBWidgetBase> WidgetClass);
