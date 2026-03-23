@@ -9,6 +9,9 @@
 
 class UNiagaraComponent;
 class UNiagaraSystem;
+class USplineMeshComponent;
+class UStaticMesh;
+class UMaterialInterface;
 
 /** 타겟 확정 시 방송 — 확정된 타겟 데이터를 어빌리티 Task에 전달 */
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnPBTargetConfirmed, const FPBAbilityTargetData&);
@@ -74,6 +77,15 @@ public:
 	// 사거리 텔레그래프 VFX 숨김
 	void HideRangeTelegraph();
 
+	// 투사체 경로 프리뷰 표시. TargetActor: 타겟 액터 (visibility 체크 시 무시).
+	void ShowProjectilePath(const FVector& TargetLocation, AActor* TargetActor = nullptr);
+
+	// 투사체 경로 프리뷰 숨기기
+	void HideProjectilePath();
+
+	// 투사체 경로에 장애물이 있는지 여부
+	bool IsProjectilePathBlocked() const { return bProjectilePathBlocked; }
+
 private:
 	// SelectedTargets를 FPBAbilityTargetData로 변환하는 내부 헬퍼
 	FPBAbilityTargetData MakeMultiTargetData() const;
@@ -89,6 +101,13 @@ private:
 
 	// 저장된 상태로 커스텀 뎁스 복원
 	void ClearTargetHighlight();
+
+	// 투사체 경로 스플라인 메시 세그먼트 풀 관리
+	void EnsureProjectilePathPool();
+	USplineMeshComponent* GetOrCreatePathSegment(int32 Index);
+
+	// 장애물 Visibility 체크 (발사 지점 → 타겟 직선 Line Trace). IgnoreActor: 타겟 액터 등 무시 대상.
+	bool CheckProjectileVisibility(const FVector& Start, const FVector& End, AActor* IgnoreActor = nullptr) const;
 	
 public:
 	// AoE 텔레그래프에 사용할 나이아가라 시스템 에셋
@@ -138,6 +157,42 @@ private:
 	TObjectPtr<UNiagaraComponent> RangeTelegraphNiagaraComp;
 	
 	bool bShowingAoETelegraph = false;
+
+	// 투사체 경로 프리뷰 에셋
+	UPROPERTY(EditDefaultsOnly, Category = "Targeting|ProjectilePath")
+	TObjectPtr<UMaterialInterface> ClearPathMaterial;		// 흰색 — 장애물 없음
+
+	UPROPERTY(EditDefaultsOnly, Category = "Targeting|ProjectilePath")
+	TObjectPtr<UMaterialInterface> BlockedPathMaterial;		// 빨간색 — 장애물 있음 / 사거리 밖 공용
+
+	UPROPERTY(EditDefaultsOnly, Category = "Targeting|ProjectilePath")
+	TObjectPtr<UStaticMesh> PathSegmentMesh;				// 세그먼트용 메시
+
+	// 곡선 세분화 수
+	UPROPERTY(EditDefaultsOnly, Category = "Targeting|ProjectilePath", meta = (ClampMin = "4", ClampMax = "32"))
+	int32 ProjectilePathSegmentCount = 12;
+
+	// Visibility 트레이스 시작점 오프셋 (발사 지점에서 타겟 방향으로, cm)
+	UPROPERTY(EditDefaultsOnly, Category = "Targeting|ProjectilePath")
+	float VisibilityTraceSourceOffset = 50.f;
+
+	// Visibility 트레이스 끝점 수평 오프셋 (타겟에서 발사 지점 방향으로, cm)
+	UPROPERTY(EditDefaultsOnly, Category = "Targeting|ProjectilePath")
+	float VisibilityTraceTargetHorizontalOffset = 30.f;
+
+	// Visibility 트레이스 끝점 Z 오프셋 (타겟에서 위쪽으로, cm)
+	UPROPERTY(EditDefaultsOnly, Category = "Targeting|ProjectilePath")
+	float VisibilityTraceTargetZOffset = 50.f;
+
+	// 스플라인 메시 세그먼트 풀 (TelegraphActor에 부착)
+	UPROPERTY()
+	TArray<TObjectPtr<USplineMeshComponent>> ProjectilePathPool;
+
+	// 현재 경로에 장애물이 있는지 여부
+	bool bProjectilePathBlocked = false;
+
+	// 현재 투사체 경로 프리뷰 표시 중 여부
+	bool bShowingProjectilePath = false;
 
 	// 현재 하이라이트 중인 호버 타겟
 	TWeakObjectPtr<AActor> HighlightedTargetActor;

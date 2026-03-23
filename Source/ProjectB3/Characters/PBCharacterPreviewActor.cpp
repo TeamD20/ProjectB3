@@ -41,12 +41,47 @@ APBCharacterPreviewActor::APBCharacterPreviewActor()
 	FillLightComp->SetupAttachment(PreviewRootComp);
 	FillLightComp->LightingChannels.bChannel0 = false;
 	FillLightComp->LightingChannels.bChannel1 = true;
-	FillLightComp->SetIntensity(1.0f);
+	FillLightComp->SetIntensity(0.6f);
 
 	// SceneCaptureComp — PreviewRootComp에 직접 Attach (BaseMeshComp 회전에 독립)
 	SceneCaptureComp = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("SceneCaptureComp"));
 	SceneCaptureComp->SetupAttachment(PreviewRootComp);
 	SceneCaptureComp->SetRelativeLocation(FVector(-1000.0f, 0.0f, 0.0f));
+	
+	// SceneCapture 기본 설정 (TextureTarget은 InitializeCapture에서 RenderTarget 생성 후 할당)
+	SceneCaptureComp->CaptureSource         = ESceneCaptureSource::SCS_FinalColorLDR;
+	SceneCaptureComp->bCaptureEveryFrame    = false;
+	SceneCaptureComp->bCaptureOnMovement    = false;
+	SceneCaptureComp->PrimitiveRenderMode   = ESceneCapturePrimitiveRenderMode::PRM_UseShowOnlyList;
+
+	// 월드 환경 요소 차단 — 전용 채널 1 DirectionalLight만 사용
+	SceneCaptureComp->ShowFlags.SetAtmosphere(false);
+	SceneCaptureComp->ShowFlags.SetFog(false);
+	SceneCaptureComp->ShowFlags.SetVolumetricFog(false);
+	SceneCaptureComp->ShowFlags.SetSkyLighting(false);
+
+	// 그림자 — 전용 조명이므로 불필요
+	SceneCaptureComp->ShowFlags.SetDynamicShadows(false);
+	SceneCaptureComp->ShowFlags.SetContactShadows(false);
+	SceneCaptureComp->ShowFlags.SetAmbientOcclusion(false);
+	SceneCaptureComp->ShowFlags.SetDistanceFieldAO(false);
+
+	// 격리된 씬이므로 환경 반사·간접광 불필요
+	SceneCaptureComp->ShowFlags.SetGlobalIllumination(false);
+	SceneCaptureComp->ShowFlags.SetReflectionEnvironment(false);
+	SceneCaptureComp->ShowFlags.SetScreenSpaceReflections(false);
+	SceneCaptureComp->ShowFlags.SetIndirectLightingCache(false);
+
+	// 포스트 프로세스 — 저해상도 프리뷰에 불필요한 효과 제거
+	SceneCaptureComp->ShowFlags.SetEyeAdaptation(false);
+	SceneCaptureComp->ShowFlags.SetBloom(false);
+	SceneCaptureComp->ShowFlags.SetMotionBlur(false);
+	SceneCaptureComp->ShowFlags.SetLensFlares(false);
+	SceneCaptureComp->ShowFlags.SetToneCurve(false);
+
+	// 에디터 시각화 요소 차단
+	SceneCaptureComp->ShowFlags.SetCameraFrustums(false);
+	SceneCaptureComp->ShowFlags.SetBillboardSprites(false);
 }
 
 void APBCharacterPreviewActor::ApplyConfig(const FPBPreviewActorConfig& InConfig)
@@ -204,27 +239,10 @@ void APBCharacterPreviewActor::InitializeCapture()
 		));
 	}
 
-	// SceneCapture 설정
-	SceneCaptureComp->TextureTarget         = RenderTarget;
-	SceneCaptureComp->CaptureSource         = ESceneCaptureSource::SCS_FinalColorLDR;
-	SceneCaptureComp->bCaptureEveryFrame    = false;
-	SceneCaptureComp->bCaptureOnMovement    = false;
-	SceneCaptureComp->PrimitiveRenderMode   = ESceneCapturePrimitiveRenderMode::PRM_UseShowOnlyList;
+	// RenderTarget 할당 및 ShowOnlyList 설정 (생성자에선 RenderTarget 미생성)
+	SceneCaptureComp->TextureTarget = RenderTarget;
+	SceneCaptureComp->ShowOnlyActors.Reset();
 	SceneCaptureComp->ShowOnlyActors.Add(this);
-	// SceneCaptureComp 자체가 ShowOnly 목록에 포함되면 내부 카메라 메시가 캡처됨 — 명시적 제외
-	// SceneCaptureComp->HiddenComponents.Add(SceneCaptureComp); <- 컴파일 에러
-
-	// 월드 환경 요소 차단, 전용 채널 1 조명만 사용
-	SceneCaptureComp->ShowFlags.SetAtmosphere(false);
-	SceneCaptureComp->ShowFlags.SetFog(false);
-	SceneCaptureComp->ShowFlags.SetVolumetricFog(false);
-	SceneCaptureComp->ShowFlags.SetDynamicShadows(false);
-	SceneCaptureComp->ShowFlags.SetSkyLighting(false);
-	SceneCaptureComp->ShowFlags.SetAmbientOcclusion(false);
-	// UCameraComponent 내부의 UDrawFrustumComponent(카메라 절두체 시각화)가
-	// ShowOnlyActors 목록에 포함된 Actor에 붙어있으면 캡처됨 — 명시적으로 차단
-	SceneCaptureComp->ShowFlags.SetCameraFrustums(false);
-	SceneCaptureComp->ShowFlags.SetBillboardSprites(false);
 
 	SceneCaptureComp->SetRelativeLocation(Config.CaptureOffset);
 	SceneCaptureComp->SetRelativeRotation(Config.CaptureRotation);
