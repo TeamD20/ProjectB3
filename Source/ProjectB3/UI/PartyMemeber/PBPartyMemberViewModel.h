@@ -50,6 +50,9 @@ public:
 	TSoftObjectPtr<UTexture2D> GetPortrait() const;
 	
 	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
+	TSoftObjectPtr<UTexture2D> GetClassIcon() const { return ClassIcon; }
+	
+	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
 	float GetHealthPercent() const;
 	
 	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
@@ -74,6 +77,7 @@ public:
 	void SetCharacterClass(FText InCharacterClass);
 	void SetHP(int32 InCurrentHP, int32 InMaxHP);
 	void SetPortrait(TSoftObjectPtr<UTexture2D> InPortrait);
+	void SetClassIcon(TSoftObjectPtr<UTexture2D> InClassIcon);
 	void SetIsSelectedCharacter(bool InMyTurn);
 	void SetStatusEffects(const TArray<FPBPartyTooltipRowData>& InStatusEffects);
 	void SetReactions(const TArray<FPBPartyTooltipRowData>& InReactions);
@@ -91,6 +95,7 @@ public:
 	FOnTextChangedSignature OnClassChanged;
 	FOnTextChangedSignature OnHPChanged;
 	FOnImageChangedSignature OnPortraitChanged;
+	FOnImageChangedSignature OnClassIconChanged;
 	FOnFloatValueChangedSignature OnHPPercentValueChanged;
 	FOnBoolValueChangedSignature OnIsMyTurnChanged;
 	FOnPartyMemberSelectedSignature OnPartyMemberSelected;
@@ -107,6 +112,9 @@ private:
 	
 	//초상화 
 	TSoftObjectPtr<UTexture2D> Portrait;
+	
+	//직업 아이콘
+	TSoftObjectPtr<UTexture2D> ClassIcon;
 	
 	int32 Level;
 	int32 CurrentHP;

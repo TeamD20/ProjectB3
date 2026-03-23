@@ -5,6 +5,7 @@
 #include "PBPartyMemberTooltipRowWidget.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
+#include "Components/Image.h"
 
 void UPBPartyMemberTooltipWidget::InitializeTooltip(UPBPartyMemberViewModel* ViewModel)
 {
@@ -18,6 +19,7 @@ void UPBPartyMemberTooltipWidget::InitializeTooltip(UPBPartyMemberViewModel* Vie
 	ViewModel->OnNameChanged.AddUObject(this, &ThisClass::HandleNameChanged);
 	ViewModel->OnLevelChanged.AddUObject(this, &ThisClass::HandleLevelChanged);
 	ViewModel->OnClassChanged.AddUObject(this, &ThisClass::HandleClassChanged);
+	ViewModel->OnClassIconChanged.AddUObject(this, &ThisClass::HandleClassIconChanged);
 	ViewModel->OnStatusEffectsChanged.AddUObject(this, &ThisClass::HandleStatusEffectsChanged);
 	ViewModel->OnReactionsChanged.AddUObject(this, &ThisClass::HandleReactionsChanged);
 
@@ -34,6 +36,7 @@ void UPBPartyMemberTooltipWidget::RefreshUI()
 	HandleNameChanged(MemberViewModel->GetCharacterName());
 	HandleLevelChanged(MemberViewModel->GetCharacterLevel());
 	HandleClassChanged(MemberViewModel->GetCharacterClass());
+	HandleClassIconChanged(MemberViewModel->GetClassIcon());
 	HandleStatusEffectsChanged();
 	HandleReactionsChanged();
 }
@@ -45,6 +48,7 @@ void UPBPartyMemberTooltipWidget::NativeDestruct()
 		MemberViewModel->OnNameChanged.RemoveAll(this);
 		MemberViewModel->OnLevelChanged.RemoveAll(this);
 		MemberViewModel->OnClassChanged.RemoveAll(this);
+		MemberViewModel->OnClassIconChanged.RemoveAll(this);
 		MemberViewModel->OnStatusEffectsChanged.RemoveAll(this);
 		MemberViewModel->OnReactionsChanged.RemoveAll(this);
 		MemberViewModel = nullptr;
@@ -88,6 +92,14 @@ void UPBPartyMemberTooltipWidget::HandleLevelAndClassChanged()
 	}
 	HandleLevelChanged(MemberViewModel->GetCharacterLevel());
 	HandleClassChanged(MemberViewModel->GetCharacterClass());
+}
+
+void UPBPartyMemberTooltipWidget::HandleClassIconChanged(TSoftObjectPtr<UTexture2D> InIcon)
+{
+	if (ClassIconImage && !InIcon.IsNull())
+	{
+		ClassIconImage->SetBrushFromSoftTexture(InIcon);
+	}
 }
 
 void UPBPartyMemberTooltipWidget::HandleStatusEffectsChanged()

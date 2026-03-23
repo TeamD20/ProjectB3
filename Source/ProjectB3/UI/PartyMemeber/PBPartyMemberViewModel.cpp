@@ -137,6 +137,19 @@ void UPBPartyMemberViewModel::SetPortrait(TSoftObjectPtr<UTexture2D> InPortrait)
 	}
 }
 
+void UPBPartyMemberViewModel::SetClassIcon(TSoftObjectPtr<UTexture2D> InClassIcon)
+{
+	if (ClassIcon != InClassIcon)
+	{
+		ClassIcon = InClassIcon;
+		
+		if (OnClassIconChanged.IsBound())
+		{
+			OnClassIconChanged.Broadcast(InClassIcon);
+		}
+	}
+}
+
 void UPBPartyMemberViewModel::SetIsSelectedCharacter(bool InMyTurn)
 {
 	if (bIsCharSelect != InMyTurn)

@@ -103,6 +103,10 @@ public:
 	// 전투 식별 정보 반환
 	const FPBCharacterIdentity& GetCharacterIdentity() const { return CharacterIdentity; }
 
+	// 레벨 관련 소스가 아직 없으므로 임시 연동용 더미
+	UFUNCTION(BlueprintPure, Category = "Level")
+	int32 GetCharacterLevel() const { return 1; }
+
 	// AbilitySystemComponent 반환 (타입 지정)
 	UPBAbilitySystemComponent* GetPBAbilitySystemComponent() const { return AbilitySystemComponent; }
 	
