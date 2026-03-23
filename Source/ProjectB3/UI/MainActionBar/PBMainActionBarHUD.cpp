@@ -243,10 +243,7 @@ void UPBMainActionBarHUD::BindCombatStatsViewModel(AActor* NewActor)
 
 	if (!IsValid(NewActor))
 	{
-		if (IsValid(MovementDistanceProgressBar))
-		{
-			MovementDistanceProgressBar->SetPercent(0.f);
-		}
+		BP_OnMovementPercentChanged(0.f);
 		return;
 	}
 
@@ -263,8 +260,5 @@ void UPBMainActionBarHUD::BindCombatStatsViewModel(AActor* NewActor)
 
 void UPBMainActionBarHUD::HandleMovementPercentChanged(float NewPercent)
 {
-	if (IsValid(MovementDistanceProgressBar))
-	{
-		MovementDistanceProgressBar->SetPercent(NewPercent);
-	}
+	BP_OnMovementPercentChanged(NewPercent);
 }

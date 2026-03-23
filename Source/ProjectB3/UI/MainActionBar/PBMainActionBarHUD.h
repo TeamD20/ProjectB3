@@ -66,6 +66,10 @@ protected:
 	// 이동력 비율 변경 핸들러
 	void HandleMovementPercentChanged(float NewPercent);
 
+	// BP에서 이동력 프로그래스바 보간 연출 구현
+	UFUNCTION(BlueprintImplementableEvent, Category = "MainActionBar")
+	void BP_OnMovementPercentChanged(float NewPercent);
+
 protected:
 	// 스킬바
 	UPROPERTY(meta = (BindWidget))
@@ -112,7 +116,7 @@ protected:
 	TObjectPtr<UButton> TurnEndButton;
 
 	// 이동 거리 프로그레스 바
-	UPROPERTY(meta = (BindWidgetOptional))
+	UPROPERTY(BlueprintReadOnly, Category = "MainActionBar", meta = (BindWidgetOptional))
 	TObjectPtr<UProgressBar> MovementDistanceProgressBar;
 
 private:

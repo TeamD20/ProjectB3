@@ -37,6 +37,7 @@ protected:
 	
 	void HandleStatusEffectsChanged();
 	void HandleReactionsChanged();
+	void HandleClassIconChanged(TSoftObjectPtr<UTexture2D> InIcon);
 
 public:
 	// 캐릭터 이름
@@ -50,6 +51,10 @@ public:
 	// 직업 표시 ("Class. X")
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* CharacterClassTextBlock;
+	
+	// 직업 아이콘
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<class UImage> ClassIconImage;
 
 	UPROPERTY(meta = (BindWidget))
 	UVerticalBox* StatusEffectsContainer;
