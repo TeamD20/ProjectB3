@@ -16,6 +16,7 @@ class PROJECTB3_API APBGameplayGameState : public AGameStateBase
 public:
 	void NotifyPartyMemberListReady(const TArray<AActor*>& InPartyMembers);
 	void NotifyCombatStarted();
+	void NotifyPartyMemberDeath(const AActor* InPartyMember);
 
 public:
 	FOnPartyMemeberListReadySignature OnPartyMemberListReady;

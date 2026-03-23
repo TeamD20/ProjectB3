@@ -415,6 +415,24 @@ void APBGameplayPlayerController::ToggleInventory()
 	}
 }
 
+void APBGameplayPlayerController::OnGameOver()
+{
+	SetControllerMode(EPBPlayerControllerMode::None);
+	
+	if (!IsValid(GameOverWidgetClass))
+	{
+		return;
+	}
+	
+	UPBUIManagerSubsystem* UIManager = ULocalPlayer::GetSubsystem<UPBUIManagerSubsystem>(GetLocalPlayer());
+	if (!IsValid(UIManager) || !IsValid(InventoryWidgetClass))
+	{
+		return;
+	}
+	
+	UIManager->PushUI(GameOverWidgetClass);
+}
+
 void APBGameplayPlayerController::OnToggleInventory(const FInputActionValue& Value)
 {
 	ToggleInventory();

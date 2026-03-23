@@ -63,7 +63,9 @@ public:
 	virtual void OnActionInterrupted() = 0;
 
 	/*~ 상태 조회 ~*/
-
+	// 사망 여부
+	virtual bool IsDead() const = 0;
+	
 	// 무력화 여부
 	virtual bool IsIncapacitated() const = 0;
 

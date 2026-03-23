@@ -56,7 +56,7 @@ void APBProjectile::Tick(float DeltaSeconds)
 	{
 		Alpha = 1.f;
 		SetActorLocation(BezierP2);
-		OnArrived();
+		InternalOnArrived();
 		return;
 	}
 
@@ -69,4 +69,14 @@ void APBProjectile::Tick(float DeltaSeconds)
 void APBProjectile::OnArrived()
 {
 	Destroy();
+}
+
+void APBProjectile::InternalOnArrived()
+{
+	K2_OnArrived();
+}
+
+void APBProjectile::K2_OnArrived_Implementation()
+{
+	OnArrived();
 }

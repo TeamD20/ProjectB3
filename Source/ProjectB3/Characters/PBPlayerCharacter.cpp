@@ -9,6 +9,8 @@
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
 #include "ProjectB3/Combat/PBCombatSystemLibrary.h"
+#include "ProjectB3/Game/PBGameplayGameMode.h"
+#include "ProjectB3/Game/PBGameplayGameState.h"
 #include "ProjectB3/Player/PBGameplayPlayerController.h"
 #include "ProjectB3/Player/PBGameplayPlayerState.h"
 #include "ProjectB3/Player/PBPartyAIController.h"
@@ -121,6 +123,16 @@ void APBPlayerCharacter::OnTurnEnd()
 	if (APBGameplayPlayerController* PC = GetController<APBGameplayPlayerController>())
 	{
 		PC->SetControllerMode(EPBPlayerControllerMode::None);
+	}
+}
+
+void APBPlayerCharacter::HandleDeath()
+{
+	Super::HandleDeath();
+	
+	if (APBGameplayGameState* GS = GetWorld()->GetGameState<APBGameplayGameState>())
+	{
+		GS->NotifyPartyMemberDeath(this);
 	}
 }
 
