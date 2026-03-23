@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Engine/Texture2D.h"
+#include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
 #include "PBUITypes.generated.h"
 
 class UPBTurnOrderViewModel;
@@ -47,8 +48,10 @@ namespace PBUIDelegate
 	/* ~턴오더 UI 델리게이트~(턴 오더 시스템 완성후 이전작업 해야함) */ 
 	DECLARE_MULTICAST_DELEGATE(FOnTurnOrderListChangedSignature);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnTurnAdvancedSignature, UPBTurnPortraitViewModel*);
-
 }
+
+// 스킬 시전 이벤트 델리게이트
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnSkillActivatedSignature, AActor* /*Caster*/, const FText& /*SkillName*/, EPBAbilityType /*AbilityType*/);
 
 
 namespace PBSkillBarTabIndex

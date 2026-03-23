@@ -56,7 +56,7 @@ public:
 
 	// 카메라 제어 컴포넌트 반환
 	UPBCameraControlComponent* GetCameraControl() const { return CameraControlComponent; }
-
+	
 	// 전술 카메라 컴포넌트 반환
 	UPBTacticalCameraComponent* GetTacticalCameraComponent() const { return TacticalCameraComponent; }
 

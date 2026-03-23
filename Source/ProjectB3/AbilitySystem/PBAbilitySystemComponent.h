@@ -27,6 +27,12 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FOnAbilityExecutionStartedSignature,
 	const UGameplayAbility* /*Ability*/,
 	const FPBAbilityTargetData& /*TargetData*/)
 
+// 어빌리티 종료 통지 델리게이트 — Handle + bWasCancelled 포함 (UseConsumable 콜백용)
+// GAS 기본 OnAbilityEnded는 bWasCancelled를 전달하지 않으므로 프로젝트 전용 확장
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPBAbilityEndedSignature,
+	FGameplayAbilitySpecHandle /*Handle*/,
+	bool                       /*bWasCancelled*/)
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class PROJECTB3_API UPBAbilitySystemComponent : public UAbilitySystemComponent
 {
@@ -84,6 +90,9 @@ public:
 
 	// 어빌리티 실행 시작 통지 (K2_ExecuteTargetLogic에서 호출)
 	void NotifyAbilityExecution(const UGameplayAbility* Ability, const FPBAbilityTargetData& TargetData);
+
+	// UPBGameplayAbility::EndAbility에서 호출 — Handle + bWasCancelled 포함 종료 통지
+	void NotifyPBAbilityEnded(FGameplayAbilitySpecHandle Handle, bool bWasCancelled);
 	
 protected:
 	/*~ UActorComponent Interface ~*/
@@ -107,6 +116,9 @@ public:
 
 	// 어빌리티 실행 시작 알림 (전술 카메라 SkillFraming 진입용)
 	FOnAbilityExecutionStartedSignature OnAbilityExecutionStarted;
+
+	// 어빌리티 종료 알림 — Handle + bWasCancelled 포함 (UseConsumable 등 감시용)
+	FOnPBAbilityEndedSignature OnPBAbilityEnded;
 	
 protected:
 	// 출처별 핸들 캐시

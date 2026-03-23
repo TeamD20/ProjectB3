@@ -118,8 +118,11 @@ void APBGameplayPlayerController::Tick(float DeltaTime)
 	{
 		if (CurrentMode == EPBPlayerControllerMode::TurnMovement || CurrentMode == EPBPlayerControllerMode::FreeMovement)
 		{
-			UpdateHoverPathDisplay(CursorHit);
 			InteractorComponent->TryFocus(CursorHit.GetActor());
+		}
+		if (CurrentMode == EPBPlayerControllerMode::TurnMovement)
+		{
+			UpdateHoverPathDisplay(CursorHit);
 		}
 		if (CurrentMode == EPBPlayerControllerMode::Targeting)
 		{
@@ -146,8 +149,9 @@ void APBGameplayPlayerController::Tick(float DeltaTime)
 		if (APawn* MyPawn = GetPawn())
 		{
 			const bool bMovingNow = MyPawn->GetVelocity().SizeSquared() > 100.f;
-
-			if (bWasLeaderMoving && !bMovingNow)
+			const bool bIsInDialogue = DialogueManagerComponent->IsPlaying();
+			
+			if (bWasLeaderMoving && !bMovingNow && !bIsInDialogue)
 			{
 				// 이동 중이었다가 속도가 떨어짐 — 0.1초 뒤에 정지 확정
 				GetWorldTimerManager().SetTimer(

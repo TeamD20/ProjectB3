@@ -37,6 +37,7 @@ protected:
 	virtual void OnCombatBegin() override;
 	virtual void OnCombatEnd() override;
 	virtual void OnTurnActivated() override;
+	virtual void OnTurnEnd() override;
 
 	void UpdatePathDisplayMovementRange(APBGameplayPlayerController* PC);
 	

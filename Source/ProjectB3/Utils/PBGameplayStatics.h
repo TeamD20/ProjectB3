@@ -22,4 +22,8 @@ public:
 	/** 부분 경로를 허용하지 않는 이동 요청 */
 	UFUNCTION(BlueprintCallable, Category = "PB|Navigation")
 	static bool SimpleMoveToLocation(AController* Controller, const FVector& GoalLocation, float AcceptanceRadius = 50.f);
+	
+	/** 대화 시작 */
+	UFUNCTION(BlueprintCallable, Category = "PB|Dialogue")
+	static void StartDialogue(APawn* Interactor, AActor* TargetActor, UDialogueData* DialogueData);
 };

@@ -21,6 +21,7 @@
 #include "ProjectB3/UI/PBAbilitySystemUIBridge.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "TimerManager.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "ProjectB3/Combat/PBCombatSettings.h"
 
 APBCharacterBase::APBCharacterBase()
@@ -75,6 +76,8 @@ APBCharacterBase::APBCharacterBase()
 	
 	GetCapsuleComponent()->SetCanEverAffectNavigation(true);
 	GetCapsuleComponent()->bDynamicObstacle = true;
+	
+	GetCharacterMovement()->GetNavMovementProperties()->bUseAccelerationForPaths = true;
 	
 	bCanAffectNavigationGeneration = true;
 }
@@ -190,6 +193,11 @@ bool APBCharacterBase::DetachEquipment(const FGameplayTag& InSlotTag)
 	{
 		ExistingEquipment->UnlinkAnimLayer(GetMesh());
 		ExistingEquipment->Destroy();
+	}
+	
+	if (AttachedEquipments.IsEmpty())
+	{
+		GetMesh()->LinkAnimClassLayers(DefaultAnimLayerClass);
 	}
 
 	OnCharacterEquipmentChanged.Broadcast(InSlotTag);
@@ -377,6 +385,7 @@ void APBCharacterBase::HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, 
 		// 캐릭터 사망 영역은 NavMesh 활성화
 		SetCanAffectNavigationGeneration(false, true);
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		FactionIndicator->Deactivate();
 	}
 }
 

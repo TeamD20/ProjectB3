@@ -66,6 +66,9 @@ public:
     /** 주사위 굴리기 요청 → Manager::RequestDiceRoll() */
     void RequestDiceRoll();
 
+    /** 주사위 결과 확인 후 대화 진행 → Manager::ProgressDiceResult() */
+    void RequestDiceProgress();
+
     /*~ Getter ~*/
 
     /** 현재 화자 정보 반환 */

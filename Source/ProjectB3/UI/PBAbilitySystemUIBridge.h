@@ -15,6 +15,7 @@
 #include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
 #include "PBAbilitySystemUIBridge.generated.h"
 
+class UPBGameplayAbility;
 class UAbilitySystemComponent;
 class UGameplayAbility;
 class UPBViewModelSubsystem;
@@ -133,7 +134,7 @@ private:
 	// === 행동 인디케이터 UI ===
 
 	// 행동 인디케이터 VM 갱신 
-	void UpdateActionIndicator(EPBActionIndicatorType Type, const FText& Text);
+	void UpdateActionIndicator(EPBActionIndicatorType Type, const UPBGameplayAbility* PBAbility);
 
 	// 행동 인디케이터 초기화
 	void ClearActionIndicator();

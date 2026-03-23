@@ -41,4 +41,8 @@ struct PROJECTB3_API FPBInventorySlotData
 	// 상호작용 시 원본 식별용 (드래그, 장착 등)
 	UPROPERTY(BlueprintReadOnly, Category = "Inventory")
 	FGuid InstanceID;
+
+	// 컨텍스트 메뉴 액션 분기용 아이템 타입
+	UPROPERTY(BlueprintReadOnly, Category = "Inventory")
+	EPBItemType ItemType = EPBItemType::Misc;
 };

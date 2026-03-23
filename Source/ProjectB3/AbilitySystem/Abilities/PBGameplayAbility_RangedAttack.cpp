@@ -43,6 +43,9 @@ void UPBGameplayAbility_RangedAttack::FireArrow(const FGameplayEffectSpecHandle&
 	// 발사 방향 계산 (발사 기점 → TargetLocation)
 	const FVector LaunchDirection = (TargetLocation - LaunchTransform.GetLocation()).GetSafeNormal();
 
+	// 최대 거리
+	const float MaxRange = FVector::Dist2D(TargetLocation,LaunchTransform.GetLocation()) + 30.f;
+	
 	// 화살 투사체 스폰
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -58,7 +61,7 @@ void UPBGameplayAbility_RangedAttack::FireArrow(const FGameplayEffectSpecHandle&
 	}
 
 	// 화살 초기화 및 발사
-	Arrow->SetupArrow(DamageSpecHandle, GetAbilitySystemComponentFromActorInfo(), TargetActor);
+	Arrow->SetupArrow(DamageSpecHandle, GetAbilitySystemComponentFromActorInfo(), TargetActor, MaxRange);
 	Arrow->OnArrowResolved.BindUObject(this, &UPBGameplayAbility_RangedAttack::OnArrowResolved);
 	Arrow->Launch(LaunchDirection);
 	// EndMode == Manual — 화살 OnArrowResolved 콜백에서 EndAbility 호출

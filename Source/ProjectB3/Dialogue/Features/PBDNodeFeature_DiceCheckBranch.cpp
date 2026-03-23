@@ -2,6 +2,7 @@
 
 #include "PBDNodeFeature_DiceCheckBranch.h"
 
+#include "DialogueNode.h"
 #include "DialogueSystemTypes.h"
 #include "DialogueFeatures/DNodeFeature_Branch.h"
 #include "ProjectB3/Dialogue/PBDialogueTypes.h"
@@ -45,11 +46,13 @@ TArray<FDialogueNodeLink> UPBDNodeFeature_DiceCheckBranch::GetAllLinks() const
     TArray<FDialogueNodeLink> Links;
 
     FDialogueNodeLink SuccessLink;
+    SuccessLink.SourceNodeId = GetDialogueNode()->NodeID;
     SuccessLink.LinkName = FName("Success");
     SuccessLink.TargetNodeId = SuccessNodeId;
     Links.Add(SuccessLink);
 
     FDialogueNodeLink FailureLink;
+    FailureLink.SourceNodeId = GetDialogueNode()->NodeID;
     FailureLink.LinkName = FName("Failure");
     FailureLink.TargetNodeId = FailureNodeId;
     Links.Add(FailureLink);

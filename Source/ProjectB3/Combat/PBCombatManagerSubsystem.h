@@ -6,6 +6,7 @@
 #include "Subsystems/WorldSubsystem.h"
 #include "PBCombatTypes.h"
 #include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
+#include "ProjectB3/UI/PBUITypes.h"
 #include "PBCombatManagerSubsystem.generated.h"
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnCombatStateChangedSignature, EPBCombatState);
@@ -13,7 +14,6 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FOnActiveTurnChangedSignature, AActor*, int
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundChangedSignature, int32);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnCombatantIncapacitatedSignature, AActor*);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnReactionTriggeredSignature, const FPBReactionContext&);
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnSkillActivatedSignature, AActor* /*Caster*/, const FText& /*SkillName*/, EPBAbilityType /*AbilityType*/);
 
 /**
  * 턴 관리의 핵심 서브시스템.
@@ -126,7 +126,6 @@ public:
 	FOnRoundChangedSignature OnRoundChanged;
 	FOnCombatantIncapacitatedSignature OnCombatantIncapacitated;
 	FOnReactionTriggeredSignature OnReactionTriggered;
-	FOnSkillActivatedSignature OnSkillActivated;
 	
 private:
 	// 등록된 전투 참가자 목록

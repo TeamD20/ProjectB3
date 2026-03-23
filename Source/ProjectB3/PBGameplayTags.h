@@ -91,6 +91,9 @@ namespace PBGameplayTags
 	// SetByCaller 회복 태그
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Heal_Amount); // 회복량
 
+	// 아이템 이벤트 태그
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_Item_UseConsumable); // 소비 아이템 사용 요청 이벤트
+
 	// UI 이벤트 태그
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_UI_FloatingText); // 플로팅 텍스트 위젯 표시 이벤트
 }
