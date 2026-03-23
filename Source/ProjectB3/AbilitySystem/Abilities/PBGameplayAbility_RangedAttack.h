@@ -28,7 +28,6 @@ public:
 	virtual FPBTargetingRequest MakeTargetingRequest() const override;
 	// 무기 소켓 기반 발사 지점 반환 (매 프레임 갱신)
 	virtual FVector GetProjectileLaunchLocation() const override;
-
 private:
 	// DynamicTags의 장비 슬롯 태그 기반으로 현재 장착 무기 액터 반환. 없으면 nullptr.
 	APBEquipmentActor* GetEquippedWeaponActor() const;
