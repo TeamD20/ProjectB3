@@ -1,6 +1,9 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBProjectile.h"
+
+#include "AbilitySystemComponent.h"
+#include "AbilitySystemInterface.h"
 #include "PBProjectileUtils.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -17,6 +20,14 @@ APBProjectile::APBProjectile()
 	MeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComponent"));
 	MeshComponent->SetupAttachment(CollisionComponent);
 	MeshComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+}
+
+void APBProjectile::InitProjectile(const FGameplayEffectSpecHandle& InDamageSpec, UAbilitySystemComponent* InSourceASC,
+	AActor* InTargetActor)
+{
+	DamageSpecHandle = InDamageSpec;
+	SourceASC = InSourceASC;
+	TargetActor = InTargetActor;
 }
 
 void APBProjectile::Launch(const FVector& TargetLocation)
@@ -57,6 +68,7 @@ void APBProjectile::Tick(float DeltaSeconds)
 		Alpha = 1.f;
 		SetActorLocation(BezierP2);
 		InternalOnArrived();
+		OnProjectileResolved.ExecuteIfBound(TargetActor.Get());
 		return;
 	}
 
@@ -68,6 +80,18 @@ void APBProjectile::Tick(float DeltaSeconds)
 
 void APBProjectile::OnArrived()
 {
+	// 타겟에 데미지 적용
+	if (TargetActor.IsValid() && SourceASC.IsValid() && DamageSpecHandle.IsValid())
+	{
+		if (IAbilitySystemInterface* ASCInterface = Cast<IAbilitySystemInterface>(TargetActor.Get()))
+		{
+			UAbilitySystemComponent* TargetASC = ASCInterface->GetAbilitySystemComponent();
+			if (IsValid(TargetASC))
+			{
+				SourceASC->ApplyGameplayEffectSpecToTarget(*DamageSpecHandle.Data.Get(), TargetASC);
+			}
+		}
+	}
 	Destroy();
 }
 

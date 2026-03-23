@@ -40,12 +40,9 @@ void UPBEC_Damage::Execute_Implementation(
 
 	const float FinalDamage = UPBAbilitySystemLibrary::CalcFinalDamage(DiceRoll, AttackModifier, SourceTags, TargetTags);
 
-	if (FinalDamage > 0.f)
-	{
-		OutExecutionOutput.AddOutputModifier(FGameplayModifierEvaluatedData(
+	OutExecutionOutput.AddOutputModifier(FGameplayModifierEvaluatedData(
 			UPBCharacterAttributeSet::GetIncomingDamageAttribute(),
 			EGameplayModOp::Additive,
 			FinalDamage
 		));
-	}
 }
