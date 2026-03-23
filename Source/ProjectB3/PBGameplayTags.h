@@ -23,7 +23,21 @@ namespace PBGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Dead);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Incapacitated); // 행동 불능
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Lootable); // 루팅 가능 상태 (사망/기절 등)
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Moving); // 루팅 가능 상태 (사망/기절 등)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Moving);
+
+	// 디버프 상태
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Debuff_Burning);  // 화상
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Debuff_Poisoned); // 중독
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Debuff_Stunned);  // 기절
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Debuff_Sundered); // 방어도 약화
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Debuff_Baned);    // 내성 약화
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Debuff_Blinded);  // 명중률 약화
+
+	// 버프 상태
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Buff_Blessed);   // 축복
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Buff_Shielded);  // 방어도 강화
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Buff_Inspired);  // 명중률 강화
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Character_State_Buff_Raging);    // 데미지 강화
 	
 	// 장비
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Equipment_Slot);
