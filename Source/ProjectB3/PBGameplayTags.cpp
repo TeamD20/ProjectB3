@@ -19,7 +19,21 @@ namespace PBGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Lootable, "Character.State.Lootable", "루팅 가능 상태. 사망/기절 등 조건 달성 시 부여");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Incapacitated, "Character.State.Incapacitated", "행동 불능 상태");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Moving, "Character.State.Moving", "캐릭터 이동 중 상태");
-	
+
+	// 디버프 상태
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Debuff_Burning,  "Character.State.Debuff.Burning",  "화상 — 매 턴 시작 시 화염 피해 (지속 화염 효과)");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Debuff_Poisoned, "Character.State.Debuff.Poisoned", "중독 — 공격 굴림·능력치 판정 불리 (D&D Poisoned Condition)");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Debuff_Stunned,  "Character.State.Debuff.Stunned",  "기절 — 행동 불능, 힘·민첩 내성 자동 실패, 근접 피격 치명타 (D&D Stunned Condition)");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Debuff_Sundered, "Character.State.Debuff.Sundered", "방어구 파쇄 — AC 감소 (구판 D&D Sunder)");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Debuff_Baned,    "Character.State.Debuff.Baned",    "저주 — 공격 굴림·내성에 -1d4 (D&D Bane 주문)");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Debuff_Blinded,  "Character.State.Debuff.Blinded",  "실명 — 공격 굴림 불리, 피격 굴림 유리 (D&D Blinded Condition)");
+
+	// 버프 상태
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Buff_Blessed,  "Character.State.Buff.Blessed",  "축복 — 공격 굴림·내성에 +1d4 (D&D Bless 주문)");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Buff_Shielded, "Character.State.Buff.Shielded", "방어도 강화 — AC 증가 (D&D Shield of Faith 주문)");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Buff_Inspired, "Character.State.Buff.Inspired", "영감 — 공격 굴림·판정에 보너스 주사위 (D&D Bardic Inspiration)");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Character_State_Buff_Raging,   "Character.State.Buff.Raging",   "분노 — 근력 근접 데미지 보너스, 물리 피해 저항 (D&D Barbarian Rage)");
+
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_State_InCombat, "Combat.State.InCombat", "전투 중 상태 표시");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Hit_Critical, "Combat.Hit.Critical", "치명타 명중 — GE SourceTags로 전달해 ExecCalc/UI에서 참조");
 
