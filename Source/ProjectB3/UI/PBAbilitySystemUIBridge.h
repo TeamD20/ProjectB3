@@ -121,7 +121,8 @@ private:
 		EPBFloatingTextType Type,
 		float Magnitude,
 		const FGameplayTag& MetaTag = FGameplayTag(),
-		const FText& TextOverride = FText::GetEmpty()) const;
+		const FText& TextOverride = FText::GetEmpty(),
+		TSoftObjectPtr<UTexture2D> IconOverride = nullptr) const;
 
 	// 컴뱃 로그 엔트리 생성 및 ViewModel에 전달
 	void SendCombatLogEntry(EPBCombatLogType InLogType, const FText& LogText) const;
