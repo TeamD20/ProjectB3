@@ -11,6 +11,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogProjectB3, Log, All);
 namespace PBTraceChannel
 {
 	constexpr ECollisionChannel Ground = ECollisionChannel::ECC_GameTraceChannel1;
+	constexpr ECollisionChannel Combat = ECollisionChannel::ECC_GameTraceChannel2;
 }
 
 namespace PBStencilValues

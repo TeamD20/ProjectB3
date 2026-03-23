@@ -2,6 +2,7 @@
 
 #include "PBAbilitySystemComponent.h"
 
+#include "Attributes/PBCharacterAttributeSet.h"
 #include "Attributes/PBTurnResourceAttributeSet.h"
 #include "Components/PBTurnEffectComponent.h"
 #include "Data/PBAbilitySetData.h"

@@ -219,6 +219,9 @@ protected:
 	// DynamicTag에 장비 슬롯 태그가 있으면 해당 무기를 캐릭터에 자동 부착
 	void TryAutoAttachEquipment(const FGameplayAbilitySpecHandle& Handle, const FGameplayAbilityActorInfo* ActorInfo) const;
 
+	// Source to Target 방향 라인 트레이스로 HitResult를 생성하여 EffectContext에 설정
+	void SetTraceHitResultToContext(FGameplayEffectContextHandle& ContextHandle, const UAbilitySystemComponent* InTargetASC) const;
+
 	// Payload에서 타겟 데이터 추출 유틸리티
 	FPBAbilityTargetData ExtractTargetDataFromEvent(const FGameplayEventData& EventData) const;
 
