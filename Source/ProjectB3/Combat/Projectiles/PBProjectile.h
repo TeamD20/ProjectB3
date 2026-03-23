@@ -31,6 +31,12 @@ protected:
 
 	// 타겟 위치 도착 시 호출. 서브클래스에서 오버라이드하여 데미지 적용 등을 처리.
 	virtual void OnArrived();
+	
+	UFUNCTION(BlueprintNativeEvent, DisplayName="On Arrived")
+	void K2_OnArrived();
+
+private:
+	void InternalOnArrived();
 
 protected:
 	// 충돌 처리용 구체 콜리전

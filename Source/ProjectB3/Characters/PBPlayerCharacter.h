@@ -38,7 +38,11 @@ protected:
 	virtual void OnCombatEnd() override;
 	virtual void OnTurnActivated() override;
 	virtual void OnTurnEnd() override;
-
+	
+	/*~ APBCharacterBase Interface ~*/
+	virtual void HandleDeath() override;
+	
+	/*~ APBPlayerCharacter Interface ~*/
 	void UpdatePathDisplayMovementRange(APBGameplayPlayerController* PC);
 	
 private:

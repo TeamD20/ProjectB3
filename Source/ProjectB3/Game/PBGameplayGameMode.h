@@ -21,6 +21,9 @@ public:
 	// 전투 개시. CombatManagerSubsystem에 위임
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void InitiateCombat(const TArray<AActor*>& Combatants);
+	
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	bool CheckGameOver() const;
 
 private:
 	// PlayerStart 기준으로 기본 파티를 스폰하고 첫 번째 캐릭터를 빙의한다.

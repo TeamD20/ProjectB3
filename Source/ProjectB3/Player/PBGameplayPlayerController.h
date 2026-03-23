@@ -92,6 +92,9 @@ public:
 
 	// 인벤토리 UI를 토글 (열기/닫기)
 	void ToggleInventory();
+	
+	// GameOver UI 표시
+	void OnGameOver();
 
 protected:
 	/*~ AActor Interface ~*/
@@ -183,6 +186,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UPBWidgetBase> InventoryWidgetClass;
 
+	// 게임오버 위젯 클래스
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UPBWidgetBase> GameOverWidgetClass;
+	
 	// 커섯 위젯 설정
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UUserWidget> DefaultCursorWidgetClass;
