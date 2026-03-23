@@ -3,10 +3,18 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayEffectTypes.h"
 #include "GameFramework/Actor.h"
 #include "PBProjectile.generated.h"
 
+class UAbilitySystemComponent;
+struct FGameplayEffectSpecHandle;
 class USphereComponent;
+
+
+DECLARE_DELEGATE_OneParam(FOnProjectileResolvedSiganture, AActor*);
+
+
 
 // 투사체 기반 클래스. Bezier 곡선 보간으로 발사 지점 → 타겟 위치까지 이동.
 UCLASS(Abstract)
@@ -17,6 +25,11 @@ class PROJECTB3_API APBProjectile : public AActor
 public:
 	APBProjectile();
 
+	// 투사체 데미지 정보 초기화
+	virtual void InitProjectile(const FGameplayEffectSpecHandle& InDamageSpec,
+		UAbilitySystemComponent* InSourceASC,
+		AActor* InTargetActor);
+	
 	// 타겟 위치를 향해 Bezier 곡선 비행 시작.
 	void Launch(const FVector& TargetLocation);
 
@@ -38,6 +51,10 @@ protected:
 private:
 	void InternalOnArrived();
 
+public:
+	// 도착 시 브로드캐스트 (어빌리티 종료 트리거)
+	FOnProjectileResolvedSiganture OnProjectileResolved;
+	
 protected:
 	// 충돌 처리용 구체 콜리전
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Projectile")
@@ -66,6 +83,15 @@ protected:
 	// 최대 호 높이 (cm) — 과도한 곡선 방지
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Projectile|Arc", meta = (ClampMin = "0.0"))
 	float MaxArcHeight = 500.f;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Projectile|AbilitySystem")
+	TWeakObjectPtr<AActor> TargetActor;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Projectile|AbilitySystem")
+	TWeakObjectPtr<UAbilitySystemComponent> SourceASC;
+	
+	UPROPERTY(BlueprintReadOnly, Category = "Projectile|AbilitySystem")
+	FGameplayEffectSpecHandle DamageSpecHandle;
 
 private:
 	// Bezier 제어점

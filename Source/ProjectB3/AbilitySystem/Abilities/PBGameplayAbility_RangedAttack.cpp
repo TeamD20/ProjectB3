@@ -42,7 +42,7 @@ void UPBGameplayAbility_RangedAttack::FireProjectile(const FGameplayEffectSpecHa
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	SpawnParams.Instigator = Character;
 
-	APBArrowProjectile* Projectile = GetWorld()->SpawnActor<APBArrowProjectile>(
+	APBProjectile* Projectile = GetWorld()->SpawnActor<APBProjectile>(
 		ProjectileClass, LaunchTransform, SpawnParams);
 
 	if (!IsValid(Projectile))
@@ -52,8 +52,8 @@ void UPBGameplayAbility_RangedAttack::FireProjectile(const FGameplayEffectSpecHa
 	}
 
 	// 초기화 및 발사
-	Projectile->SetupArrow(DamageSpecHandle, GetAbilitySystemComponentFromActorInfo(), TargetActor);
-	Projectile->OnArrowResolved.BindUObject(this, &UPBGameplayAbility_RangedAttack::OnArrowResolved);
+	Projectile->InitProjectile(DamageSpecHandle, GetAbilitySystemComponentFromActorInfo(), TargetActor);
+	Projectile->OnProjectileResolved.BindUObject(this, &UPBGameplayAbility_RangedAttack::OnProjectileResolved);
 	Projectile->Launch(TargetLocation);
 	// EndMode == Manual — 투사체 OnArrowResolved 콜백에서 EndAbility 호출
 }
@@ -65,7 +65,7 @@ FPBTargetingRequest UPBGameplayAbility_RangedAttack::MakeTargetingRequest() cons
 	// 투사체 경로 프리뷰 컨텍스트 세팅
 	if (ProjectileClass)
 	{
-		const APBArrowProjectile* CDO = ProjectileClass.GetDefaultObject();
+		const APBProjectile* CDO = ProjectileClass.GetDefaultObject();
 
 		Request.ProjectileContext.bShowPath = true;
 		Request.ProjectileContext.LaunchLocation = GetProjectileLaunchTransform().GetLocation();
@@ -120,7 +120,7 @@ APBEquipmentActor* UPBGameplayAbility_RangedAttack::GetEquippedWeaponActor() con
 	return nullptr;
 }
 
-void UPBGameplayAbility_RangedAttack::OnArrowResolved(AActor* HitActor)
+void UPBGameplayAbility_RangedAttack::OnProjectileResolved(AActor* HitActor)
 {
 	EndAbility(CachedHandle, &CachedActorInfo, CachedActivationInfo, true, false);
 }

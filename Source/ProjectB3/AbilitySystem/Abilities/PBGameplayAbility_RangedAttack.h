@@ -37,12 +37,12 @@ private:
 	FTransform GetProjectileLaunchTransform() const;
 
 	// 투사체 도착 시 호출되는 콜백 — EndAbility 트리거
-	void OnArrowResolved(AActor* HitActor);
+	void OnProjectileResolved(AActor* HitActor);
 
 private:
 	// 발사할 투사체 클래스 (블루프린트에서 설정)
 	UPROPERTY(EditDefaultsOnly, Category = "Ability|Projectile")
-	TSubclassOf<APBArrowProjectile> ProjectileClass;
+	TSubclassOf<APBProjectile> ProjectileClass;
 
 	// 투사체 콜백에서 EndAbility 호출 시 사용하는 캐시
 	FGameplayAbilitySpecHandle CachedHandle;
