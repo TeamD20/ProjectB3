@@ -106,6 +106,9 @@ EStateTreeRunStatus UPBExecuteSequenceTask::EnterState(
 void UPBExecuteSequenceTask::ExitState(
     FStateTreeExecutionContext &Context,
     const FStateTreeTransitionResult &Transition) {
+  // 행동 간 딜레이 리셋
+  ActionDelayRemaining = 0.f;
+
   bWaitingForSequenceReady = false;
 
   if (bIsActionInProgress) {
@@ -256,7 +259,7 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
               UE_LOG(LogPBStateTreeExec, Display,
                      TEXT("[Fallback] 이동 완료 후 이동력 전부 소진."));
             }
-            AdvanceToNextAction();
+            ScheduleNextAction();
           }
         });
 
@@ -483,7 +486,7 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
               }
             }
 
-            AdvanceToNextAction();
+            ScheduleNextAction();
           }
         });
 
@@ -649,6 +652,17 @@ UPBExecuteSequenceTask::Tick(FStateTreeExecutionContext &Context,
   if (!bIsActionInProgress) {
     return EStateTreeRunStatus::Succeeded;
   }
+
+  // 행동 간 딜레이 카운트다운 (이전 행동 완료 후 대기 중)
+  if (ActionDelayRemaining > 0.f) {
+    ActionDelayRemaining -= DeltaTime;
+    if (ActionDelayRemaining <= 0.f) {
+      ActionDelayRemaining = 0.f;
+      AdvanceToNextAction();
+    }
+    return EStateTreeRunStatus::Running;
+  }
+
   return UpdateCurrentAction(DeltaTime);
 }
 
@@ -666,10 +680,10 @@ UPBExecuteSequenceTask::UpdateCurrentAction(float DeltaTime) {
              AbilityTimeoutSeconds);
       if (CachedASC && ActiveSpecHandle.IsValid()) {
         CachedASC->CancelAbilityHandle(ActiveSpecHandle);
-        // CancelAbilityHandle → OnAbilityEnded 콜백 → AdvanceToNextAction
+        // CancelAbilityHandle → OnAbilityEnded 콜백 → ScheduleNextAction
       } else {
         // ASC 없음 → 직접 다음 행동으로 진행
-        AdvanceToNextAction();
+        ScheduleNextAction();
       }
     }
   }
@@ -677,6 +691,10 @@ UPBExecuteSequenceTask::UpdateCurrentAction(float DeltaTime) {
 }
 
 /*~ 비동기 행동 체인 ~*/
+
+void UPBExecuteSequenceTask::ScheduleNextAction() {
+  ActionDelayRemaining = ActionDelaySeconds;
+}
 
 void UPBExecuteSequenceTask::AdvanceToNextAction() {
   // 이중 진입 방지 (타임아웃 + OnAbilityEnded 동시 호출 시)

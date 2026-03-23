@@ -84,6 +84,15 @@ protected:
   // AdvanceToNextAction 이중 진입 방지 (타임아웃 + OnAbilityEnded 동시 호출 가드)
   bool bIsAdvancing = false;
 
+  // AI 행동 간 시각적 간격을 위한 딜레이 (초). 발표/데모 시 조절 가능.
+  static constexpr float ActionDelaySeconds = 0.8f;
+
+  // 딜레이 후 다음 행동 실행을 예약 (비동기 행동 완료 콜백에서 호출)
+  void ScheduleNextAction();
+
+  // 행동 간 딜레이 잔여 시간 (Tick에서 카운트다운)
+  float ActionDelayRemaining = 0.f;
+
   // StateTree Input 바인딩은 매 Tick마다 소스(Generate)에서 재복사되어
   // CurrentActionIndex가 0으로 초기화된다. 실행 로직에서는 이 로컬 복사본을 사용하여
   // 바인딩 갱신으로부터 실행 상태를 격리한다.

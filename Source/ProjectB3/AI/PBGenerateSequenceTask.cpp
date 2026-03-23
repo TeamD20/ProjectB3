@@ -519,6 +519,48 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		return EStateTreeRunStatus::Failed;
 	}
 
+	// 5-2. 사거리 밖 접근 우선: 모든 적이 (이동력+사거리) 밖이면
+	//       MP를 접근에 우선 배분하고 남은 자원으로 DFS 실행
+	float ApproachReserveMP = 0.f;
+	FVector PrecomputedApproachPos = FVector::ZeroVector;
+
+	if (CurrentMovement > 10.f)
+	{
+		const FVector TestApproachPos =
+			CachedClearinghouse->CalculateFallbackPosition(
+				SelfActor, CurrentMovement);
+
+		if (!TestApproachPos.IsZero())
+		{
+			const FVector AIPos = SelfActor->GetActorLocation();
+			const auto& ApproachTargets = CachedClearinghouse->GetCachedTargets();
+			bool bNeedsApproach = false;
+			for (const TWeakObjectPtr<AActor>& WeakTarget : ApproachTargets)
+			{
+				if (const AActor* Target = WeakTarget.Get())
+				{
+					if (FVector::DistXY(TestApproachPos, Target->GetActorLocation())
+						< FVector::DistXY(AIPos, Target->GetActorLocation()))
+					{
+						bNeedsApproach = true;
+						break;
+					}
+				}
+			}
+
+			if (bNeedsApproach)
+			{
+				ApproachReserveMP = CurrentMovement;
+				PrecomputedApproachPos = TestApproachPos;
+				CurrentMovement = 0.f;
+
+				UE_LOG(LogPBStateTree, Display,
+					TEXT("[접근 우선] 모든 적이 사거리 밖 → MP=%.0f 접근 예약, DFS MP=0"),
+					ApproachReserveMP);
+			}
+		}
+	}
+
 	// 6. DFS 초기 컨텍스트 구성
 	FPBUtilityContext InitialContext;
 	InitialContext.RemainingAP = CurrentAction;
@@ -555,36 +597,70 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		// Phase 3: DFS 결과에서 MovementCost > 0인 행동 앞에 Move 노드 삽입
 		InjectMoveActions(GeneratedSequence);
 
-		// Fallback 후퇴 검토: 시퀀스 실행 후 잔여 이동력으로 방어적 후퇴
-		float ConsumedMP = 0.0f;
-		for (const FPBSequenceAction& Action : BestPath)
+		// Fallback 처리: 접근 예약이 있으면 접근, 없으면 기존 방어적 후퇴
+		if (ApproachReserveMP > 0.f)
 		{
-			ConsumedMP += Action.Cost.MovementCost;
+			FPBSequenceAction ApproachAction;
+			ApproachAction.ActionType = EPBActionType::Move;
+			ApproachAction.TargetActor = nullptr;
+			ApproachAction.TargetLocation = PrecomputedApproachPos;
+			ApproachAction.Cost.MovementCost = ApproachReserveMP;
+			GeneratedSequence.Actions.Add(ApproachAction);
+
+			bFallbackIsApproach = true;
+
+			UE_LOG(LogPBStateTree, Display,
+				TEXT("[접근 우선] 시퀀스 후 사거리 밖 접근 추가. MP=%.0f, 목표: (%s)"),
+				ApproachReserveMP, *PrecomputedApproachPos.ToCompactString());
 		}
-		const float RemainingMPAfterSequence = CurrentMovement - ConsumedMP;
-
-		if (RemainingMPAfterSequence > 10.0f
-			&& !ShouldSkipFallback(RemainingMPAfterSequence))
+		else
 		{
-			const FVector FallbackPos =
-				CachedClearinghouse->CalculateFallbackPosition(
-					SelfActor, RemainingMPAfterSequence);
-
-			if (!FallbackPos.IsZero())
+			float ConsumedMP = 0.0f;
+			for (const FPBSequenceAction& Action : BestPath)
 			{
-				FPBSequenceAction FallbackAction;
-				FallbackAction.ActionType = EPBActionType::Move;
-				FallbackAction.TargetActor = nullptr;
-				FallbackAction.TargetLocation = FallbackPos;
-				FallbackAction.Cost.MovementCost = RemainingMPAfterSequence;
-				GeneratedSequence.Actions.Add(FallbackAction);
+				ConsumedMP += Action.Cost.MovementCost;
+			}
+			const float RemainingMPAfterSequence = CurrentMovement - ConsumedMP;
 
-				UE_LOG(LogPBStateTree, Display,
-				       TEXT("[Fallback] 시퀀스 후 방어적 후퇴 추가. "
-					       "목표: (%s)"),
-				       *FallbackPos.ToCompactString());
+			if (RemainingMPAfterSequence > 10.0f
+				&& !ShouldSkipFallback(RemainingMPAfterSequence))
+			{
+				const FVector FallbackPos =
+					CachedClearinghouse->CalculateFallbackPosition(
+						SelfActor, RemainingMPAfterSequence);
+
+				if (!FallbackPos.IsZero())
+				{
+					FPBSequenceAction FallbackAction;
+					FallbackAction.ActionType = EPBActionType::Move;
+					FallbackAction.TargetActor = nullptr;
+					FallbackAction.TargetLocation = FallbackPos;
+					FallbackAction.Cost.MovementCost = RemainingMPAfterSequence;
+					GeneratedSequence.Actions.Add(FallbackAction);
+
+					UE_LOG(LogPBStateTree, Display,
+					       TEXT("[Fallback] 시퀀스 후 방어적 후퇴 추가. "
+						       "목표: (%s)"),
+					       *FallbackPos.ToCompactString());
+				}
 			}
 		}
+	}
+	else if (ApproachReserveMP > 0.f)
+	{
+		// DFS 행동 없음 + 접근 예약 → 접근만 실행
+		FPBSequenceAction ApproachAction;
+		ApproachAction.ActionType = EPBActionType::Move;
+		ApproachAction.TargetActor = nullptr;
+		ApproachAction.TargetLocation = PrecomputedApproachPos;
+		ApproachAction.Cost.MovementCost = ApproachReserveMP;
+		GeneratedSequence.Actions.Add(ApproachAction);
+
+		bFallbackIsApproach = true;
+
+		UE_LOG(LogPBStateTree, Display,
+			TEXT("[접근 우선] DFS 행동 없음, 사거리 밖 접근 실행. MP=%.0f, 목표: (%s)"),
+			ApproachReserveMP, *PrecomputedApproachPos.ToCompactString());
 	}
 	else
 	{
