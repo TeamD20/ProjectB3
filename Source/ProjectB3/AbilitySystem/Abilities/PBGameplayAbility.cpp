@@ -14,6 +14,8 @@
 #include "ProjectB3/ItemSystem/PBEquipmentActor.h"
 #include "ProjectB3/ItemSystem/Components/PBEquipmentComponent.h"
 #include "ProjectB3/ItemSystem/Data/PBEquipmentDataAsset.h"
+#include "Engine/World.h"
+#include "ProjectB3/ProjectB3.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPBGameplayAbility, Log, All);
 
@@ -333,13 +335,14 @@ FGameplayEffectSpecHandle UPBGameplayAbility::MakeDamageEffectSpecFromHitDamageR
 		return FGameplayEffectSpecHandle();
 	}
 
-	const FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
+	FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
+	SetTraceHitResultToContext(ContextHandle, InTargetASC);
 	FGameplayEffectSpecHandle SpecHandle = SourceASC->MakeOutgoingSpec(DamageGEClass, 1.f, ContextHandle);
 	if (!SpecHandle.IsValid())
 	{
 		return FGameplayEffectSpecHandle();
 	}
-	
+
 	// 명중 굴림
 	OutHitRollResult = RollHit(InTargetASC);
 	if (!OutHitRollResult.bHit)
@@ -381,13 +384,14 @@ FGameplayEffectSpecHandle UPBGameplayAbility::MakeDamageEffectSpecFromSavingThro
 		return FGameplayEffectSpecHandle();
 	}
 	
-	const FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
+	FGameplayEffectContextHandle ContextHandle = SourceASC->MakeEffectContext();
+	SetTraceHitResultToContext(ContextHandle, InTargetASC);
 	FGameplayEffectSpecHandle SpecHandle = SourceASC->MakeOutgoingSpec(DamageGEClass, 1.f, ContextHandle);
 	if (!SpecHandle.IsValid())
 	{
 		return FGameplayEffectSpecHandle();
 	}
-	
+
 	// 데미지 굴림
 	OutDamageRollResult = RollDamage(false);
 	// 내성 굴림
@@ -633,6 +637,38 @@ void UPBGameplayAbility::TryAutoAttachEquipment(
 	}
 }
 
+
+void UPBGameplayAbility::SetTraceHitResultToContext(
+	FGameplayEffectContextHandle& ContextHandle,
+	const UAbilitySystemComponent* InTargetASC) const
+{
+	AActor* SourceActor = GetAvatarActorFromActorInfo();
+	AActor* TargetActor = IsValid(InTargetASC) ? InTargetASC->GetAvatarActor() : nullptr;
+	if (!IsValid(SourceActor) || !IsValid(TargetActor))
+	{
+		return;
+	}
+
+	UWorld* World = SourceActor->GetWorld();
+	if (!IsValid(World))
+	{
+		return;
+	}
+
+	const FVector Start = SourceActor->GetActorLocation();
+	const FVector End = TargetActor->GetActorLocation();
+
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(SourceActor);
+
+	FHitResult HitResult;
+	World->LineTraceSingleByChannel(HitResult, Start, End, PBTraceChannel::Combat, QueryParams);
+	
+	if (HitResult.bBlockingHit)
+	{
+		ContextHandle.AddHitResult(HitResult, /*bReset=*/ true);
+	}
+}
 
 FPBAbilityTargetData UPBGameplayAbility::ExtractTargetDataFromEvent(
 	const FGameplayEventData& EventData) const
