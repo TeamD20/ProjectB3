@@ -12,6 +12,9 @@
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
 #include "ProjectB3/Combat/PBCombatManagerSubsystem.h"
 #include "ProjectB3/Player/PBGameplayPlayerState.h"
+#include "PBGameInstance.h"
+#include "ProjectB3/AbilitySystem/Data/PBAbilitySystemRegistry.h"
+#include "ProjectB3/Characters/PBCharacterBase.h"
 #include "ProjectB3/UI/PBUIBlueprintLibrary.h"
 #include "ProjectB3/UI/PBUIManagerSubsystem.h"
 #include "ProjectB3/UI/PBUITypes.h"
@@ -157,12 +160,20 @@ void APBGameplayHUD::HandlePartyMemberListReady(const TArray<AActor*>& InPartyMe
 			continue;
 		}
 		
-		if (IPBCombatParticipant* CPI = Cast<IPBCombatParticipant>(PartyMember))
+		if (APBCharacterBase* CharBase = Cast<APBCharacterBase>(PartyMember))
 		{
-			VM->SetPortrait(CPI->GetCombatPortrait());
-			VM->SetCharacterName(CPI->GetCombatDisplayName());
-			VM->SetCharacterClass(FText::FromString(TEXT("임시 직업"))); // TODO: 클래스 조회
-			VM->SetLevel(0); // TODO: 레벨 조회.
+			VM->SetPortrait(CharBase->GetCharacterIdentity().Portrait);
+			VM->SetCharacterName(CharBase->GetCharacterIdentity().DisplayName);
+			VM->SetLevel(CharBase->GetCharacterLevel());
+
+			// 레지스트리를 통한 직업 태그 조회
+			if (const UPBAbilitySystemRegistry* Registry = UPBGameInstance::GetAbilitySystemRegistry(this))
+			{
+				FGameplayTag ClassTag = CharBase->GetCharacterIdentity().ClassTag;
+				VM->SetCharacterClass(Registry->GetTagDisplayName(ClassTag));
+				VM->SetClassIcon(Registry->GetTagIcon(ClassTag));
+			}
+			
 			// HP는 UPBAbilitySystemUIBridge가 ASC Attribute 변경 구독으로 자동 갱신
 		}
 		
@@ -205,7 +216,7 @@ void APBGameplayHUD::HandleCombatStarted()
 		{
 			TurnOrderEntry.DisplayName = CPI->GetCombatDisplayName();
 			TurnOrderEntry.Portrait = CPI->GetCombatPortrait();
-			TurnOrderEntry.bIsAlly = !CPI->GetFactionTag().MatchesTagExact(PBGameplayTags::Combat_Faction_Player);
+			TurnOrderEntry.bIsAlly = CPI->GetFactionTag().MatchesTagExact(PBGameplayTags::Combat_Faction_Player);
 		}
 		
 		if (UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(InitiativeEntry.Combatant.Get()))
