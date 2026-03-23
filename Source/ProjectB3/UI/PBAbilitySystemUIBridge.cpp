@@ -648,7 +648,8 @@ void UPBAbilitySystemUIBridge::SendFloatingTextEvent(
 	EPBFloatingTextType Type,
 	float Magnitude,
 	const FGameplayTag& MetaTag,
-	const FText& TextOverride) const
+	const FText& TextOverride,
+	TSoftObjectPtr<UTexture2D> IconOverride) const
 {
 	UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(CachedASC.Get());
 	if (!IsValid(PBASC))
@@ -665,6 +666,16 @@ void UPBAbilitySystemUIBridge::SendFloatingTextEvent(
 	Payload->FloatingTextType = Type;
 	Payload->Magnitude = Magnitude;
 	Payload->MetaTag = MetaTag;
+	Payload->Icon = IconOverride;
+
+	// 자체적으로 아이콘 조회가 필요한 상황 (예: Status 태그)
+	if (Payload->Icon.IsNull() && Type == EPBFloatingTextType::Status && MetaTag.IsValid())
+	{
+		if (const UPBAbilitySystemRegistry* Registry = UPBGameInstance::GetAbilitySystemRegistry(this))
+		{
+			Payload->Icon = Registry->GetTagIcon(MetaTag);
+		}
+	}
 
 	switch (Type)
 	{
