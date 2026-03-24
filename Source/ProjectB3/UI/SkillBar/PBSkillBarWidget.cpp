@@ -57,7 +57,7 @@ void UPBSkillBarWidget::RefreshSkillBar()
 		return;
 	}
 
-	auto RebuildContainer = [this](UPanelWidget* Container, const TArray<FPBSkillSlotData>& Slots, int32 CategoryIndex)
+	auto RebuildContainer = [this](UPanelWidget* Container, const TArray<FPBSkillSlotData>& Slots, int32 CategoryIndex, int32 MinSlots)
 	{
 		if (!IsValid(Container))
 		{
@@ -66,7 +66,7 @@ void UPBSkillBarWidget::RefreshSkillBar()
 
 		Container->ClearChildren();
 
-		const int32 SlotCount = FMath::Max(Slots.Num(), MinSlotsPerCategory);
+		const int32 SlotCount = FMath::Max(Slots.Num(), MinSlots);
 		for (int32 i = 0; i < SlotCount; ++i)
 		{
 			if (UPBSkillSlotWidget* SlotWidget = CreateWidget<UPBSkillSlotWidget>(this, SkillSlotWidgetClass))
@@ -89,9 +89,9 @@ void UPBSkillBarWidget::RefreshSkillBar()
 		}
 	};
 
-	RebuildContainer(PrimaryActionContainer, SkillBarViewModel->PrimaryActions, 0);
-	RebuildContainer(SecondaryActionContainer, SkillBarViewModel->SecondaryActions, 1);
-	RebuildContainer(SpellActionContainer, SkillBarViewModel->SpellActions, 2);
+	RebuildContainer(PrimaryActionContainer, SkillBarViewModel->PrimaryActions, 0, MinPrimarySlots);
+	RebuildContainer(SecondaryActionContainer, SkillBarViewModel->SecondaryActions, 1, MinSecondarySlots);
+	RebuildContainer(ConsumableContainer, SkillBarViewModel->ConsumableActions, 2, MinConsumableSlots);
 }
 
 void UPBSkillBarWidget::HandleSlotUpdated(int32 CategoryIndex, int32 SlotIndex)
@@ -106,7 +106,7 @@ void UPBSkillBarWidget::HandleSlotUpdated(int32 CategoryIndex, int32 SlotIndex)
 	{
 	case 0: TargetContainer = PrimaryActionContainer; break;
 	case 1: TargetContainer = SecondaryActionContainer; break;
-	case 2: TargetContainer = SpellActionContainer; break;
+	case 2: TargetContainer = ConsumableContainer; break;
 	}
 
 	if (IsValid(TargetContainer) && TargetContainer->GetChildrenCount() > SlotIndex)

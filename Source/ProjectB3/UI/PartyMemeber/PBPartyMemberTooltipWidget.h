@@ -8,7 +8,7 @@
 
 class UPBPartyMemberViewModel;
 class UTextBlock;
-class UVerticalBox;
+class UWrapBox;
 class UPBPartyMemberTooltipRowWidget;
 
 /**
@@ -35,8 +35,8 @@ protected:
 	// 레벨 + 클래스를 하나의 텍스트 블록에 합쳐 표시
 	void HandleLevelAndClassChanged();
 	
-	void HandleStatusEffectsChanged();
-	void HandleReactionsChanged();
+	void HandleBuffsChanged();
+	void HandleDebuffsChanged();
 	void HandleClassIconChanged(TSoftObjectPtr<UTexture2D> InIcon);
 
 public:
@@ -57,10 +57,10 @@ public:
 	TObjectPtr<class UImage> ClassIconImage;
 
 	UPROPERTY(meta = (BindWidget))
-	UVerticalBox* StatusEffectsContainer;
+	UWrapBox* BuffBox;
 
 	UPROPERTY(meta = (BindWidget))
-	UVerticalBox* ReactionsContainer;
+	UWrapBox* DeBuffBox;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI | Tooltip Widget")
 	TSubclassOf<UPBPartyMemberTooltipRowWidget> RowWidgetClass;

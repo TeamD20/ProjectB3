@@ -26,19 +26,43 @@ void UPBSkillTooltipWidget::SetTooltipData(const FPBSkillSlotData& InSlotData)
 	// 스킬 타입 / 클래스
 	if (SkillTypeText)
 	{
-		SkillTypeText->SetText(!InSlotData.SkillType.IsEmpty() ? InSlotData.SkillType : DummySkillType);
+		if (!InSlotData.SkillType.IsEmpty())
+		{
+			SkillTypeText->SetText(InSlotData.SkillType);
+			SkillTypeText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+		}
+		else
+		{
+			SkillTypeText->SetVisibility(ESlateVisibility::Collapsed);
+		}
 	}
 
 	// 스킬 설명
 	if (SkillDescriptionText)
 	{
-		SkillDescriptionText->SetText(!InSlotData.Description.IsEmpty() ? InSlotData.Description : DummyDescription);
+		if (!InSlotData.Description.IsEmpty())
+		{
+			SkillDescriptionText->SetText(InSlotData.Description);
+			SkillDescriptionText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+		}
+		else
+		{
+			SkillDescriptionText->SetVisibility(ESlateVisibility::Collapsed);
+		}
 	}
 
 	// 피해량 설명
 	if (DamageDescText)
 	{
-		DamageDescText->SetText(!InSlotData.DamageDesc.IsEmpty() ? InSlotData.DamageDesc : DummyDamageDesc);
+		if (!InSlotData.DamageDesc.IsEmpty())
+		{
+			DamageDescText->SetText(InSlotData.DamageDesc);
+			DamageDescText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+		}
+		else
+		{
+			DamageDescText->SetVisibility(ESlateVisibility::Collapsed);
+		}
 	}
 
 	// 주사위 설명 & 아이콘
@@ -48,12 +72,11 @@ void UPBSkillTooltipWidget::SetTooltipData(const FPBSkillSlotData& InSlotData)
 		{
 			DiceRollDescText->SetText(InSlotData.DiceRollDesc);
 			DiceRollDescText->SetColorAndOpacity(InSlotData.DiceRollColor);
+			DiceRollDescText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 		}
 		else
 		{
-			// 실 데이터가 없으면 더미 출력
-			DiceRollDescText->SetText(DummyDiceRollDesc);
-			DiceRollDescText->SetColorAndOpacity(DummyDiceRollColor);
+			DiceRollDescText->SetVisibility(ESlateVisibility::Collapsed);
 		}
 	}
 
@@ -62,11 +85,6 @@ void UPBSkillTooltipWidget::SetTooltipData(const FPBSkillSlotData& InSlotData)
 		if (!InSlotData.DiceRollIcon.IsNull())
 		{
 			DiceRollIcon->SetBrushFromSoftTexture(InSlotData.DiceRollIcon);
-			DiceRollIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
-		}
-		else if (DummyDiceRollIcon)
-		{
-			DiceRollIcon->SetBrushFromTexture(DummyDiceRollIcon);
 			DiceRollIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 		}
 		else
@@ -78,13 +96,31 @@ void UPBSkillTooltipWidget::SetTooltipData(const FPBSkillSlotData& InSlotData)
 	// 6. 사거리 (Action Range)
 	if (ActionRangeText)
 	{
-		ActionRangeText->SetText(!InSlotData.ActionRange.IsEmpty() ? InSlotData.ActionRange : DummyActionRange);
+		if (!InSlotData.ActionRange.IsEmpty())
+		{
+			ActionRangeText->SetText(InSlotData.ActionRange);
+			ActionRangeText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+			if (ActionRangeIcon) ActionRangeIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+		}
+		else
+		{
+			ActionRangeText->SetVisibility(ESlateVisibility::Collapsed);
+			if (ActionRangeIcon) ActionRangeIcon->SetVisibility(ESlateVisibility::Collapsed);
+		}
 	}
 
 	// 7. 굴림 유형 (Roll Type)
 	if (RollTypeText)
 	{
-		RollTypeText->SetText(!InSlotData.RollType.IsEmpty() ? InSlotData.RollType : DummyRollType);
+		if (!InSlotData.RollType.IsEmpty())
+		{
+			RollTypeText->SetText(InSlotData.RollType);
+			RollTypeText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+		}
+		else
+		{
+			RollTypeText->SetVisibility(ESlateVisibility::Collapsed);
+		}
 	}
 
 	// 8. 굴림 유형 아이콘 (Roll Type Icon)

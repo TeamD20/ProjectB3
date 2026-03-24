@@ -2,6 +2,7 @@
 
 #include "PBInventorySlotWidget.h"
 
+#include "AbilitySystemBlueprintLibrary.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/Image.h"
@@ -10,6 +11,7 @@
 #include "Blueprint/WidgetBlueprintLibrary.h"
 #include "Input/Events.h"
 #include "Input/Reply.h"
+#include "ProjectB3/AbilitySystem/Payload/PBConsumableUsePayload.h"
 #include "ProjectB3/ItemSystem/Components/PBEquipmentComponent.h"
 #include "ProjectB3/ItemSystem/Components/PBInventoryComponent.h"
 #include "ProjectB3/UI/Inventory/PBInventoryDragDropOperation.h"
@@ -17,6 +19,7 @@
 #include "ProjectB3/UI/Inventory/PBInventoryViewModel.h"
 #include "ProjectB3/UI/Inventory/PBItemTooltipWidget.h"
 #include "ProjectB3/ItemSystem/PBItemTypes.h"
+#include "ProjectB3/ItemSystem/Data/PBConsumableDataAsset.h"
 
 namespace
 {
@@ -38,10 +41,11 @@ namespace
 	}
 }
 
-void UPBInventorySlotWidget::InitializeSlot(int32 InSlotIndex, UPBInventoryViewModel* InViewModel)
+void UPBInventorySlotWidget::InitializeSlot(int32 InSlotIndex, UPBInventoryViewModel* InViewModel, bool bInIsSkillBarSlot)
 {
 	SlotIndex = InSlotIndex;
 	InventoryViewModel = InViewModel;
+	bIsSkillBarSlot = bInIsSkillBarSlot;
 	RefreshSlot();
 }
 
@@ -127,6 +131,44 @@ void UPBInventorySlotWidget::NativeDestruct()
 
 FReply UPBInventorySlotWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
 {
+	// 스킬바 슬롯일 경우 드래그나 컨텍스트 메뉴를 띄우지 않고, 즉시 아이템 사용을 시도
+	if (bIsSkillBarSlot)
+	{
+		// 좌클릭 또는 우클릭 시 즉시 사용 (UseConsumable)
+		if (InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton || InMouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
+		{
+			FPBInventorySlotData SlotData;
+			if (GetCurrentSlotData(SlotData) && SlotData.ItemType == EPBItemType::Consumable)
+			{
+				if (AActor* TargetActor = InventoryViewModel.IsValid() ? InventoryViewModel->GetTargetActor() : nullptr)
+				{
+					// PBInventoryContextMenuWidget의 HandleUseClicked와 동일한 로직 브로드캐스트
+					UPBInventoryComponent* InventoryComponent = TargetActor->FindComponentByClass<UPBInventoryComponent>();
+					if (IsValid(InventoryComponent))
+					{
+						const FPBItemInstance ItemInstance = InventoryComponent->FindItemByID(SlotData.InstanceID);
+						if (const UPBConsumableDataAsset* ConsumableDA = Cast<UPBConsumableDataAsset>(ItemInstance.ItemDataAsset))
+						{
+							UPBConsumableUsePayload* Payload = NewObject<UPBConsumableUsePayload>();
+							Payload->InstanceID = SlotData.InstanceID;
+							Payload->ConsumableDataAsset = const_cast<UPBConsumableDataAsset*>(ConsumableDA);
+
+							FGameplayEventData EventData;
+							EventData.OptionalObject = Payload;
+
+							UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(
+								TargetActor,
+								PBGameplayTags::Event_Item_UseConsumable,
+								EventData);
+						}
+					}
+				}
+			}
+			return FReply::Handled();
+		}
+		return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
+	}
+
 	if (InMouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
 	{
 		// GetMousePosition은 뷰포트 기준 물리 픽셀 좌표를 반환 — 위젯 중첩 깊이와 무관하게 정확함

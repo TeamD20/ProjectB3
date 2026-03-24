@@ -42,17 +42,25 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UPanelWidget> SecondaryActionContainer;
 
-	// 마법/주문 슬롯 영역
+	// 소비 아이템 슬롯 영역
 	UPROPERTY(meta = (BindWidget))
-	TObjectPtr<UPanelWidget> SpellActionContainer;
+	TObjectPtr<UPanelWidget> ConsumableContainer;
 
 	// 개별 스킬 슬롯 위젯 클래스
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<class UPBSkillSlotWidget> SkillSlotWidgetClass;
 	
-	// 카테고리별 최소 슬롯 개수 (스킬 미할당 시에도 빈 슬롯 표시)
+	// 주행동 최소 슬롯 개수 (스킬 미할당 시에도 빈 슬롯 표시)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true", ClampMin = 0))
-	int32 MinSlotsPerCategory = 10;
+	int32 MinPrimarySlots = 8;
+
+	// 보조행동 최소 슬롯 개수
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true", ClampMin = 0))
+	int32 MinSecondarySlots = 8;
+
+	// 소비 아이템 최소 슬롯 개수
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "UI|SkillBar", meta = (AllowPrivateAccess = "true", ClampMin = 0))
+	int32 MinConsumableSlots = 4;
 	
 private:
 	// 스킬바 ViewModel 참조
