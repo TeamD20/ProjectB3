@@ -234,6 +234,22 @@ public:
 		return CachedArchetypeWeights;
 	}
 
+	// 디버거용: 마지막 생성된 시퀀스 캐싱 (GenerateSequenceTask에서 호출)
+	void SetLastGeneratedSequence(const FPBActionSequence& Seq) { LastGeneratedSequence = Seq; }
+	const FPBActionSequence& GetLastGeneratedSequence() const { return LastGeneratedSequence; }
+
+	// 디버거용: 실행 상태 캐싱 (ExecuteSequenceTask에서 호출)
+	struct FExecutionDebugState
+	{
+		bool bWaitingForSequenceReady = false;
+		bool bExecuting = false;
+		int32 CurrentActionIndex = 0;
+		int32 TotalActions = 0;
+		FString CurrentActionDesc;
+	};
+	void SetExecutionDebugState(const FExecutionDebugState& State) { CachedExecutionState = State; }
+	const FExecutionDebugState& GetExecutionDebugState() const { return CachedExecutionState; }
+
 	// 현재 Context(잔여 자원/위치)에서 실행 가능한 후보 행동 목록 생성.
 	// DFS 내부 및 Fallback 후 단일 행동 탐색에서 공용 호출.
 	TArray<FPBSequenceAction> GetCandidateActions(
@@ -333,6 +349,12 @@ protected:
 
 	// MultiTarget 어빌리티 최적 분배 후보 캐시 (어빌리티당 Top-K개)
 	TArray<FPBMultiTargetCandidate> CachedMultiTargetCandidates;
+
+	// 디버거용: 마지막 생성된 시퀀스 (GenerateSequenceTask가 캐싱)
+	FPBActionSequence LastGeneratedSequence;
+
+	// 디버거용: 실행 상태 (ExecuteSequenceTask가 캐싱)
+	FExecutionDebugState CachedExecutionState;
 
 	// 이번 턴에 인지한 아군 액터 목록 (Self 포함, 사망자 제외)
 	// Heal/Buff 타겟 후보로 사용

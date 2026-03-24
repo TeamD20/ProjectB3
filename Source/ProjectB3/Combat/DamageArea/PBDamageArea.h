@@ -8,6 +8,7 @@
 #include "PBDamageArea.generated.h"
 
 class UAbilitySystemComponent;
+class UNavModifierComponent;
 class USphereComponent;
 class UPBCombatManagerSubsystem;
 
@@ -74,6 +75,10 @@ protected:
 	// 오버랩 감지용 구체 콜리전
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "DamageArea")
 	TObjectPtr<USphereComponent> CollisionComponent;
+
+	// AI 경로 탐색 시 위험 영역 비용 부여용 NavModifier
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "DamageArea")
+	TObjectPtr<UNavModifierComponent> NavModifierComponent;
 
 	// 적용할 이펙트 스펙 핸들
 	UPROPERTY(BlueprintReadOnly, Category = "DamageArea|AbilitySystem")
