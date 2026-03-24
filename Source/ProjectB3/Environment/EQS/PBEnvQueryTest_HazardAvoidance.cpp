@@ -1,10 +1,10 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBEnvQueryTest_HazardAvoidance.h"
-#include "PBEnvironmentSubsystem.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_VectorBase.h"
 #include "Engine/GameInstance.h"
+#include "ProjectB3/Environment/PBEnvironmentSubsystem.h"
 
 UPBEnvQueryTest_HazardAvoidance::UPBEnvQueryTest_HazardAvoidance()
 {
