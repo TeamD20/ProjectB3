@@ -95,6 +95,20 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> ItemCategoryText;
 
+	// ==== 바인딩 위젯: 소모품 전용 ====
+	
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UWidget> Box_Consumable;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> ConsumableEffectText;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> ConsumableEffectIcon;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> DurationText;
+
 	// ==== 에디터 및 설정 데이터 ====
 	
 	// 블루프린트 디자이너 지정용: 등급별 Box1_RarityOverlay 컬러 매핑

@@ -2,7 +2,25 @@
 
 #include "PBEquipmentDataAsset.h"
 
-TArray<EPBEquipSlot> UPBEquipmentDataAsset::GetAllowedSlotsForType(EPBEquipmentType InEquipmentType, EPBWeaponHandType InHandType)
+FPBDiceSpec UPBEquipmentDataAsset::GetAbilityDamageSpec() const
+{
+	return DamageSpec;
+}
+
+int32 UPBEquipmentDataAsset::GetWeaponBonusModifier() const
+{
+	return WeaponBonusModifier;
+}
+
+FGameplayTag UPBEquipmentDataAsset::GetDamageTypeTag() const
+{
+	return DamageTypeTag;
+}
+
+int32 UPBEquipmentDataAsset::GetArmorClass() const
+{
+	return ArmorClass;
+}TArray<EPBEquipSlot> UPBEquipmentDataAsset::GetAllowedSlotsForType(EPBEquipmentType InEquipmentType, EPBWeaponHandType InHandType)
 {
 	switch (InEquipmentType)
 	{

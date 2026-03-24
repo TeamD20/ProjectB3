@@ -46,10 +46,14 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 		RarityText->SetText(!InData.RarityText.IsEmpty() ? InData.RarityText : FallbackRarity);
 	}
 
-	// DamageRangeText: 무기="4~9 피해", 방어구="방어도 15", 소모품="3d4+3 회복", 기타=Fallback or Collapsed
+	// DamageRangeText: 무기="4~9 피해", 방어구="방어도 15", 기타=Fallback or Collapsed
 	if (DamageRangeText)
 	{
-		if (!InData.DamageRangeText.IsEmpty())
+		if (InData.ItemType == EPBItemType::Consumable)
+		{
+			DamageRangeText->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		else if (!InData.DamageRangeText.IsEmpty())
 		{
 			DamageRangeText->SetText(InData.DamageRangeText);
 			DamageRangeText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
@@ -65,25 +69,36 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 		}
 	}
 
-	// DiceIcon: 무기=주사위, 방어구=AC아이콘, 소모품=효과아이콘
+	// DiceIcon: 무기=주사위, 등 기타
 	if (DiceIcon)
 	{
-		const TSoftObjectPtr<UTexture2D>& ActiveDiceIcon = !InData.DiceIcon.IsNull() ? InData.DiceIcon : FallbackDiceIcon;
-		if (!ActiveDiceIcon.IsNull())
-		{
-			DiceIcon->SetBrushFromSoftTexture(ActiveDiceIcon);
-			DiceIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
-		}
-		else
+		if (InData.ItemType == EPBItemType::Consumable)
 		{
 			DiceIcon->SetVisibility(ESlateVisibility::Collapsed);
 		}
+		else
+		{
+			const TSoftObjectPtr<UTexture2D>& ActiveDiceIcon = !InData.DiceIcon.IsNull() ? InData.DiceIcon : FallbackDiceIcon;
+			if (!ActiveDiceIcon.IsNull())
+			{
+				DiceIcon->SetBrushFromSoftTexture(ActiveDiceIcon);
+				DiceIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+			}
+			else
+			{
+				DiceIcon->SetVisibility(ESlateVisibility::Collapsed);
+			}
+		}
 	}
 
-	// DiceText: 무기="1d6", 방어구="경갑", 소모품="긴 휴식 전까지"
+	// DiceText: 무기="1d6", 방어구="경갑" 등
 	if (DiceText)
 	{
-		if (!InData.DiceText.IsEmpty())
+		if (InData.ItemType == EPBItemType::Consumable)
+		{
+			DiceText->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		else if (!InData.DiceText.IsEmpty())
 		{
 			DiceText->SetText(InData.DiceText);
 			DiceText->SetColorAndOpacity(InData.DiceColor);
@@ -160,6 +175,41 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 		else
 		{
 			ItemModelImage->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+
+	// (소모품 전용 박스)
+	if (Box_Consumable)
+	{
+		if (InData.ItemType == EPBItemType::Consumable)
+		{
+			Box_Consumable->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+			if (ConsumableEffectText)
+			{
+				ConsumableEffectText->SetText(InData.ConsumableEffectText);
+				ConsumableEffectText->SetVisibility(!InData.ConsumableEffectText.IsEmpty() ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
+			}
+			if (ConsumableEffectIcon)
+			{
+				if (!InData.ConsumableEffectIcon.IsNull())
+				{
+					ConsumableEffectIcon->SetBrushFromSoftTexture(InData.ConsumableEffectIcon);
+					ConsumableEffectIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+				}
+				else
+				{
+					ConsumableEffectIcon->SetVisibility(ESlateVisibility::Collapsed);
+				}
+			}
+			if (DurationText)
+			{
+				DurationText->SetText(InData.DurationText);
+				DurationText->SetVisibility(!InData.DurationText.IsEmpty() ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
+			}
+		}
+		else
+		{
+			Box_Consumable->SetVisibility(ESlateVisibility::Collapsed);
 		}
 	}
 
