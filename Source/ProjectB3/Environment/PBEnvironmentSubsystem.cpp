@@ -3,6 +3,7 @@
 #include "PBEnvironmentSubsystem.h"
 #include "PBLineOfSightStrategy.h"
 #include "PBLoS_Trace.h"
+#include "ProjectB3/Combat/DamageArea/PBDamageArea.h"
 #include "AIController.h"
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
@@ -433,6 +434,69 @@ FVector UPBEnvironmentSubsystem::CalculateClampedDestination(
 	return PathPoints.Last();
 }
 
+// 위험 영역 판정
+
+void UPBEnvironmentSubsystem::RegisterDamageArea(APBDamageArea* Area)
+{
+	if (IsValid(Area))
+	{
+		RegisteredDamageAreas.AddUnique(Area);
+	}
+}
+
+void UPBEnvironmentSubsystem::UnregisterDamageArea(APBDamageArea* Area)
+{
+	RegisteredDamageAreas.Remove(Area);
+}
+
+FPBHazardQueryResult UPBEnvironmentSubsystem::QueryHazardAtPoint(const FVector& Point) const
+{
+	// 캐시 키 생성 (LoS와 동일한 양자화 기준)
+	const float InvTolerance = (LoSCacheTolerance > 0.0f) ? (1.0f / LoSCacheTolerance) : 1.0f;
+	const FIntVector CacheKey(
+		FMath::RoundToInt(Point.X * InvTolerance),
+		FMath::RoundToInt(Point.Y * InvTolerance),
+		FMath::RoundToInt(Point.Z * InvTolerance)
+	);
+
+	// 캐시 히트 → 즉시 반환
+	if (bEnvironmentCacheActive)
+	{
+		if (const FPBHazardQueryResult* CachedResult = HazardCache.Find(CacheKey))
+		{
+			return *CachedResult;
+		}
+	}
+
+	// 등록된 DamageArea 순회하여 구체 포함 판정
+	FPBHazardQueryResult Result;
+	for (const TWeakObjectPtr<APBDamageArea>& WeakArea : RegisteredDamageAreas)
+	{
+		APBDamageArea* Area = WeakArea.Get();
+		if (!IsValid(Area))
+		{
+			continue;
+		}
+
+		const float Radius = Area->GetAreaRadius();
+		const float DistSq = FVector::DistSquared(Point, Area->GetActorLocation());
+		if (DistSq <= Radius * Radius)
+		{
+			Result.bIsInHazard = true;
+			Result.TotalExpectedDamage += Area->GetExpectedDamage();
+			Result.OverlappingAreas.Add(Area);
+		}
+	}
+
+	// 캐시 저장
+	if (bEnvironmentCacheActive)
+	{
+		HazardCache.Add(CacheKey, Result);
+	}
+
+	return Result;
+}
+
 // 캐시 수명 관리
 
 void UPBEnvironmentSubsystem::BeginEnvironmentCache()
@@ -441,6 +505,7 @@ void UPBEnvironmentSubsystem::BeginEnvironmentCache()
 	LoSCache.Empty();
 	PathCostCache.Empty();
 	NavPathCache.Empty();
+	HazardCache.Empty();
 }
 
 void UPBEnvironmentSubsystem::EndEnvironmentCache()
@@ -449,4 +514,5 @@ void UPBEnvironmentSubsystem::EndEnvironmentCache()
 	LoSCache.Empty();
 	PathCostCache.Empty();
 	NavPathCache.Empty();
+	HazardCache.Empty();
 }

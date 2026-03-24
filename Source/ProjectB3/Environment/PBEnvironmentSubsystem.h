@@ -66,6 +66,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Environment|Path")
 	FVector CalculateClampedDestination(const TArray<FVector>& PathPoints, float MaxDistance, TArray<FVector>& OutClampedPath) const;
 
+	/* === 위험 영역 판정 === */
+
+	// 위험 영역 등록 (DamageArea BeginPlay에서 호출)
+	void RegisterDamageArea(APBDamageArea* Area);
+
+	// 위험 영역 해제 (DamageArea EndPlay에서 호출)
+	void UnregisterDamageArea(APBDamageArea* Area);
+
+	// 특정 포인트가 위험 영역 이내인지 쿼리 (캐시 활성 시 캐시 우선 조회)
+	UFUNCTION(BlueprintCallable, Category = "Environment|Hazard")
+	FPBHazardQueryResult QueryHazardAtPoint(const FVector& Point) const;
+
 	/* === 캐시 수명 관리 === */
 
 	// 캐시 세션 시작 — 이후 판정 결과를 캐싱
@@ -93,6 +105,12 @@ private:
 
 	// NavPath 캐시 — RequestMoveToLocation에서 FindPathSync 재호출 없이 재사용
 	mutable TMap<uint64, FNavPathSharedPtr> NavPathCache;
+
+	// 위험 영역 쿼리 캐시 — 양자화 좌표 기준
+	mutable TMap<FIntVector, FPBHazardQueryResult> HazardCache;
+
+	// 등록된 위험 영역 목록
+	TArray<TWeakObjectPtr<APBDamageArea>> RegisteredDamageAreas;
 
 	// 캐시 활성 상태
 	bool bEnvironmentCacheActive = false;
