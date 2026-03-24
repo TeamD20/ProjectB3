@@ -64,6 +64,26 @@ struct FPBPathFindResult
 	bool bIsValid = false;
 };
 
+class APBDamageArea;
+
+/**
+ * 위험 영역 쿼리 결과.
+ */
+USTRUCT(BlueprintType)
+struct FPBHazardQueryResult
+{
+	GENERATED_BODY()
+
+	// 위험 영역 내부 여부
+	bool bIsInHazard = false;
+
+	// 겹치는 위험 영역의 예상 데미지 합계
+	float TotalExpectedDamage = 0.f;
+
+	// 겹치는 위험 영역 액터 목록
+	TArray<TWeakObjectPtr<APBDamageArea>> OverlappingAreas;
+};
+
 /**
  * LoS 캐시 키.
  * Source 좌표 + Target 액터 식별자로 구성.

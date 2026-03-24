@@ -130,6 +130,9 @@ public:
 	// 슬롯 태그에 부착된 장비 액터 반환. 없으면 nullptr.
 	APBEquipmentActor* GetAttachedEquipment(const FGameplayTag& SlotTag) const;
 	
+	UFUNCTION(BlueprintCallable, Category = "Combat", meta = (DisplayName = "GetAttachedEquipment", DeterminesOutputType = "EquipmentClass"))
+	APBEquipmentActor* K2_GetAttachedEquipment(const FGameplayTag SlotTag, TSubclassOf<APBEquipmentActor> EquipmentClass);
+	
 	// VisualMesh 설정
 	void SetupVisualMesh();
 	

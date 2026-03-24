@@ -210,6 +210,12 @@ APBEquipmentActor* APBCharacterBase::GetAttachedEquipment(const FGameplayTag& Sl
 	return Found ? *Found : nullptr;
 }
 
+APBEquipmentActor* APBCharacterBase::K2_GetAttachedEquipment(const FGameplayTag SlotTag,
+	TSubclassOf<APBEquipmentActor> EquipmentClass)
+{
+	return GetAttachedEquipment(SlotTag);
+}
+
 void APBCharacterBase::SetupVisualMesh()
 {
 	CachedVisualMesh = nullptr;
