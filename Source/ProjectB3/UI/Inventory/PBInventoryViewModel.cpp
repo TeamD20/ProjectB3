@@ -8,7 +8,11 @@
 #include "ProjectB3/ItemSystem/Components/PBInventoryComponent.h"
 #include "ProjectB3/ItemSystem/Data/PBItemDataAsset.h"
 #include "ProjectB3/ItemSystem/Data/PBEquipmentDataAsset.h"
+#include "ProjectB3/ItemSystem/Data/PBConsumableDataAsset.h"
 #include "ProjectB3/ItemSystem/PBItemTypes.h"
+#include "ProjectB3/Game/PBGameInstance.h"
+#include "ProjectB3/AbilitySystem/Data/PBAbilitySystemRegistry.h"
+#include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
 
 void UPBInventoryViewModel::InitializeForActor(AActor* InTargetActor, ULocalPlayer* InLocalPlayer)
 {
@@ -157,8 +161,8 @@ void UPBInventoryViewModel::RequestTooltipData(const FGuid& InstanceID)
 	else OverlayColor.A = 0.45f;
 	TooltipData.RarityOverlayColor = OverlayColor;
 
-	TooltipData.AbilityDescription = ItemData->ItemDescription;
-	TooltipData.bHasAbility = !TooltipData.AbilityDescription.IsEmpty();
+	TooltipData.AbilityDescription = FText::GetEmpty();
+	TooltipData.bHasAbility = false;
 	TooltipData.LoreDescription = ItemData->BackGroundDescription;
 
 	switch (ItemData->ItemType)
@@ -175,14 +179,29 @@ void UPBInventoryViewModel::RequestTooltipData(const FGuid& InstanceID)
 
 	if (UPBEquipmentDataAsset* EquipData = Cast<UPBEquipmentDataAsset>(ItemData))
 	{
+		FString CombinedAbilities;
+		for (const FPBAbilityGrantEntry& Entry : EquipData->GrantedAbilities)
+		{
+			if (IsValid(Entry.AbilityClass))
+			{
+				if (UPBGameplayAbility* AbilityCDO = Entry.AbilityClass->GetDefaultObject<UPBGameplayAbility>())
+				{
+					if (!CombinedAbilities.IsEmpty()) CombinedAbilities += TEXT("\n\n");
+					CombinedAbilities += FString::Printf(TEXT("[%s]\n%s"), 
+						*AbilityCDO->GetAbilityDisplayName().ToString(), 
+						*AbilityCDO->GetAbilityDescription().ToString());
+				}
+			}
+		}
+		TooltipData.AbilityDescription = FText::FromString(CombinedAbilities);
+		TooltipData.bHasAbility = !CombinedAbilities.IsEmpty();
+
 		if (EquipData->EquipmentType == EPBEquipmentType::Weapon)
 		{
-			const FPBDiceSpec& Dice = EquipData->DamageSpec;
+			const FPBDiceSpec Dice = EquipData->GetAbilityDamageSpec();
 			TooltipData.DiceText = FText::FromString(FString::Printf(TEXT("%dd%d"), Dice.DiceCount, Dice.DiceFaces));
-			TooltipData.DiceColor = Dice.DiceColor;
-			TooltipData.DiceIcon = Dice.DiceIcon;
 
-			int32 Mod = EquipData->WeaponBonusModifier;
+			int32 Mod = EquipData->GetWeaponBonusModifier();
 			if (Mod > 0) TooltipData.ModifierText = FText::FromString(FString::Printf(TEXT("(+%d)"), Mod));
 			else if (Mod < 0) TooltipData.ModifierText = FText::FromString(FString::Printf(TEXT("(%d)"), Mod));
 			else TooltipData.ModifierText = FText::GetEmpty();
@@ -191,23 +210,32 @@ void UPBInventoryViewModel::RequestTooltipData(const FGuid& InstanceID)
 				FMath::Max(1, Dice.DiceCount * 1 + Mod), 
 				FMath::Max(1, Dice.DiceCount * Dice.DiceFaces + Mod)));
 
-			TooltipData.DamageTypeTag = EquipData->DamageTypeTag;
-			TooltipData.DamageTypeText = EquipData->DamageTypeText;
-			TooltipData.DamageTypeIcon = EquipData->DamageTypeIcon;
+			TooltipData.DamageTypeTag = EquipData->GetDamageTypeTag();
+			
+			if (const UPBAbilitySystemRegistry* Registry = UPBGameInstance::GetAbilitySystemRegistry(this))
+			{
+				TooltipData.DamageTypeText = Registry->GetTagDisplayName(TooltipData.DamageTypeTag);
+				TooltipData.DamageTypeIcon = Registry->GetTagIcon(TooltipData.DamageTypeTag);
+			}
 		}
 		else if (EquipData->EquipmentType != EPBEquipmentType::Weapon)
 		{
-			TooltipData.DamageRangeText = FText::FromString(FString::Printf(TEXT("방어도 %d"), EquipData->ArmorClass));
-			TooltipData.DiceIcon = EquipData->ArmorClassIcon;
-			TooltipData.DiceText = EquipData->ArmorTypeText;
-			TooltipData.ModifierText = EquipData->bStealthDisadvantage ? EquipData->StealthWarningText : FText::GetEmpty();
+			TooltipData.DamageRangeText = FText::FromString(FString::Printf(TEXT("방어도 %d"), EquipData->GetArmorClass()));
 		}
 	}
-	else if (ItemData->ItemType == EPBItemType::Consumable)
+	else if (UPBConsumableDataAsset* ConsumableData = Cast<UPBConsumableDataAsset>(ItemData))
 	{
-		TooltipData.DamageRangeText = ItemData->EffectText;
-		TooltipData.DiceIcon = ItemData->EffectIcon;
-		TooltipData.DiceText = ItemData->DurationText;
+		if (IsValid(ConsumableData->ConsumableAbilityClass))
+		{
+			if (UPBGameplayAbility* AbilityCDO = ConsumableData->ConsumableAbilityClass->GetDefaultObject<UPBGameplayAbility>())
+			{
+				TooltipData.ConsumableEffectText = AbilityCDO->GetAbilityDescription();
+				TooltipData.ConsumableEffectIcon = AbilityCDO->GetAbilityIcon();
+				
+				int32 Duration = AbilityCDO->GetEffectDuration();
+				TooltipData.DurationText = Duration > 0 ? FText::FromString(FString::Printf(TEXT("%d턴 지속"), Duration)) : FText::FromString(TEXT("즉시 적용"));
+			}
+		}
 	}
 
 	OnTooltipDataGenerated.Broadcast(TooltipData);

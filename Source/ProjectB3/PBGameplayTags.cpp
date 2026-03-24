@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBGameplayTags.h"
 
@@ -47,6 +47,11 @@ namespace PBGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Faction_Enemy, "Combat.Faction.Enemy", "적 진영");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Faction_Neutral, "Combat.Faction.Neutral", "중립 진영");
 
+	// 데미지 유형 태그
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_DamageType_Melee, "Combat.DamageType.Melee", "근접 공격 데미지 타입");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_DamageType_Ranged, "Combat.DamageType.Ranged", "원거리 공격 데미지 타입");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_DamageType_Spell, "Combat.DamageType.Spell", "주문/마법 공격 데미지 타입");
+	
 	// 장비
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Equipment_Slot, "Equipment.Slot", "장비 슬롯들의 부모 태그");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Equipment_Slot_LeftHand, "Equipment.Slot.LeftHand", "왼손 장비 슬롯 태그");

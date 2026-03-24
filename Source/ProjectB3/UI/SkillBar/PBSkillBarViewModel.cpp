@@ -246,18 +246,7 @@ void UPBSkillBarViewModel::BuildSlotsFromFilter(
 		}
 
 		// 디자이너 지정 설명이 있으면 우선, 없으면 자동 생성 ("1d10")
-		if (!DiceSpec.DiceRollDesc.IsEmpty())
-		{
-			SlotData.DiceRollDesc = DiceSpec.DiceRollDesc;
-		}
-		else
-		{
-			SlotData.DiceRollDesc = FText::FromString(FString::Printf(TEXT("%dd%d"), DiceSpec.DiceCount, DiceSpec.DiceFaces));
-		}
-
-		// 다이스 아이콘과 텍스트 색상
-		SlotData.DiceRollIcon = DiceSpec.DiceIcon;
-		SlotData.DiceRollColor = DiceSpec.DiceColor;
+		SlotData.DiceRollDesc = FText::FromString(FString::Printf(TEXT("%dd%d"), DiceSpec.DiceCount, DiceSpec.DiceFaces));
 
 		if (DiceSpec.RollType == EPBDiceRollType::HitRoll)
 		{

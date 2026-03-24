@@ -46,10 +46,27 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 		RarityText->SetText(!InData.RarityText.IsEmpty() ? InData.RarityText : FallbackRarity);
 	}
 
-	// DamageRangeText: 무기="4~9 피해", 방어구="방어도 15", 소모품="3d4+3 회복", 기타=Fallback or Collapsed
+	// 무기/방어구 스탯 래퍼 박스
+	if (Box_Equipment)
+	{
+		if (InData.ItemType == EPBItemType::Consumable)
+		{
+			Box_Equipment->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		else
+		{
+			Box_Equipment->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+		}
+	}
+
+	// DamageRangeText: 무기="4~9 피해", 방어구="방어도 15", 기타=Fallback or Collapsed
 	if (DamageRangeText)
 	{
-		if (!InData.DamageRangeText.IsEmpty())
+		if (InData.ItemType == EPBItemType::Consumable)
+		{
+			DamageRangeText->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		else if (!InData.DamageRangeText.IsEmpty())
 		{
 			DamageRangeText->SetText(InData.DamageRangeText);
 			DamageRangeText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
@@ -65,25 +82,36 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 		}
 	}
 
-	// DiceIcon: 무기=주사위, 방어구=AC아이콘, 소모품=효과아이콘
+	// DiceIcon: 무기=주사위, 등 기타
 	if (DiceIcon)
 	{
-		const TSoftObjectPtr<UTexture2D>& ActiveDiceIcon = !InData.DiceIcon.IsNull() ? InData.DiceIcon : FallbackDiceIcon;
-		if (!ActiveDiceIcon.IsNull())
-		{
-			DiceIcon->SetBrushFromSoftTexture(ActiveDiceIcon);
-			DiceIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
-		}
-		else
+		if (InData.ItemType == EPBItemType::Consumable)
 		{
 			DiceIcon->SetVisibility(ESlateVisibility::Collapsed);
 		}
+		else
+		{
+			const TSoftObjectPtr<UTexture2D>& ActiveDiceIcon = !InData.DiceIcon.IsNull() ? InData.DiceIcon : FallbackDiceIcon;
+			if (!ActiveDiceIcon.IsNull())
+			{
+				DiceIcon->SetBrushFromSoftTexture(ActiveDiceIcon);
+				DiceIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+			}
+			else
+			{
+				DiceIcon->SetVisibility(ESlateVisibility::Collapsed);
+			}
+		}
 	}
 
-	// DiceText: 무기="1d6", 방어구="경갑", 소모품="긴 휴식 전까지"
+	// DiceText: 무기="1d6", 방어구="경갑" 등
 	if (DiceText)
 	{
-		if (!InData.DiceText.IsEmpty())
+		if (InData.ItemType == EPBItemType::Consumable)
+		{
+			DiceText->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		else if (!InData.DiceText.IsEmpty())
 		{
 			DiceText->SetText(InData.DiceText);
 			DiceText->SetColorAndOpacity(InData.DiceColor);
@@ -163,22 +191,65 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 		}
 	}
 
-	// (어빌리티 설명)
-	if (Box_Ability)
+	// (소모품 전용 박스)
+	if (Box_Consumable)
 	{
-		// 데이터가 없어도 기본 Fallback 텍스트로 박스를 유지하려면, Fallback 텍스트 자체가 비어있지 않은지 판단함.
-		bool bDisplayAbility = InData.bHasAbility || !FallbackAbilityDesc.IsEmpty();
-		if (bDisplayAbility)
+		if (InData.ItemType == EPBItemType::Consumable)
 		{
-			Box_Ability->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
-			if (AbilityDescText)
+			Box_Consumable->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+			if (ConsumableEffectText)
 			{
-				AbilityDescText->SetText(InData.bHasAbility ? InData.AbilityDescription : FallbackAbilityDesc);
+				ConsumableEffectText->SetText(InData.ConsumableEffectText);
+				ConsumableEffectText->SetVisibility(!InData.ConsumableEffectText.IsEmpty() ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
+			}
+			if (ConsumableEffectIcon)
+			{
+				if (!InData.ConsumableEffectIcon.IsNull())
+				{
+					ConsumableEffectIcon->SetBrushFromSoftTexture(InData.ConsumableEffectIcon);
+					ConsumableEffectIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+				}
+				else
+				{
+					ConsumableEffectIcon->SetVisibility(ESlateVisibility::Collapsed);
+				}
+			}
+			if (DurationText)
+			{
+				DurationText->SetText(InData.DurationText);
+				DurationText->SetVisibility(!InData.DurationText.IsEmpty() ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
 			}
 		}
 		else
 		{
+			Box_Consumable->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+
+	// (어빌리티 설명)
+	if (Box_Ability)
+	{
+		// 소모품은 전용 박스(Box_Consumable)를 사용하므로 기존 Ability 박스는 숨김
+		if (InData.ItemType == EPBItemType::Consumable)
+		{
 			Box_Ability->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		else
+		{
+			// 데이터가 없어도 기본 Fallback 텍스트로 박스를 유지하려면, Fallback 텍스트 자체가 비어있지 않은지 판단함.
+			bool bDisplayAbility = InData.bHasAbility || !FallbackAbilityDesc.IsEmpty();
+			if (bDisplayAbility)
+			{
+				Box_Ability->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+				if (AbilityDescText)
+				{
+					AbilityDescText->SetText(InData.bHasAbility ? InData.AbilityDescription : FallbackAbilityDesc);
+				}
+			}
+			else
+			{
+				Box_Ability->SetVisibility(ESlateVisibility::Collapsed);
+			}
 		}
 	}
 
@@ -197,10 +268,17 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 				{
 					LoreIcon->SetBrushFromSoftTexture(ActiveLoreIcon);
 					LoreIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+					
+					if (LoreIcon_Consumable)
+					{
+						LoreIcon_Consumable->SetBrushFromSoftTexture(ActiveLoreIcon);
+						LoreIcon_Consumable->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+					}
 				}
 				else
 				{
 					LoreIcon->SetVisibility(ESlateVisibility::Collapsed);
+					if (LoreIcon_Consumable) LoreIcon_Consumable->SetVisibility(ESlateVisibility::Collapsed);
 				}
 			}
 
