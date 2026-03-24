@@ -7,6 +7,7 @@
 #include "ProjectB3/Utils/PBBlueprintTypes.h"
 #include "PBGameplayAbility.generated.h"
 
+class APBEquipmentActor;
 class UPBAbilitySystemComponent;
 class APBGameplayPlayerController;
 class APBCharacterBase;
@@ -282,4 +283,12 @@ protected:
 	// UI 표시용 어빌리티 설명
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Definition")
 	FText AbilityDescription;
+	
+	// 어빌리티 사용시 자동 장착할 액터
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Equipment")
+	TSoftClassPtr<APBEquipmentActor> EquipmentActorOverride;
+	
+	// 어빌리티 사용시 자동 장착할 슬롯
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Equipment")
+	FGameplayTag EquipmentSlotOverride = PBGameplayTags::Equipment_Slot_RightHand;
 };
