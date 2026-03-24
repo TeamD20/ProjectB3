@@ -25,8 +25,12 @@ public:
 	// 페이로드와 위젯 클래스로 초기화 (SpawnActorDeferred 후 FinishSpawning 전 호출)
 	void InitWithPayload(UPBFloatingTextPayload* Payload, TSubclassOf<UPBFloatingTextWidget> WidgetClass);
 
+	// 카메라 기준 오프셋 추적에 필요한 소유자 및 오프셋 설정
+	void SetFollowParams(AActor* InFollowTarget, float InOffset);
+
 protected:
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaTime) override;
 
 private:
 	// 위젯 애니메이션 종료 콜백
@@ -43,6 +47,12 @@ protected:
 private:
 	// 초기화 완료 여부
 	bool bInitialized = false;
+
+	// 위치 추적 대상 (AvatarActor)
+	TWeakObjectPtr<AActor> FollowTarget;
+
+	// 카메라 Up 방향 기준 오프셋 크기
+	float FollowOffset = 0.f;
 
 	// 초기화 시 캐시된 데이터
 	UPROPERTY()
