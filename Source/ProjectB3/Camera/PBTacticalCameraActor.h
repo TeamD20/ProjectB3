@@ -7,6 +7,7 @@
 #include "PBTacticalCameraActor.generated.h"
 
 class UCameraComponent;
+class UMeshComponent;
 
 /** 전술 카메라 연출 전용 경량 카메라 액터. ViewTarget으로 전환되어 사용된다. */
 UCLASS()
@@ -28,6 +29,9 @@ public:
 
 	// 추적 해제 — TargetTransform을 현재 위치로 고정하여 제자리 유지
 	void ClearTracking();
+
+	// 추적 대상과 카메라 사이 장애물 컷아웃 갱신
+	void UpdateCameraCutout();
 
 protected:
 	virtual void Tick(float DeltaTime) override;
@@ -51,4 +55,7 @@ private:
 	float TrackYaw      = 0.0f;
 	float TrackPitch    = 0.0f;
 	float TrackDistance = 0.0f;
+
+	// 컷아웃 대상 메시 추적 (이전 프레임 히트 목록)
+	TSet<TWeakObjectPtr<UMeshComponent>> FadedMeshes;
 };

@@ -7,7 +7,6 @@
 #include "GameplayEffect.h"
 #include "NavModifierComponent.h"
 #include "Components/SphereComponent.h"
-#include "ProjectB3/Environment/PBNavArea_Hazard.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
 #include "ProjectB3/AbilitySystem/Components/PBTurnEffectComponent.h"
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
@@ -15,6 +14,7 @@
 #include "ProjectB3/Environment/PBEnvironmentSubsystem.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/ProjectB3.h"
+#include "ProjectB3/Environment/Navigation/PBNavArea_Hazard.h"
 
 APBDamageArea::APBDamageArea()
 {

@@ -4,12 +4,24 @@
 #include "PBLineOfSightStrategy.h"
 #include "PBLoS_Trace.h"
 #include "ProjectB3/Combat/DamageArea/PBDamageArea.h"
+#include "ProjectB3/Player/PBPartyAIController.h"
 #include "AIController.h"
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
+#include "NavFilters/NavigationQueryFilter.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "Engine/World.h"
-#include "Kismet/GameplayStatics.h"
+#include "Navigation/PBNavQueryFilter_IgnoreHazard.h"
+
+namespace
+{
+	// 플레이어측 컨트롤러 여부 판별 (PlayerController 또는 PartyAIController)
+	bool IsPlayerSideController(const AController* Controller)
+	{
+		return IsValid(Controller) &&
+			(Controller->IsA<APlayerController>() || Controller->IsA<APBPartyAIController>());
+	}
+}
 
 void UPBEnvironmentSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -218,6 +230,12 @@ FPBPathFindResult UPBEnvironmentSubsystem::CalculatePathForAgent(const AControll
 	FPathFindingQuery Query(Controller, *NavData, AgentNavLocation, GoalLocation);
 	Query.SetAllowPartialPaths(bAllowPartialPath);
 
+	// 플레이어측 컨트롤러는 Hazard 비용 무시 필터 적용
+	if (IsPlayerSideController(Controller))
+	{
+		Query.QueryFilter = UNavigationQueryFilter::GetQueryFilter<UPBNavQueryFilter_IgnoreHazard>(*NavData);
+	}
+
 	const FPathFindingResult PathResult = NavSys->FindPathSync(Query);
 	if (!PathResult.IsSuccessful() || !PathResult.Path.IsValid())
 	{
@@ -327,6 +345,13 @@ bool UPBEnvironmentSubsystem::RequestMoveToLocation(AController* Controller, con
 	{
 		FPathFindingQuery Query(Controller, *NavData, AgentNavLocation, GoalLocation);
 		Query.SetAllowPartialPaths(bAllowPartialPath);
+
+		// 플레이어측 컨트롤러는 Hazard 비용 무시 필터 적용
+		if (IsPlayerSideController(Controller))
+		{
+			Query.QueryFilter = UNavigationQueryFilter::GetQueryFilter<UPBNavQueryFilter_IgnoreHazard>(*NavData);
+		}
+
 		const FPathFindingResult PathResult = NavSys->FindPathSync(Query);
 		if (!PathResult.IsSuccessful() || !PathResult.Path.IsValid())
 		{
