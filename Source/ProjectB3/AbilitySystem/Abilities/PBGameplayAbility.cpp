@@ -283,7 +283,8 @@ FPBDamageRollResult UPBGameplayAbility::RollDamage(bool bCritical) const
 	const FGameplayAttribute AttackModifierAttributeOverride = DiceSpec.AttackModifierAttributeOverride;
 	// AttackModifier = KeyAttribute 수정치 (숙련 보너스는 데미지에 미포함)
 	const float AttackModifier =  UPBAbilitySystemLibrary::GetAttackModifier(SourceASC, AttackModifierAttributeOverride);
-	const FPBDamageRollResult DamageRollResult = UPBAbilitySystemLibrary::RollDamage(DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, bCritical);
+	const FPBDamageRollResult DamageRollResult = UPBAbilitySystemLibrary::RollDamage(DiceSpec.DiceCount, DiceSpec.DiceFaces, DiceSpec.DiceBonus, AttackModifier, bCritical);
+	
 	UE_LOG(LogPBGameplayAbility, Warning,
 		TEXT("[%s] RollDamage - Dice: %dd%d, bCritical: %s, DiceRoll: %.2f, AttackModifier: %.2f"),
 		*GetName(),
@@ -435,13 +436,14 @@ FGameplayEffectSpecHandle UPBGameplayAbility::MakeHealSpec(
 		return FGameplayEffectSpecHandle();
 	}
 
-	float HealRoll = UPBAbilitySystemLibrary::RollHeal(DiceSpec.DiceCount, DiceSpec.DiceFaces);
+	float HealRoll = UPBAbilitySystemLibrary::RollHeal(DiceSpec.DiceCount, DiceSpec.DiceFaces, DiceSpec.DiceBonus);
 
 	UE_LOG(LogPBGameplayAbility, Warning,
-		TEXT("[%s] MakeHealSpec - Dice: %dd%d, HealRoll: %.2f"),
+		TEXT("[%s] MakeHealSpec - Dice: %dd%d + %d, HealRoll: %.2f"),
 		*GetName(),
 		DiceSpec.DiceCount,
 		DiceSpec.DiceFaces,
+		DiceSpec.DiceBonus,
 		HealRoll);
 
 	SpecHandle.Data->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Heal_Amount, HealRoll);
@@ -504,13 +506,15 @@ float UPBGameplayAbility::GetExpectedHitDamage(
 		: 0.f;
 	const int32 TargetAC = static_cast<int32>(TargetACValue);
 
+	float ExpectedDamage = UPBAbilitySystemLibrary::CalcExpectedAttackDamage(
+		DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, HitBonus, TargetAC, SourceTags, TargetTags) + DiceSpec.DiceBonus;
+	
 	if (OutRawAvg)
 	{
-		*OutRawAvg = DiceSpec.DiceCount * (DiceSpec.DiceFaces + 1) / 2.0f + AttackModifier;
+		*OutRawAvg = ExpectedDamage;
 	}
-
-	return UPBAbilitySystemLibrary::CalcExpectedAttackDamage(
-		DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, HitBonus, TargetAC, SourceTags, TargetTags);
+	
+	return ExpectedDamage;
 }
 
 float UPBGameplayAbility::GetExpectedSavingThrowDamage(
@@ -530,13 +534,14 @@ float UPBGameplayAbility::GetExpectedSavingThrowDamage(
 	const int32 SaveBonus = UPBAbilitySystemLibrary::GetSaveBonus(InTargetASC, DiceSpec.TargetSaveAttribute);
 	const int32 SpellSaveDC = UPBAbilitySystemLibrary::CalcSpellSaveDC(InSourceASC, DiceSpec.BonusAttributeOverride);
 
+	float ExpectedValue = UPBAbilitySystemLibrary::CalcExpectedSavingThrowDamage(
+		DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, SaveBonus, SpellSaveDC, SourceTags, TargetTags) + DiceSpec.DiceBonus;
 	if (OutRawAvg)
 	{
-		*OutRawAvg = DiceSpec.DiceCount * (DiceSpec.DiceFaces + 1) / 2.0f + AttackModifier;
+		*OutRawAvg = ExpectedValue;
 	}
 
-	return UPBAbilitySystemLibrary::CalcExpectedSavingThrowDamage(
-		DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, SaveBonus, SpellSaveDC, SourceTags, TargetTags);
+	return ExpectedValue;
 }
 
 float UPBGameplayAbility::GetExpectedDirectDamage(
@@ -553,13 +558,15 @@ float UPBGameplayAbility::GetExpectedDirectDamage(
 	const float AttackModifier = static_cast<float>(
 		UPBAbilitySystemLibrary::GetAttackModifier(InSourceASC, DiceSpec.AttackModifierAttributeOverride));
 
+	float ExpectedValue =  UPBAbilitySystemLibrary::CalcExpectedDamage(
+		DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, SourceTags, TargetTags) + DiceSpec.DiceBonus;
+	
 	if (OutRawAvg)
 	{
-		*OutRawAvg = DiceSpec.DiceCount * (DiceSpec.DiceFaces + 1) / 2.0f + AttackModifier;
+		*OutRawAvg = ExpectedValue;
 	}
 
-	return UPBAbilitySystemLibrary::CalcExpectedDamage(
-		DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, SourceTags, TargetTags);
+	return ExpectedValue;
 }
 
 void UPBGameplayAbility::TryAutoAttachEquipment(
