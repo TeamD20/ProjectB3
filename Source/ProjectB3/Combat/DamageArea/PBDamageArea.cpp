@@ -160,9 +160,12 @@ void APBDamageArea::ReapplyEffectToOverlappingActors()
 	{
 		EnvSys = GI->GetSubsystem<UPBEnvironmentSubsystem>();
 	}
-	if (const UPBCombatManagerSubsystem* CombatMgr = GetWorld()->GetSubsystem<UPBCombatManagerSubsystem>())
+	if (UWorld* World = GetWorld())
 	{
-		CurrentRound = CombatMgr->GetCurrentRound();
+		if (const UPBCombatManagerSubsystem* CombatMgr = World->GetSubsystem<UPBCombatManagerSubsystem>())
+		{
+			CurrentRound = CombatMgr->GetCurrentRound();
+		}
 	}
 
 	const UGameplayEffect* GEDef = EffectSpecHandle.IsValid()
