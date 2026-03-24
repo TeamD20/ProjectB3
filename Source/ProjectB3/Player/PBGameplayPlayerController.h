@@ -91,6 +91,7 @@ public:
 	void ExitCurrentMode();
 
 	// 인벤토리 UI를 토글 (열기/닫기)
+	UFUNCTION(BlueprintCallable)
 	void ToggleInventory();
 	
 	// GameOver UI 표시

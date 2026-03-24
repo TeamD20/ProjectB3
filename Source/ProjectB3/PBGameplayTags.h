@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #pragma once
 #include "NativeGameplayTags.h"
@@ -57,6 +57,11 @@ namespace PBGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Faction_Player);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Faction_Enemy);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Faction_Neutral);
+	
+	// 데미지 유형 태그
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_DamageType_Melee);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_DamageType_Ranged);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_DamageType_Spell);
 	
 	// 어빌리티
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Source_Common);
