@@ -9,6 +9,8 @@
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility.h"
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
+#include "ProjectB3/ItemSystem/Components/PBInventoryComponent.h"
+#include "ProjectB3/ItemSystem/Data/PBItemDataAsset.h"
 #include "ProjectB3/Player/PBGameplayPlayerState.h"
 #include "ProjectB3/UI/PBUITags.h"
 #include "ProjectB3/UI/PBUITypes.h"
@@ -34,8 +36,15 @@ void UPBSkillBarViewModel::Deinitialize()
 	BindToPlayerState(nullptr);
 	PrimaryActions.Empty();
 	SecondaryActions.Empty();
-	SpellActions.Empty();
+	ConsumableActions.Empty();
 	ResponseActions.Empty();
+
+	if (CachedInventory.IsValid())
+	{
+		CachedInventory->OnInventoryItemChanged.RemoveDynamic(this, &UPBSkillBarViewModel::HandleInventoryItemChanged);
+		CachedInventory->OnInventoryFullRefresh.RemoveDynamic(this, &UPBSkillBarViewModel::HandleInventoryFullRefresh);
+	}
+	CachedInventory.Reset();
 
 	Super::Deinitialize();
 }
@@ -77,7 +86,7 @@ void UPBSkillBarViewModel::RefreshFromCharacter(AActor* InCharacter)
 {
 	PrimaryActions.Empty();
 	SecondaryActions.Empty();
-	SpellActions.Empty();
+	ConsumableActions.Empty();
 	ResponseActions.Empty();
 
 	IAbilitySystemInterface* AbilitySystemInterface = Cast<IAbilitySystemInterface>(InCharacter);
@@ -87,30 +96,94 @@ void UPBSkillBarViewModel::RefreshFromCharacter(AActor* InCharacter)
 
 	if (IsValid(AbilitySystemComponent))
 	{
-		// 1. 주행동 (Action)
+		// 1. 주행동 (Action) + 마법 (Spell) 통합
 		FGameplayTagContainer ActionRequireTags;
 		ActionRequireTags.AddTag(PBGameplayTags::Ability_Type_Action);
-		FGameplayTagContainer ActionIgnoreTags;
-		ActionIgnoreTags.AddTag(PBGameplayTags::Ability_Spell);
+		FGameplayTagContainer ActionIgnoreTags; // Spells are NOT ignored
 		BuildSlotsFromFilter(AbilitySystemComponent, ActionRequireTags, ActionIgnoreTags, FText::FromString(TEXT("주 행동")), PrimaryActions);
+
+		// 마법 전용 (Ability.Spell을 가지면서 Action 태그가 없는 어빌리티를 커버하기 위한 추가 작업)
+		FGameplayTagContainer SpellRequireTags;
+		SpellRequireTags.AddTag(PBGameplayTags::Ability_Spell); 
+		FGameplayTagContainer SpellIgnoreTags;
+		SpellIgnoreTags.AddTag(PBGameplayTags::Ability_Type_Action); // 주행동에서 이미 추가된 것은 제외
+		BuildSlotsFromFilter(AbilitySystemComponent, SpellRequireTags, SpellIgnoreTags, FText::FromString(TEXT("주문")), PrimaryActions);
 
 		// 2. 보조행동 (BonusAction)
 		FGameplayTagContainer BonusActionRequireTags;
 		BonusActionRequireTags.AddTag(PBGameplayTags::Ability_Type_BonusAction);
 		BuildSlotsFromFilter(AbilitySystemComponent, BonusActionRequireTags, FGameplayTagContainer(), FText::FromString(TEXT("보조 행동")), SecondaryActions);
 
-		// 3. 마법 (Spell)
-		FGameplayTagContainer SpellRequireTags;
-		SpellRequireTags.AddTag(PBGameplayTags::Ability_Spell); 
-		BuildSlotsFromFilter(AbilitySystemComponent, SpellRequireTags, FGameplayTagContainer(), FText::FromString(TEXT("주문")), SpellActions);
-
-		// 4. 대응 (Reaction)
+		// 3. 대응 (Reaction)
 		FGameplayTagContainer ReactionRequireTags;
 		ReactionRequireTags.AddTag(PBGameplayTags::Ability_Type_Reaction);
 		BuildSlotsFromFilter(AbilitySystemComponent, ReactionRequireTags, FGameplayTagContainer(), FText::FromString(TEXT("대응")), ResponseActions);
 	}
 
+	UPBInventoryComponent* InventoryComponent = InCharacter ? InCharacter->FindComponentByClass<UPBInventoryComponent>() : nullptr;
+	if (CachedInventory.IsValid() && CachedInventory.Get() != InventoryComponent)
+	{
+		CachedInventory->OnInventoryItemChanged.RemoveDynamic(this, &UPBSkillBarViewModel::HandleInventoryItemChanged);
+		CachedInventory->OnInventoryFullRefresh.RemoveDynamic(this, &UPBSkillBarViewModel::HandleInventoryFullRefresh);
+	}
+
+	CachedInventory = InventoryComponent;
+
+	if (IsValid(InventoryComponent))
+	{
+		InventoryComponent->OnInventoryItemChanged.RemoveDynamic(this, &UPBSkillBarViewModel::HandleInventoryItemChanged);
+		InventoryComponent->OnInventoryItemChanged.AddDynamic(this, &UPBSkillBarViewModel::HandleInventoryItemChanged);
+		InventoryComponent->OnInventoryFullRefresh.RemoveDynamic(this, &UPBSkillBarViewModel::HandleInventoryFullRefresh);
+		InventoryComponent->OnInventoryFullRefresh.AddDynamic(this, &UPBSkillBarViewModel::HandleInventoryFullRefresh);
+	}
+
+	RefreshConsumables();
+}
+
+void UPBSkillBarViewModel::RefreshConsumables()
+{
+	ConsumableActions.Empty();
+	if (CachedInventory.IsValid())
+	{
+		const TArray<FPBItemInstance>& AllItems = CachedInventory->GetItems();
+		for (const FPBItemInstance& Item : AllItems)
+		{
+			if (Item.ItemDataAsset && Item.ItemDataAsset->ItemType == EPBItemType::Consumable && ConsumableActions.Num() < 4)
+			{
+				FPBSkillSlotData SlotData;
+				
+				// 소비아이템 UI 렌더링에 필요한 정보 구성
+				SlotData.Description = Item.ItemDataAsset->BackGroundDescription;
+				SlotData.DisplayName = Item.ItemDataAsset->ItemName;
+				SlotData.Icon = Item.ItemDataAsset->ItemIcon;
+				SlotData.SkillType = FText::FromString(TEXT("소비 아이템"));
+				SlotData.AbilityType = EPBAbilityType::Free;
+				SlotData.bCanActivate = true; 
+				SlotData.CooldownRemaining = 0;
+				// 어빌리티가 아닌 아이템 식별용 인스턴스 ID 할당
+				SlotData.ItemInstanceID = Item.InstanceID;
+				
+				ConsumableActions.Add(SlotData);
+			}
+			
+			if (ConsumableActions.Num() >= 4)
+			{
+				break;
+			}
+		}
+	}
+
 	OnSlotsChanged.Broadcast();
+}
+
+void UPBSkillBarViewModel::HandleInventoryItemChanged(int32 SlotIndex)
+{
+	RefreshConsumables();
+}
+
+void UPBSkillBarViewModel::HandleInventoryFullRefresh()
+{
+	RefreshConsumables();
 }
 
 void UPBSkillBarViewModel::RefreshAllCooldowns()
@@ -135,7 +208,7 @@ void UPBSkillBarViewModel::RefreshAllCooldowns()
 
 	RefreshSlotArray(PrimaryActions, 0);
 	RefreshSlotArray(SecondaryActions, 1);
-	RefreshSlotArray(SpellActions, 2);
+	RefreshSlotArray(ConsumableActions, 2);
 	RefreshSlotArray(ResponseActions, 3);
 }
 
@@ -157,7 +230,7 @@ const TArray<FPBSkillSlotData>* UPBSkillBarViewModel::GetSlotsByCategory(int32 C
 	{
 	case 0: return &PrimaryActions;
 	case 1: return &SecondaryActions;
-	case 2: return &SpellActions;
+	case 2: return &ConsumableActions;
 	case 3: return &ResponseActions;
 	default: return nullptr;
 	}

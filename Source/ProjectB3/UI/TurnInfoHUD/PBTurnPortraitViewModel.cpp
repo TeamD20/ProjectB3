@@ -42,3 +42,15 @@ void UPBTurnPortraitViewModel::SetHealthPercent(float InHealthPercent)
 		OnHPPercentValueChanged.Broadcast(HealthPercent);
 	}
 }
+
+void UPBTurnPortraitViewModel::SetBuffs(const TArray<FPBTurnStatusIconData>& InBuffs)
+{
+	Buffs = InBuffs;
+	OnBuffsChanged.Broadcast();
+}
+
+void UPBTurnPortraitViewModel::SetDebuffs(const TArray<FPBTurnStatusIconData>& InDebuffs)
+{
+	Debuffs = InDebuffs;
+	OnDebuffsChanged.Broadcast();
+}

@@ -4,7 +4,7 @@
 #include "PBPartyMemberViewModel.h"
 #include "PBPartyMemberTooltipRowWidget.h"
 #include "Components/TextBlock.h"
-#include "Components/VerticalBox.h"
+#include "Components/WrapBox.h"
 #include "Components/Image.h"
 
 void UPBPartyMemberTooltipWidget::InitializeTooltip(UPBPartyMemberViewModel* ViewModel)
@@ -20,8 +20,8 @@ void UPBPartyMemberTooltipWidget::InitializeTooltip(UPBPartyMemberViewModel* Vie
 	ViewModel->OnLevelChanged.AddUObject(this, &ThisClass::HandleLevelChanged);
 	ViewModel->OnClassChanged.AddUObject(this, &ThisClass::HandleClassChanged);
 	ViewModel->OnClassIconChanged.AddUObject(this, &ThisClass::HandleClassIconChanged);
-	ViewModel->OnStatusEffectsChanged.AddUObject(this, &ThisClass::HandleStatusEffectsChanged);
-	ViewModel->OnReactionsChanged.AddUObject(this, &ThisClass::HandleReactionsChanged);
+	ViewModel->OnBuffsChanged.AddUObject(this, &ThisClass::HandleBuffsChanged);
+	ViewModel->OnDebuffsChanged.AddUObject(this, &ThisClass::HandleDebuffsChanged);
 
 	RefreshUI();
 }
@@ -37,8 +37,8 @@ void UPBPartyMemberTooltipWidget::RefreshUI()
 	HandleLevelChanged(MemberViewModel->GetCharacterLevel());
 	HandleClassChanged(MemberViewModel->GetCharacterClass());
 	HandleClassIconChanged(MemberViewModel->GetClassIcon());
-	HandleStatusEffectsChanged();
-	HandleReactionsChanged();
+	HandleBuffsChanged();
+	HandleDebuffsChanged();
 }
 
 void UPBPartyMemberTooltipWidget::NativeDestruct()
@@ -49,8 +49,8 @@ void UPBPartyMemberTooltipWidget::NativeDestruct()
 		MemberViewModel->OnLevelChanged.RemoveAll(this);
 		MemberViewModel->OnClassChanged.RemoveAll(this);
 		MemberViewModel->OnClassIconChanged.RemoveAll(this);
-		MemberViewModel->OnStatusEffectsChanged.RemoveAll(this);
-		MemberViewModel->OnReactionsChanged.RemoveAll(this);
+		MemberViewModel->OnBuffsChanged.RemoveAll(this);
+		MemberViewModel->OnDebuffsChanged.RemoveAll(this);
 		MemberViewModel = nullptr;
 	}
 
@@ -102,42 +102,46 @@ void UPBPartyMemberTooltipWidget::HandleClassIconChanged(TSoftObjectPtr<UTexture
 	}
 }
 
-void UPBPartyMemberTooltipWidget::HandleStatusEffectsChanged()
+void UPBPartyMemberTooltipWidget::HandleBuffsChanged()
 {
-	if (!IsValid(StatusEffectsContainer) || !IsValid(MemberViewModel) || !RowWidgetClass)
+	if (!IsValid(BuffBox) || !IsValid(MemberViewModel) || !RowWidgetClass)
 	{
 		return;
 	}
 
-	StatusEffectsContainer->ClearChildren();
+	BuffBox->ClearChildren();
 
-	for (const FPBPartyTooltipRowData& RowData : MemberViewModel->GetStatusEffects())
+	for (const FPBPartyTooltipRowData& RowData : MemberViewModel->GetBuffs())
 	{
 		UPBPartyMemberTooltipRowWidget* RowWidget = CreateWidget<UPBPartyMemberTooltipRowWidget>(GetWorld(), RowWidgetClass);
 		if (RowWidget)
 		{
 			RowWidget->InitializeRowData(RowData.Icon, RowData.Text);
-			StatusEffectsContainer->AddChildToVerticalBox(RowWidget);
+			BuffBox->AddChild(RowWidget);
 		}
 	}
+
+	BuffBox->SetVisibility(MemberViewModel->GetBuffs().Num() > 0 ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
 }
 
-void UPBPartyMemberTooltipWidget::HandleReactionsChanged()
+void UPBPartyMemberTooltipWidget::HandleDebuffsChanged()
 {
-	if (!IsValid(ReactionsContainer) || !IsValid(MemberViewModel) || !RowWidgetClass)
+	if (!IsValid(DeBuffBox) || !IsValid(MemberViewModel) || !RowWidgetClass)
 	{
 		return;
 	}
 
-	ReactionsContainer->ClearChildren();
+	DeBuffBox->ClearChildren();
 
-	for (const FPBPartyTooltipRowData& RowData : MemberViewModel->GetReactions())
+	for (const FPBPartyTooltipRowData& RowData : MemberViewModel->GetDebuffs())
 	{
 		UPBPartyMemberTooltipRowWidget* RowWidget = CreateWidget<UPBPartyMemberTooltipRowWidget>(GetWorld(), RowWidgetClass);
 		if (RowWidget)
 		{
 			RowWidget->InitializeRowData(RowData.Icon, RowData.Text);
-			ReactionsContainer->AddChildToVerticalBox(RowWidget);
+			DeBuffBox->AddChild(RowWidget);
 		}
 	}
+
+	DeBuffBox->SetVisibility(MemberViewModel->GetDebuffs().Num() > 0 ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
 }

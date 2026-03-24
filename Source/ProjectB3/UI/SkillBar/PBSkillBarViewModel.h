@@ -50,6 +50,17 @@ private:
 	// 선택 파티원 변경 시 슬롯을 재구성한다.
 	void HandleSelectedPartyMemberChanged(AActor* NewSelectedPartyMember);
 
+	// 소비 아이템 목록만 별도로 갱신한다.
+	void RefreshConsumables();
+
+	// 인벤토리 아이템 변경 이벤트 핸들러
+	UFUNCTION()
+	void HandleInventoryItemChanged(int32 SlotIndex);
+
+	// 인벤토리 전체 갱신 이벤트 핸들러
+	UFUNCTION()
+	void HandleInventoryFullRefresh();
+
 	// 파티원 목록 변경 시 현재 선택 기준으로 슬롯을 재구성한다.
 	void HandlePartyMembersChanged();
 
@@ -73,9 +84,9 @@ public:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|SkillBar")
 	TArray<FPBSkillSlotData> SecondaryActions;
 
-	// 마법/주문 슬롯 (Spell)
+	// 소비 아이템 슬롯 (Consumable)
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|SkillBar")
-	TArray<FPBSkillSlotData> SpellActions;
+	TArray<FPBSkillSlotData> ConsumableActions;
 
 	// [초록 영역] 대응 스킬 슬롯 (Response/Reaction)
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "ViewModel|SkillBar")
@@ -98,6 +109,9 @@ public:
 private:
 	// 바인딩된 PlayerState
 	TWeakObjectPtr<APBGameplayPlayerState> PlayerState;
+
+	// 바인딩된 인벤토리 컴포넌트
+	TWeakObjectPtr<class UPBInventoryComponent> CachedInventory;
 
 	// PlayerState 델리게이트 핸들
 	FDelegateHandle SelectedPartyMemberChangedHandle;

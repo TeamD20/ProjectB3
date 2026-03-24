@@ -37,6 +37,8 @@ private:
 	void HandleDisplayNameChanged(FText NewName);
 	void HandlePortraitChanged(TSoftObjectPtr<UTexture2D> NewPortrait);
 	void HandleHPPercentChanged(float InHealthPercent);
+	void HandleBuffsChanged();
+	void HandleDebuffsChanged();
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Turn")
@@ -48,6 +50,12 @@ protected:
 	// 체력바(데미지 바) 연결용
 	UPROPERTY(meta = (BindWidgetOptional))
 	class UProgressBar* DamageProgressBar;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	class UWrapBox* BuffBox;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	class UWrapBox* DebuffBox;
 
 	// 적군/아군 테두리 표시용
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Turn|Portrait")

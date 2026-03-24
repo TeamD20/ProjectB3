@@ -53,6 +53,10 @@ struct PROJECTB3_API FPBSkillSlotData
 	UPROPERTY(BlueprintReadOnly, Category = "SkillBar")
 	bool bIsActive = false;
 
+	// 소비 아이템 식별자 (어빌리티 대신 아이템 사용 시)
+	UPROPERTY(BlueprintReadOnly, Category = "SkillBar")
+	FGuid ItemInstanceID;
+
 	/* ============================================== */
 	/* 툴팁 전용 데이터 (Tooltip Data)                 */
 	/* ============================================== */

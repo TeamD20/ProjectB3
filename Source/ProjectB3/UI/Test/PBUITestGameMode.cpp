@@ -148,8 +148,8 @@ void APBUITestGameMode::SetupDummyCharacterData()
 				DummyReactions.Add(ReactionRow);
 			}
 
-			VM->SetStatusEffects(DummyStatuses);
-			VM->SetReactions(DummyReactions);
+			VM->SetBuffs(DummyStatuses);
+			VM->SetDebuffs(DummyReactions);
 			
 			// 초기 턴 설정 (첫 번째 멤버)
 			VM->SetIsSelectedCharacter(i == 0);
@@ -387,7 +387,7 @@ void APBUITestGameMode::InitializeSkillBarViewModel()
 		// GameMode 프로퍼티에 설정된 수만큼 슬롯 생성 (실제 데이터는 일부만 채움)
 		SkillBarVM->PrimaryActions = CreateDummySlots(10, PrimarySlotCount, TEXT("Primary"), DummySkillIconPool, FText::FromString(TEXT("주 행동")));
 		SkillBarVM->SecondaryActions = CreateDummySlots(8, SecondarySlotCount, TEXT("Secondary"), DummySkillIconPool, FText::FromString(TEXT("보조 행동")));
-		SkillBarVM->SpellActions = CreateDummySlots(5, SpellSlotCount, TEXT("Spell"), DummySkillIconPool, FText::FromString(TEXT("주문")));
+		SkillBarVM->ConsumableActions = CreateDummySlots(5, ConsumableSlotCount, TEXT("Consumable"), DummySkillIconPool, FText::FromString(TEXT("소비 아이템")));
 		
 		// [ Step 5 테스트 ] 대응 스킬 유동적 조절 (Response)
 		SkillBarVM->ResponseActions = CreateDummySlots(ResponseSlotCount, ResponseSlotCount, TEXT("Reaction"), DummyResponseIconPool, FText::FromString(TEXT("대응")));

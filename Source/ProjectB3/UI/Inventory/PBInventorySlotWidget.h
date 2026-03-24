@@ -29,8 +29,8 @@ class PROJECTB3_API UPBInventorySlotWidget : public UPBWidgetBase
 	GENERATED_BODY()
 
 public:
-	// 슬롯 인덱스와 ViewModel을 바인딩
-	void InitializeSlot(int32 InSlotIndex, UPBInventoryViewModel* InViewModel);
+	// 슬롯 인덱스와 ViewModel을 바인딩 (스킬바용 슬롯인지 여부 추가)
+	void InitializeSlot(int32 InSlotIndex, UPBInventoryViewModel* InViewModel, bool bInIsSkillBarSlot = false);
 
 	// 현재 슬롯 데이터를 기반으로 UI를 갱신
 	UFUNCTION(BlueprintCallable, Category = "UI|Inventory")
@@ -111,4 +111,7 @@ private:
 
 	// 인벤토리 ViewModel 참조
 	TWeakObjectPtr<UPBInventoryViewModel> InventoryViewModel;
+
+	// 스킬바에서 사용되는 슬롯인지 여부 (드래그 앤 드롭 활성화 차단 등 제어)
+	bool bIsSkillBarSlot = false;
 };

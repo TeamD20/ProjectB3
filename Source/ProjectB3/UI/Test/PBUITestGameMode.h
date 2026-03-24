@@ -91,11 +91,11 @@ protected:
 
 	// [Step 2] 스킬바 카테고리별 슬롯 수 (빈 칸 포함 공간 확보용)
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
-	int32 PrimarySlotCount = 12;
-
+	int32 PrimarySlotCount = 8;
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
-	int32 SecondarySlotCount = 12;
-
+	int32 SecondarySlotCount = 8;
+	UPROPERTY(EditAnywhere, Category = "Test|Settings")
+	int32 ConsumableSlotCount = 4;
 	UPROPERTY(EditAnywhere, Category = "Test|Settings")
 	int32 SpellSlotCount = 12;
 	

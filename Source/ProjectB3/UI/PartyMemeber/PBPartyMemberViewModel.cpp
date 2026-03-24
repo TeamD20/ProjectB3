@@ -168,20 +168,20 @@ void UPBPartyMemberViewModel::OnSelected()
 	OnPartyMemberSelected.Broadcast(GetTargetActor());
 }
 
-void UPBPartyMemberViewModel::SetStatusEffects(const TArray<FPBPartyTooltipRowData>& InStatusEffects)
+void UPBPartyMemberViewModel::SetBuffs(const TArray<FPBPartyTooltipRowData>& InBuffs)
 {
-	StatusEffects = InStatusEffects;
-	if (OnStatusEffectsChanged.IsBound())
+	Buffs = InBuffs;
+	if (OnBuffsChanged.IsBound())
 	{
-		OnStatusEffectsChanged.Broadcast();
+		OnBuffsChanged.Broadcast();
 	}
 }
 
-void UPBPartyMemberViewModel::SetReactions(const TArray<FPBPartyTooltipRowData>& InReactions)
+void UPBPartyMemberViewModel::SetDebuffs(const TArray<FPBPartyTooltipRowData>& InDebuffs)
 {
-	Reactions = InReactions;
-	if (OnReactionsChanged.IsBound())
+	Debuffs = InDebuffs;
+	if (OnDebuffsChanged.IsBound())
 	{
-		OnReactionsChanged.Broadcast();
+		OnDebuffsChanged.Broadcast();
 	}
 }

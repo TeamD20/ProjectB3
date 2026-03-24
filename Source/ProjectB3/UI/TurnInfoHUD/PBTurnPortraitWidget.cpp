@@ -4,6 +4,8 @@
 #include "PBTurnPortraitViewModel.h"
 #include "Components/ProgressBar.h"
 #include "Components/Image.h"
+#include "Components/WrapBox.h"
+#include "Components/WrapBoxSlot.h"
 
 void UPBTurnPortraitWidget::SetPortraitViewModel(UPBTurnPortraitViewModel* InViewModel)
 {
@@ -14,6 +16,8 @@ void UPBTurnPortraitWidget::SetPortraitViewModel(UPBTurnPortraitViewModel* InVie
 		PortraitViewModel->OnDisplayNameChanged.RemoveAll(this);
 		PortraitViewModel->OnPortraitChanged.RemoveAll(this);
 		PortraitViewModel->OnHPPercentValueChanged.RemoveAll(this);
+		PortraitViewModel->OnBuffsChanged.RemoveAll(this);
+		PortraitViewModel->OnDebuffsChanged.RemoveAll(this);
 	}
 
 	PortraitViewModel = InViewModel;
@@ -25,6 +29,8 @@ void UPBTurnPortraitWidget::SetPortraitViewModel(UPBTurnPortraitViewModel* InVie
 		PortraitViewModel->OnDisplayNameChanged.AddUObject(this, &UPBTurnPortraitWidget::HandleDisplayNameChanged);
 		PortraitViewModel->OnPortraitChanged.AddUObject(this, &UPBTurnPortraitWidget::HandlePortraitChanged);
 		PortraitViewModel->OnHPPercentValueChanged.AddUObject(this, &UPBTurnPortraitWidget::HandleHPPercentChanged);
+		PortraitViewModel->OnBuffsChanged.AddUObject(this, &UPBTurnPortraitWidget::HandleBuffsChanged);
+		PortraitViewModel->OnDebuffsChanged.AddUObject(this, &UPBTurnPortraitWidget::HandleDebuffsChanged);
 
 		// 초기 동기화
 		HandleDisplayNameChanged(PortraitViewModel->GetDisplayName());
@@ -32,6 +38,8 @@ void UPBTurnPortraitWidget::SetPortraitViewModel(UPBTurnPortraitViewModel* InVie
 		HandleCurrentTurnChanged(PortraitViewModel->IsCurrentTurn());
 		HandleDeathStateChanged(PortraitViewModel->IsDead());
 		HandleHPPercentChanged(PortraitViewModel->GetHealthPercent());
+		HandleBuffsChanged();
+		HandleDebuffsChanged();
 		
 		bool bIsAlly = PortraitViewModel->IsAlly();
 		BP_OnInitAllyState(bIsAlly);
@@ -55,6 +63,8 @@ void UPBTurnPortraitWidget::NativeDestruct()
 		PortraitViewModel->OnDisplayNameChanged.RemoveAll(this);
 		PortraitViewModel->OnPortraitChanged.RemoveAll(this);
 		PortraitViewModel->OnHPPercentValueChanged.RemoveAll(this);
+		PortraitViewModel->OnBuffsChanged.RemoveAll(this);
+		PortraitViewModel->OnDebuffsChanged.RemoveAll(this);
 	}
 
 	Super::NativeDestruct();
@@ -94,4 +104,66 @@ void UPBTurnPortraitWidget::HandleHPPercentChanged(float InHealthPercent)
 	{
 		DamageProgressBar->SetPercent(1.0f -InHealthPercent);
 	}
+}
+
+void UPBTurnPortraitWidget::HandleBuffsChanged()
+{
+	if (!BuffBox || !PortraitViewModel)
+	{
+		return;
+	}
+
+	BuffBox->ClearChildren();
+	const TArray<FPBTurnStatusIconData>& Buffs = PortraitViewModel->GetBuffs();
+	
+	for (const FPBTurnStatusIconData& Row : Buffs)
+	{
+		UImage* IconImage = NewObject<UImage>(this);
+		IconImage->SetBrushFromSoftTexture(Row.Icon);
+
+		// 아이콘 크기 강제 지정
+		FSlateBrush Brush = IconImage->GetBrush();
+		Brush.ImageSize = FVector2D(16.0f, 16.0f);
+		IconImage->SetBrush(Brush);
+
+		UWrapBoxSlot* WrapSlot = BuffBox->AddChildToWrapBox(IconImage);
+		if (WrapSlot)
+		{
+			WrapSlot->SetPadding(FMargin(0.0f, 0.0f, 2.0f, 2.0f));
+			WrapSlot->SetVerticalAlignment(VAlign_Center);
+		}
+	}
+
+	BuffBox->SetVisibility(Buffs.Num() > 0 ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
+}
+
+void UPBTurnPortraitWidget::HandleDebuffsChanged()
+{
+	if (!DebuffBox || !PortraitViewModel)
+	{
+		return;
+	}
+
+	DebuffBox->ClearChildren();
+	const TArray<FPBTurnStatusIconData>& Debuffs = PortraitViewModel->GetDebuffs();
+
+	for (const FPBTurnStatusIconData& Row : Debuffs)
+	{
+		UImage* IconImage = NewObject<UImage>(this);
+		IconImage->SetBrushFromSoftTexture(Row.Icon);
+
+		// 아이콘 크기 강제 지정
+		FSlateBrush Brush = IconImage->GetBrush();
+		Brush.ImageSize = FVector2D(16.0f, 16.0f);
+		IconImage->SetBrush(Brush);
+
+		UWrapBoxSlot* WrapSlot = DebuffBox->AddChildToWrapBox(IconImage);
+		if (WrapSlot)
+		{
+			WrapSlot->SetPadding(FMargin(0.0f, 0.0f, 2.0f, 2.0f));
+			WrapSlot->SetVerticalAlignment(VAlign_Center);
+		}
+	}
+
+	DebuffBox->SetVisibility(Debuffs.Num() > 0 ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
 }
