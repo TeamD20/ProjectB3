@@ -145,7 +145,7 @@ void UPBInventoryViewModel::RequestTooltipData(const FGuid& InstanceID)
 	FPBItemTooltipData TooltipData;
 	TooltipData.ItemName = ItemData->ItemName;
 	TooltipData.ItemModelIcon = ItemData->ItemIcon;
-	TooltipData.ItemType = ItemData->ItemType;
+	TooltipData.ItemType = ItemData->IsA<UPBConsumableDataAsset>() ? EPBItemType::Consumable : ItemData->ItemType;
 	
 	switch (ItemData->Rarity)
 	{

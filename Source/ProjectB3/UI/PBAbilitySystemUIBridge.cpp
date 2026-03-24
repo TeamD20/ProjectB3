@@ -446,7 +446,7 @@ void UPBAbilitySystemUIBridge::UpdateSkillSlotActiveState(FGameplayAbilitySpecHa
 
 	UpdateCategory(SkillBarVM->PrimaryActions, 0);
 	UpdateCategory(SkillBarVM->SecondaryActions, 1);
-	UpdateCategory(SkillBarVM->SpellActions, 2);
+	UpdateCategory(SkillBarVM->ConsumableActions, 2);
 	UpdateCategory(SkillBarVM->ResponseActions, 3);
 }
 
@@ -641,6 +641,97 @@ void UPBAbilitySystemUIBridge::HandleTagUpdated(const FGameplayTag& Tag, bool bT
 		SendCombatLogEntry(EPBCombatLogType::Status,
 			FText::Format(NSLOCTEXT("PBCombatLog", "StatusRemoved", "{0}의 {1}이(가) 해제되었습니다."),
 				TargetName, StatusName));
+	}
+
+	// [UI 갱신] 파티 멤버 뷰모델의 Buffs/Debuffs 배열을 트리거하여 툴팁이 실시간 갱신되도록 처리
+	if (Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("Character.State.Buff"))) ||
+		Tag.MatchesTag(FGameplayTag::RequestGameplayTag(TEXT("Character.State.Debuff"))))
+	{
+		UPBViewModelSubsystem* VMSubsystem = GetViewModelSubsystem();
+		UPBAbilitySystemComponent* PBASC = Cast<UPBAbilitySystemComponent>(CachedASC.Get());
+		
+		if (IsValid(VMSubsystem) && IsValid(PBASC))
+		{
+			// 현재 대상의 파티 멤버 ViewModel 찾기
+			UPBPartyMemberViewModel* PartyVM = nullptr;
+			if (IPBCombatParticipant* CPI = Cast<IPBCombatParticipant>(GetOwner()))
+			{
+				if (CPI->GetFactionTag().MatchesTagExact(PBGameplayTags::Combat_Faction_Player))
+				{
+					PartyVM = VMSubsystem->GetOrCreateActorViewModel<UPBPartyMemberViewModel>(GetOwner());
+				}
+				else
+				{
+					PartyVM = VMSubsystem->FindActorViewModel<UPBPartyMemberViewModel>(GetOwner());
+				}
+			}
+
+			if (IsValid(PartyVM))
+			{
+				FGameplayTagContainer ActiveTags;
+				PBASC->GetOwnedGameplayTags(ActiveTags);
+
+				TArray<FPBPartyTooltipRowData> BuffRows;
+				TArray<FPBPartyTooltipRowData> DebuffRows;
+
+				const FGameplayTag BuffParentTag = FGameplayTag::RequestGameplayTag(TEXT("Character.State.Buff"));
+				const FGameplayTag DebuffParentTag = FGameplayTag::RequestGameplayTag(TEXT("Character.State.Debuff"));
+
+				for (const FGameplayTag& ActiveTag : ActiveTags)
+				{
+					if (ActiveTag.MatchesTag(BuffParentTag))
+					{
+						FPBPartyTooltipRowData Row;
+						Row.Text = Registry->GetTagDisplayName(ActiveTag);
+						Row.Icon = Registry->GetTagIcon(ActiveTag);
+						BuffRows.Add(Row);
+					}
+					else if (ActiveTag.MatchesTag(DebuffParentTag))
+					{
+						FPBPartyTooltipRowData Row;
+						Row.Text = Registry->GetTagDisplayName(ActiveTag);
+						Row.Icon = Registry->GetTagIcon(ActiveTag);
+						DebuffRows.Add(Row);
+					}
+				}
+
+				PartyVM->SetBuffs(BuffRows);
+				PartyVM->SetDebuffs(DebuffRows);
+			}
+
+			// 전체 턴 오더 인물(파티원 및 적군 모두 포함)의 초상화 뷰모델에도 상태 연동
+			UPBTurnPortraitViewModel* PortraitVM = VMSubsystem->FindActorViewModel<UPBTurnPortraitViewModel>(GetOwner());
+			if (IsValid(PortraitVM))
+			{
+				FGameplayTagContainer ActiveTags;
+				PBASC->GetOwnedGameplayTags(ActiveTags);
+
+				TArray<FPBTurnStatusIconData> TurnBuffs;
+				TArray<FPBTurnStatusIconData> TurnDebuffs;
+
+				const FGameplayTag BuffParentTag = FGameplayTag::RequestGameplayTag(TEXT("Character.State.Buff"));
+				const FGameplayTag DebuffParentTag = FGameplayTag::RequestGameplayTag(TEXT("Character.State.Debuff"));
+
+				for (const FGameplayTag& ActiveTag : ActiveTags)
+				{
+					if (ActiveTag.MatchesTag(BuffParentTag))
+					{
+						FPBTurnStatusIconData Row;
+						Row.Icon = Registry->GetTagIcon(ActiveTag);
+						TurnBuffs.Add(Row);
+					}
+					else if (ActiveTag.MatchesTag(DebuffParentTag))
+					{
+						FPBTurnStatusIconData Row;
+						Row.Icon = Registry->GetTagIcon(ActiveTag);
+						TurnDebuffs.Add(Row);
+					}
+				}
+
+				PortraitVM->SetBuffs(TurnBuffs);
+				PortraitVM->SetDebuffs(TurnDebuffs);
+			}
+		}
 	}
 }
 

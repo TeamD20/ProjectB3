@@ -173,6 +173,43 @@ void APBGameplayHUD::HandlePartyMemberListReady(const TArray<AActor*>& InPartyMe
 				VM->SetCharacterClass(Registry->GetTagDisplayName(ClassTag));
 				VM->SetClassIcon(Registry->GetTagIcon(ClassTag));
 			}
+
+			// ASC에서 활성 태그를 읽어 버프/디버프를 분류하여 ViewModel에 세팅
+			if (UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(PartyMember))
+			{
+				FGameplayTagContainer ActiveTags;
+				ASC->GetOwnedGameplayTags(ActiveTags);
+
+				TArray<FPBPartyTooltipRowData> BuffRows;
+				TArray<FPBPartyTooltipRowData> DebuffRows;
+
+				const FGameplayTag BuffParentTag = FGameplayTag::RequestGameplayTag(TEXT("Character.State.Buff"));
+				const FGameplayTag DebuffParentTag = FGameplayTag::RequestGameplayTag(TEXT("Character.State.Debuff"));
+
+				if (const UPBAbilitySystemRegistry* TagRegistry = UPBGameInstance::GetAbilitySystemRegistry(this))
+				{
+					for (const FGameplayTag& Tag : ActiveTags)
+					{
+						if (Tag.MatchesTag(BuffParentTag))
+						{
+							FPBPartyTooltipRowData Row;
+							Row.Text = TagRegistry->GetTagDisplayName(Tag);
+							Row.Icon = TagRegistry->GetTagIcon(Tag);
+							BuffRows.Add(Row);
+						}
+						else if (Tag.MatchesTag(DebuffParentTag))
+						{
+							FPBPartyTooltipRowData Row;
+							Row.Text = TagRegistry->GetTagDisplayName(Tag);
+							Row.Icon = TagRegistry->GetTagIcon(Tag);
+							DebuffRows.Add(Row);
+						}
+					}
+				}
+
+				VM->SetBuffs(BuffRows);
+				VM->SetDebuffs(DebuffRows);
+			}
 			
 			// HP는 UPBAbilitySystemUIBridge가 ASC Attribute 변경 구독으로 자동 갱신
 		}

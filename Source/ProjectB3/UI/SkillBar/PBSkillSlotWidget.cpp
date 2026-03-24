@@ -8,8 +8,14 @@
 #include "Components/Button.h"
 #include "Components/Image.h"
 #include "Components/TextBlock.h"
+#include "Components/TextBlock.h"
 #include "Components/Overlay.h"
 #include "Components/Border.h"
+#include "ProjectB3/ItemSystem/Components/PBInventoryComponent.h"
+#include "ProjectB3/ItemSystem/Data/PBConsumableDataAsset.h"
+#include "ProjectB3/AbilitySystem/Payload/PBConsumableUsePayload.h"
+#include "AbilitySystemBlueprintLibrary.h"
+#include "ProjectB3/PBGameplayTags.h"
 
 void UPBSkillSlotWidget::SetSlotData(const FPBSkillSlotData& InSlotData)
 {
@@ -152,5 +158,28 @@ void UPBSkillSlotWidget::OnSlotClicked()
 		return;
 	}
 
-	PlayerState->RequestAbilityActivation(CurrentData.AbilityHandle);
+	if (CurrentData.ItemInstanceID.IsValid())
+	{
+		AActor* TargetActor = PlayerState->GetSelectedPartyMember();
+		if (UPBInventoryComponent* Inventory = TargetActor ? TargetActor->FindComponentByClass<UPBInventoryComponent>() : nullptr)
+		{
+			const FPBItemInstance ItemInstance = Inventory->FindItemByID(CurrentData.ItemInstanceID);
+			const UPBConsumableDataAsset* ConsumableDA = Cast<UPBConsumableDataAsset>(ItemInstance.ItemDataAsset);
+			if (IsValid(ConsumableDA))
+			{
+				UPBConsumableUsePayload* Payload = NewObject<UPBConsumableUsePayload>();
+				Payload->InstanceID = CurrentData.ItemInstanceID;
+				Payload->ConsumableDataAsset = const_cast<UPBConsumableDataAsset*>(ConsumableDA);
+
+				FGameplayEventData EventData;
+				EventData.OptionalObject = Payload;
+
+				UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(TargetActor, PBGameplayTags::Event_Item_UseConsumable, EventData);
+			}
+		}
+	}
+	else
+	{
+		PlayerState->RequestAbilityActivation(CurrentData.AbilityHandle);
+	}
 }

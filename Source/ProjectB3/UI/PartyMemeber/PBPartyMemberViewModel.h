@@ -65,10 +65,10 @@ public:
 	bool bIsCharacterSelect() const;
 	
 	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
-	const TArray<FPBPartyTooltipRowData>& GetStatusEffects() const { return StatusEffects; }
+	const TArray<FPBPartyTooltipRowData>& GetBuffs() const { return Buffs; }
 
 	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
-	const TArray<FPBPartyTooltipRowData>& GetReactions() const { return Reactions; }
+	const TArray<FPBPartyTooltipRowData>& GetDebuffs() const { return Debuffs; }
 	
 public:
 	// 세터
@@ -79,8 +79,8 @@ public:
 	void SetPortrait(TSoftObjectPtr<UTexture2D> InPortrait);
 	void SetClassIcon(TSoftObjectPtr<UTexture2D> InClassIcon);
 	void SetIsSelectedCharacter(bool InMyTurn);
-	void SetStatusEffects(const TArray<FPBPartyTooltipRowData>& InStatusEffects);
-	void SetReactions(const TArray<FPBPartyTooltipRowData>& InReactions);
+	void SetBuffs(const TArray<FPBPartyTooltipRowData>& InBuffs);
+	void SetDebuffs(const TArray<FPBPartyTooltipRowData>& InDebuffs);
 	
 	UFUNCTION(BlueprintCallable, Category = "UI | ViewModel")
 	void OnSelected();
@@ -100,11 +100,11 @@ public:
 	FOnBoolValueChangedSignature OnIsMyTurnChanged;
 	FOnPartyMemberSelectedSignature OnPartyMemberSelected;
 
-	DECLARE_MULTICAST_DELEGATE(FOnStatusEffectsChangedSignature);
-	FOnStatusEffectsChangedSignature OnStatusEffectsChanged;
+	DECLARE_MULTICAST_DELEGATE(FOnBuffsChangedSignature);
+	FOnBuffsChangedSignature OnBuffsChanged;
 
-	DECLARE_MULTICAST_DELEGATE(FOnReactionsChangedSignature);
-	FOnReactionsChangedSignature OnReactionsChanged;
+	DECLARE_MULTICAST_DELEGATE(FOnDebuffsChangedSignature);
+	FOnDebuffsChangedSignature OnDebuffsChanged;
 	
 private:
 	FText CharacterName;
@@ -122,6 +122,6 @@ private:
 	float HealthPercent;
 	bool bIsCharSelect;
 
-	TArray<FPBPartyTooltipRowData> StatusEffects;
-	TArray<FPBPartyTooltipRowData> Reactions;
+	TArray<FPBPartyTooltipRowData> Buffs;
+	TArray<FPBPartyTooltipRowData> Debuffs;
 };

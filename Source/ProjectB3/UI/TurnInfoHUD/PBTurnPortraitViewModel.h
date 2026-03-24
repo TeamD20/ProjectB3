@@ -5,7 +5,18 @@
 #include "CoreMinimal.h"
 #include "ProjectB3/UI/ViewModel/PBViewModelBase.h"
 #include "ProjectB3/UI/PBUITypes.h"
+#include "ProjectB3/UI/PBUITypes.h"
 #include "PBTurnPortraitViewModel.generated.h"
+
+// 턴 오더 인물 하단에 띄울 순수 아이콘 전용 데이터 구조체
+USTRUCT(BlueprintType)
+struct PROJECTB3_API FPBTurnStatusIconData
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Turn|Status")
+	TSoftObjectPtr<UTexture2D> Icon;
+};
 
 /**
  * 
@@ -42,6 +53,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Turn|Portrait")
 	void SetIsDead(bool bInIsDead);
 
+	UFUNCTION(BlueprintCallable, Category = "Turn|Portrait")
+	const TArray<FPBTurnStatusIconData>& GetBuffs() const { return Buffs; }
+
+	UFUNCTION(BlueprintCallable, Category = "Turn|Portrait")
+	const TArray<FPBTurnStatusIconData>& GetDebuffs() const { return Debuffs; }
+
+	void SetBuffs(const TArray<FPBTurnStatusIconData>& InBuffs);
+	void SetDebuffs(const TArray<FPBTurnStatusIconData>& InDebuffs);
+
 public:
 	PBUIDelegate::FOnBoolValueChangedSignature OnCurrentTurnChanged;
 	PBUIDelegate::FOnBoolValueChangedSignature OnDeathStateChanged;
@@ -54,6 +74,10 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Turn|Portrait")
 	void SetHealthPercent(float bInHealthPercent);
+
+	DECLARE_MULTICAST_DELEGATE(FOnStatusListChangedSignature);
+	FOnStatusListChangedSignature OnBuffsChanged;
+	FOnStatusListChangedSignature OnDebuffsChanged;
 
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn|Portrait")
@@ -73,4 +97,7 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Turn|Portrait")
 	float HealthPercent = 0.0f;
+
+	TArray<FPBTurnStatusIconData> Buffs;
+	TArray<FPBTurnStatusIconData> Debuffs;
 };
