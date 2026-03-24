@@ -1849,11 +1849,11 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 
 		float HPValue = AbilityCDO->GetEstimatedHPValue();
 		const int32 Duration = AbilityCDO->GetEffectDuration();
+		const EPBStatModType ModType = AbilityCDO->GetStatModType();
 
 		// 수동값 미설정 + StatModType 지정 → 자동 HP 환산
 		if (HPValue <= 0.0f)
 		{
-			const EPBStatModType ModType = AbilityCDO->GetStatModType();
 			if (ModType != EPBStatModType::None)
 			{
 				HPValue = CalcAutoStatModHP(
@@ -1867,11 +1867,24 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 			continue;
 		}
 
+		// 틱힐형 버프 (StatModType == None): 만피면 가치 없음
+		if (ModType == EPBStatModType::None && IsValid(AllyASC))
+		{
+			bool bHPFound = false, bMaxHPFound = false;
+			const float CurHP = AllyASC->GetGameplayAttributeValue(
+				UPBCharacterAttributeSet::GetHPAttribute(), bHPFound);
+			const float MaxHP = AllyASC->GetGameplayAttributeValue(
+				UPBCharacterAttributeSet::GetMaxHPAttribute(), bMaxHPFound);
+			if (bHPFound && bMaxHPFound && MaxHP > 0.0f && (MaxHP - CurHP) <= 0.0f)
+			{
+				continue;
+			}
+		}
+
 		// BaseScore = EstimatedHPValue × DurationFactor × RoleSynergyFactor
 		// DurationFactor = min(EffectDuration, 3) / 3.0
 		const float DurationFactor =
 			FMath::Min(static_cast<float>(Duration), 3.0f) / 3.0f;
-		const EPBStatModType ModType = AbilityCDO->GetStatModType();
 		const EPBCombatRole AllyRole = DetermineCombatRole(AllyTarget);
 		const float RoleSynergy = CalcRoleSynergyFactor(ModType, AllyRole);
 		const float CandidateScore = HPValue * DurationFactor * RoleSynergy;

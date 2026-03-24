@@ -497,6 +497,27 @@ FPBHazardQueryResult UPBEnvironmentSubsystem::QueryHazardAtPoint(const FVector& 
 	return Result;
 }
 
+// 영역 효과 중복 적용 방지
+
+bool UPBEnvironmentSubsystem::TryMarkAreaEffectApplied(
+	const AActor* Target, const UGameplayEffect* EffectDef, int32 CurrentRound)
+{
+	// 라운드가 바뀌면 기존 기록 초기화
+	if (CurrentRound != AreaEffectDedupRound)
+	{
+		AreaEffectDedupRound = CurrentRound;
+		AreaEffectDedupSet.Empty();
+	}
+
+	const uint64 Key = HashCombine(GetTypeHash(Target), GetTypeHash(EffectDef));
+	if (AreaEffectDedupSet.Contains(Key))
+	{
+		return false;
+	}
+	AreaEffectDedupSet.Add(Key);
+	return true;
+}
+
 // 캐시 수명 관리
 
 void UPBEnvironmentSubsystem::BeginEnvironmentCache()
