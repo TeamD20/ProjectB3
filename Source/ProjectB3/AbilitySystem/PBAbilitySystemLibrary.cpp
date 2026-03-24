@@ -79,7 +79,7 @@ FPBHitRollResult UPBAbilitySystemLibrary::RollHit(int32 HitBonus, int32 TargetAC
 	return Result;
 }
 
-FPBDamageRollResult UPBAbilitySystemLibrary::RollDamage(int32 DiceCount, int32 DiceFaces, float AttackModifier, bool bCritical)
+FPBDamageRollResult UPBAbilitySystemLibrary::RollDamage(int32 DiceCount, int32 DiceFaces, int32 DiceBonus, float AttackModifier, bool bCritical)
 {
 	FPBDamageRollResult Result;
 	Result.AttackModifier = AttackModifier;
@@ -92,7 +92,7 @@ FPBDamageRollResult UPBAbilitySystemLibrary::RollDamage(int32 DiceCount, int32 D
 	{
 		DiceTotal += static_cast<float>(FMath::RandRange(1, DiceFaces));
 	}
-	Result.DiceRoll = DiceTotal;
+	Result.DiceRoll = DiceTotal + DiceBonus;
 	return Result;
 }
 
@@ -232,14 +232,14 @@ float UPBAbilitySystemLibrary::CalcInitiativeBonus(float Dexterity)
 	return static_cast<float>(CalcAbilityModifier(Dexterity));
 }
 
-float UPBAbilitySystemLibrary::RollHeal(int32 DiceCount, int32 DiceFaces)
+float UPBAbilitySystemLibrary::RollHeal(int32 DiceCount, int32 DiceFaces, int32 DiceBonus)
 {
 	float HealTotal = 0.0f;
 	for (int32 i = 0; i < DiceCount; ++i)
 	{
 		HealTotal += static_cast<float>(FMath::RandRange(1, DiceFaces));
 	}
-	return HealTotal;
+	return HealTotal + DiceBonus;
 }
 
 float UPBAbilitySystemLibrary::CalcFinalHeal(float HealRoll,
@@ -309,7 +309,7 @@ FGameplayEffectSpecHandle UPBAbilitySystemLibrary::MakeDamageEffectSpec(
 			}
 
 			const int32 AttackModifier = GetAttackModifier(SourceASC, AttackModifierAttributeOverride);
-			DamageRoll = RollDamage(DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, HitResult.bCritical);
+			DamageRoll = RollDamage(DiceSpec.DiceCount, DiceSpec.DiceFaces, DiceSpec.DiceBonus, AttackModifier, HitResult.bCritical);
 			break;
 		}
 
@@ -317,7 +317,7 @@ FGameplayEffectSpecHandle UPBAbilitySystemLibrary::MakeDamageEffectSpec(
 		{
 			// D&D 5e: 주문 데미지는 능력치 수정치 미적용
 			DamageRoll.AttackModifier = 0.f;
-			DamageRoll.DiceRoll = RollDamage(DiceSpec.DiceCount, DiceSpec.DiceFaces, 0.f, false).DiceRoll;
+			DamageRoll.DiceRoll = RollDamage(DiceSpec.DiceCount, DiceSpec.DiceFaces, DiceSpec.DiceBonus, 0.f, false).DiceRoll;
 
 			// 시전자의 SpellSaveDC: BonusAttributeOverride 지정이면 직접 계산, 아니면 어트리뷰트 폴백
 			const int32 SpellSaveDC = CalcSpellSaveDC(SourceASC, BonusAttributeOverride);
@@ -337,7 +337,7 @@ FGameplayEffectSpecHandle UPBAbilitySystemLibrary::MakeDamageEffectSpec(
 	default:
 		{
 			const int32 AttackModifier = GetAttackModifier(SourceASC, AttackModifierAttributeOverride);
-			DamageRoll = RollDamage(DiceSpec.DiceCount, DiceSpec.DiceFaces, AttackModifier, false);
+			DamageRoll = RollDamage(DiceSpec.DiceCount, DiceSpec.DiceFaces, DiceSpec.DiceBonus, AttackModifier, false);
 			break;
 		}
 	}

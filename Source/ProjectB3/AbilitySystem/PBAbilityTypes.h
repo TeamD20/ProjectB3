@@ -197,18 +197,10 @@ struct PROJECTB3_API FPBDiceSpec
 	// 주사위 면 수 (예: 2d6 에서 6)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice", meta = (ClampMin = "1"))
 	int32 DiceFaces = 6;
-
-	// UI 표시용: 주사위 설명 (예: "1d10 역장")
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice|UI")
-	FText DiceRollDesc;
-
-	// UI 표시용: 주사위 아이콘
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice|UI")
-	TSoftObjectPtr<UTexture2D> DiceIcon;
-
-	// UI 표시용: 주사위 텍스트 색상
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice|UI")
-	FSlateColor DiceColor = FSlateColor(FLinearColor::White);
+	
+	// 주사위 보너스
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dice", meta = (ClampMin = "0"))
+	int32 DiceBonus = 0;
 
 	// 공격자 데미지 수정치 핵심 능력치 재정의.
 	// 미지정(IsValid() == false) 시 ASC의 AttackModifier 폴백 어트리뷰트 사용.

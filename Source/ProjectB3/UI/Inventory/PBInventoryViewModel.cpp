@@ -179,8 +179,6 @@ void UPBInventoryViewModel::RequestTooltipData(const FGuid& InstanceID)
 		{
 			const FPBDiceSpec& Dice = EquipData->DamageSpec;
 			TooltipData.DiceText = FText::FromString(FString::Printf(TEXT("%dd%d"), Dice.DiceCount, Dice.DiceFaces));
-			TooltipData.DiceColor = Dice.DiceColor;
-			TooltipData.DiceIcon = Dice.DiceIcon;
 
 			int32 Mod = EquipData->WeaponBonusModifier;
 			if (Mod > 0) TooltipData.ModifierText = FText::FromString(FString::Printf(TEXT("(+%d)"), Mod));

@@ -55,7 +55,7 @@ public:
 
 	// 무기 데미지 주사위 굴림. bCritical이면 주사위 수 2배. ExecCalc SetByCaller 전달용.
 	UFUNCTION(BlueprintPure, Category = "Ability|Combat")
-	static FPBDamageRollResult RollDamage(int32 DiceCount, int32 DiceFaces, float AttackModifier, bool bCritical);
+	static FPBDamageRollResult RollDamage(int32 DiceCount, int32 DiceFaces, int32 DiceBonus, float AttackModifier, bool bCritical);
 
 	// 내성 굴림 수행. D&D 5e: Natural 1/20 자동 실패/성공 없음. Roll + SaveBonus >= SpellSaveDC이면 성공.
 	UFUNCTION(BlueprintPure, Category = "Ability|Combat")
@@ -89,7 +89,7 @@ public:
 
 	// 힐 주사위 굴림. 회복량만 반환 (명중/세이빙 없음).
 	UFUNCTION(BlueprintPure, Category = "Ability|Combat")
-	static float RollHeal(int32 DiceCount, int32 DiceFaces);
+	static float RollHeal(int32 DiceCount, int32 DiceFaces, int32 DiceBonus);
 
 	// 최종 회복량 계산. SourceTags/TargetTags 기반 보정 추후 확장.
 	UFUNCTION(BlueprintPure, Category = "Ability|Combat")
