@@ -4,23 +4,32 @@
 
 FPBDiceSpec UPBEquipmentDataAsset::GetAbilityDamageSpec() const
 {
-	return DamageSpec;
+	// TODO: 동적 데이터 연동 전 더미값 반환
+	FPBDiceSpec DummySpec;
+	DummySpec.DiceCount = 1;
+	DummySpec.DiceFaces = 6;
+	return DummySpec;
 }
 
 int32 UPBEquipmentDataAsset::GetWeaponBonusModifier() const
 {
-	return WeaponBonusModifier;
+	// TODO: 동적 데이터 연동 전 더미값 반환
+	return 0;
 }
 
 FGameplayTag UPBEquipmentDataAsset::GetDamageTypeTag() const
 {
-	return DamageTypeTag;
+	// TODO: 동적 데이터 연동 전 더미값 반환
+	return FGameplayTag::EmptyTag;
 }
 
 int32 UPBEquipmentDataAsset::GetArmorClass() const
 {
-	return ArmorClass;
-}TArray<EPBEquipSlot> UPBEquipmentDataAsset::GetAllowedSlotsForType(EPBEquipmentType InEquipmentType, EPBWeaponHandType InHandType)
+	// TODO: 동적 데이터 연동 전 더미값 반환
+	return 10;
+}
+
+TArray<EPBEquipSlot> UPBEquipmentDataAsset::GetAllowedSlotsForType(EPBEquipmentType InEquipmentType, EPBWeaponHandType InHandType)
 {
 	switch (InEquipmentType)
 	{

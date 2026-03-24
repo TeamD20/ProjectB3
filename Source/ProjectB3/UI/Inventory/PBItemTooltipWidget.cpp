@@ -46,6 +46,19 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 		RarityText->SetText(!InData.RarityText.IsEmpty() ? InData.RarityText : FallbackRarity);
 	}
 
+	// 무기/방어구 스탯 래퍼 박스
+	if (Box_Equipment)
+	{
+		if (InData.ItemType == EPBItemType::Consumable)
+		{
+			Box_Equipment->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		else
+		{
+			Box_Equipment->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+		}
+	}
+
 	// DamageRangeText: 무기="4~9 피해", 방어구="방어도 15", 기타=Fallback or Collapsed
 	if (DamageRangeText)
 	{
@@ -216,19 +229,27 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 	// (어빌리티 설명)
 	if (Box_Ability)
 	{
-		// 데이터가 없어도 기본 Fallback 텍스트로 박스를 유지하려면, Fallback 텍스트 자체가 비어있지 않은지 판단함.
-		bool bDisplayAbility = InData.bHasAbility || !FallbackAbilityDesc.IsEmpty();
-		if (bDisplayAbility)
+		// 소모품은 전용 박스(Box_Consumable)를 사용하므로 기존 Ability 박스는 숨김
+		if (InData.ItemType == EPBItemType::Consumable)
 		{
-			Box_Ability->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
-			if (AbilityDescText)
-			{
-				AbilityDescText->SetText(InData.bHasAbility ? InData.AbilityDescription : FallbackAbilityDesc);
-			}
+			Box_Ability->SetVisibility(ESlateVisibility::Collapsed);
 		}
 		else
 		{
-			Box_Ability->SetVisibility(ESlateVisibility::Collapsed);
+			// 데이터가 없어도 기본 Fallback 텍스트로 박스를 유지하려면, Fallback 텍스트 자체가 비어있지 않은지 판단함.
+			bool bDisplayAbility = InData.bHasAbility || !FallbackAbilityDesc.IsEmpty();
+			if (bDisplayAbility)
+			{
+				Box_Ability->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+				if (AbilityDescText)
+				{
+					AbilityDescText->SetText(InData.bHasAbility ? InData.AbilityDescription : FallbackAbilityDesc);
+				}
+			}
+			else
+			{
+				Box_Ability->SetVisibility(ESlateVisibility::Collapsed);
+			}
 		}
 	}
 
@@ -247,10 +268,17 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 				{
 					LoreIcon->SetBrushFromSoftTexture(ActiveLoreIcon);
 					LoreIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+					
+					if (LoreIcon_Consumable)
+					{
+						LoreIcon_Consumable->SetBrushFromSoftTexture(ActiveLoreIcon);
+						LoreIcon_Consumable->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+					}
 				}
 				else
 				{
 					LoreIcon->SetVisibility(ESlateVisibility::Collapsed);
+					if (LoreIcon_Consumable) LoreIcon_Consumable->SetVisibility(ESlateVisibility::Collapsed);
 				}
 			}
 

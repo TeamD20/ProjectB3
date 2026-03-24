@@ -50,23 +50,6 @@ public:
 	FGameplayTag GetDamageTypeTag() const;
 	int32 GetArmorClass() const;
 
-private:
-	// --- 무기 전용 (EquipmentType == Weapon 일 때만 표시) ---
-
-	UPROPERTY(EditDefaultsOnly, Category = "Item|Equipment|Weapon", meta = (EditCondition = "EquipmentType == EPBEquipmentType::Weapon", EditConditionHides))
-	FPBDiceSpec DamageSpec;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Item|Equipment|Weapon", meta = (ClampMin = "-9", ClampMax = "9", EditCondition = "EquipmentType == EPBEquipmentType::Weapon", EditConditionHides))
-	int32 WeaponBonusModifier = 0;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Item|Equipment|Weapon", meta = (EditCondition = "EquipmentType == EPBEquipmentType::Weapon", EditConditionHides))
-	FGameplayTag DamageTypeTag;
-
-	// --- 방어구 전용 (EquipmentType != Weapon 일 때 표시) ---
-
-	UPROPERTY(EditDefaultsOnly, Category = "Item|Equipment|Armor", meta = (ClampMin = "0", EditCondition = "EquipmentType != EPBEquipmentType::Weapon", EditConditionHides))
-	int32 ArmorClass = 10;
-	
 public:
 	// EquipmentType과 WeaponHandType으로부터 허용 슬롯 목록을 도출
 	static TArray<EPBEquipSlot> GetAllowedSlotsForType(EPBEquipmentType InEquipmentType, EPBWeaponHandType InHandType);

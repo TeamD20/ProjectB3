@@ -46,6 +46,10 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UImage> Box1_RarityOverlay;
 
+	// 무기/방어구 전용 스탯들을 묶어두는 래퍼 박스 (소모품일 때 통째로 숨김 처리용)
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UWidget> Box_Equipment;
+
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> ItemNameText;
 
@@ -88,6 +92,9 @@ protected:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UImage> LoreIcon;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> LoreIcon_Consumable;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> LoreDescText;
