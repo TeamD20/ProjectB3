@@ -577,7 +577,33 @@ void UPBGameplayAbility::TryAutoAttachEquipment(
 	{
 		return;
 	}
+	
+	// 캐릭터와 EquipmentComponent 조회
+	APBCharacterBase* Character = Cast<APBCharacterBase>(ActorInfo->AvatarActor.Get());
+	if (!IsValid(Character))
+	{
+		return;
+	}
 
+	UPBEquipmentComponent* EquipComp = Character->FindComponentByClass<UPBEquipmentComponent>();
+	if (!IsValid(EquipComp))
+	{
+		return;
+	}
+	
+	// 1. Override 설정으로 착용 시도
+	if (!EquipmentActorOverride.IsNull() && EquipmentSlotOverride.IsValid())
+	{
+		if (const TSubclassOf<APBEquipmentActor> LoadedClass = EquipmentActorOverride.LoadSynchronous())
+		{
+			if (Character->AttachEquipment(EquipmentSlotOverride, LoadedClass))
+			{
+				return;
+			}
+		}
+	}
+
+	// 2. DynamicTags로 착용 시도
 	UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
 	if (!IsValid(ASC))
 	{
@@ -607,18 +633,7 @@ void UPBGameplayAbility::TryAutoAttachEquipment(
 		return;
 	}
 
-	// 캐릭터와 EquipmentComponent 조회
-	APBCharacterBase* Character = Cast<APBCharacterBase>(ActorInfo->AvatarActor.Get());
-	if (!IsValid(Character))
-	{
-		return;
-	}
-
-	UPBEquipmentComponent* EquipComp = Character->FindComponentByClass<UPBEquipmentComponent>();
-	if (!IsValid(EquipComp))
-	{
-		return;
-	}
+	
 
 	// 해당 슬롯 태그에 대응하는 장착 아이템의 EquipmentActorClass 조회
 	for (const auto& Pair : EquipComp->GetEquippedItems())

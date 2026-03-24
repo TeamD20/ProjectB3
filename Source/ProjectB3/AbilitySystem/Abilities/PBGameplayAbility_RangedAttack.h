@@ -28,6 +28,13 @@ public:
 	virtual FPBTargetingRequest MakeTargetingRequest() const override;
 	// 무기 소켓 기반 발사 지점 반환 (매 프레임 갱신)
 	virtual FVector GetProjectileLaunchLocation() const override;
+	
+protected:
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
+	
+	UFUNCTION(BlueprintNativeEvent)
+	void OnProjectileHit(AActor* HitActor);
+	
 private:
 	// DynamicTags의 장비 슬롯 태그 기반으로 현재 장착 무기 액터 반환. 없으면 nullptr.
 	APBEquipmentActor* GetEquippedWeaponActor() const;
@@ -38,13 +45,13 @@ private:
 	// 투사체 도착 시 호출되는 콜백 — EndAbility 트리거
 	void OnProjectileResolved(AActor* HitActor);
 
-private:
+protected:
 	// 발사할 투사체 클래스 (블루프린트에서 설정)
 	UPROPERTY(EditDefaultsOnly, Category = "Ability|Projectile")
 	TSubclassOf<APBProjectile> ProjectileClass;
-
-	// 투사체 콜백에서 EndAbility 호출 시 사용하는 캐시
-	FGameplayAbilitySpecHandle CachedHandle;
-	FGameplayAbilityActorInfo CachedActorInfo;
-	FGameplayAbilityActivationInfo CachedActivationInfo;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Ability|Projectile")
+	int32 ProjectileCount = 1;
+	
+	int32 ResolvedCount = 0;
 };

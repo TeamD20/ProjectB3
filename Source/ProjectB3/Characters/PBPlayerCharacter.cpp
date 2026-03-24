@@ -83,8 +83,15 @@ void APBPlayerCharacter::OnCombatBegin()
 
 	if (APBGameplayPlayerController* PC = GetController<APBGameplayPlayerController>())
 	{
-		PC->SetControllerMode(EPBPlayerControllerMode::TurnMovement);
-		UpdatePathDisplayMovementRange(PC);
+		if (UPBCombatSystemLibrary::IsMyTurn(this))
+		{
+			PC->SetControllerMode(EPBPlayerControllerMode::TurnMovement);
+			UpdatePathDisplayMovementRange(PC);	
+		}
+		else
+		{
+			PC->SetControllerMode(EPBPlayerControllerMode::None);
+		}
 	}
 }
 
