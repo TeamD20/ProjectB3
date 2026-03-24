@@ -142,14 +142,19 @@ public:
 	// 장비 컴포넌트 반환
 	UPBEquipmentComponent* GetEquipmentComponent() const { return EquipmentComponent; }
 
+	// BP에서 사망 여부 조회
+	UFUNCTION(BlueprintPure, Category = "Combat")
+	bool BP_IsDead() const { return IsDead(); }
+
 	// 장비 부착 대상 메시 반환 (VisualMesh 우선, 없으면 GetMesh)
+	UFUNCTION(BlueprintPure, Category = "Character")
 	USkeletalMeshComponent* GetVisualMesh() const { return CachedVisualMesh; }
 
 	// 상호작용 컴포넌트 반환
 	virtual UPBInteractableComponent* GetInteractableComponent() const override { return InteractableComponent; }
 	
 protected:
-	/*~ APawn Interface ~*/
+	/*~ APawn Interface ~*/ 
 	// 컨트롤러 빙의 시 PathFollowing 이벤트 바인딩
 	virtual void PossessedBy(AController* NewController) override;
 
