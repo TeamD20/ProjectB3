@@ -244,6 +244,11 @@ void UPBTargetingComponent::RemoveLastTarget()
 	SelectedTargets.RemoveAt(SelectedTargets.Num() - 1);
 
 	OnSelectionChanged.Broadcast(MakeMultiTargetData());
+	
+	if (SelectedTargets.Num() == 0)
+	{
+		CancelTargeting();
+	}
 }
 
 void UPBTargetingComponent::ConfirmTarget()
@@ -382,7 +387,7 @@ void UPBTargetingComponent::ShowAoETelegraph(const FVector& Location)
 	}
 
 	AoETelegraphNiagaraComp->SetWorldLocation(Location + FVector(0.0f, 0.0f, 2.0f)); // 지면에서 살짝 띄움
-	AoETelegraphNiagaraComp->SetVariableFloat(TEXT("User.Radius"), CurrentRequest.AoERadius);
+	AoETelegraphNiagaraComp->SetVariableFloat(TEXT("User.Radius"), CurrentRequest.AoERadius * 2.0f);
 
 	if (!AoETelegraphNiagaraComp->IsActive())
 	{

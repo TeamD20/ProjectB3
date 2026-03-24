@@ -527,7 +527,12 @@ bool APBCharacterBase::IsDead() const
 
 bool APBCharacterBase::IsIncapacitated() const
 {
-	if (AbilitySystemComponent->HasMatchingGameplayTag(PBGameplayTags::Character_State_Incapacitated))
+	FGameplayTagContainer IncapacitatedTags;
+	IncapacitatedTags.AddTag(PBGameplayTags::Character_State_Dead);
+	IncapacitatedTags.AddTag(PBGameplayTags::Character_State_Incapacitated);
+	IncapacitatedTags.AddTag(PBGameplayTags::Character_State_Debuff_Stunned);
+	
+	if (AbilitySystemComponent->HasAnyMatchingGameplayTags(IncapacitatedTags))
 	{
 		return true;
 	}

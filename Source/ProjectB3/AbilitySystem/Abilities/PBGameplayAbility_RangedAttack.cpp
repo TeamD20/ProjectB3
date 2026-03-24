@@ -17,23 +17,12 @@ void UPBGameplayAbility_RangedAttack::FireProjectile(const FGameplayEffectSpecHa
 		return;
 	}
 
-	if (!DamageSpecHandle.IsValid())
-	{
-		EndAbility(GetCurrentAbilitySpecHandle(), GetCurrentActorInfo(), GetCurrentActivationInfo(), true, true);
-		return;
-	}
-
 	if (!ProjectileClass)
 	{
 		EndAbility(GetCurrentAbilitySpecHandle(), GetCurrentActorInfo(), GetCurrentActivationInfo(), true, true);
 		return;
 	}
-
-	// 투사체 콜백에서 EndAbility 호출 시 사용할 핸들·정보 캐싱
-	CachedHandle = GetCurrentAbilitySpecHandle();
-	CachedActorInfo = *GetCurrentActorInfo();
-	CachedActivationInfo = GetCurrentActivationInfo();
-
+	
 	// 발사 기점 Transform 결정
 	const FTransform LaunchTransform = GetProjectileLaunchTransform();
 
@@ -47,7 +36,7 @@ void UPBGameplayAbility_RangedAttack::FireProjectile(const FGameplayEffectSpecHa
 
 	if (!IsValid(Projectile))
 	{
-		EndAbility(CachedHandle, &CachedActorInfo, CachedActivationInfo, true, true);
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 		return;
 	}
 
@@ -82,6 +71,19 @@ FVector UPBGameplayAbility_RangedAttack::GetProjectileLaunchLocation() const
 	return GetProjectileLaunchTransform().GetLocation();
 }
 
+void UPBGameplayAbility_RangedAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo,
+	const FGameplayEventData* TriggerEventData)
+{
+	ResolvedCount = 0;
+	Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+}
+
+void UPBGameplayAbility_RangedAttack::OnProjectileHit_Implementation(AActor* HitActor)
+{
+	
+}
+
 FTransform UPBGameplayAbility_RangedAttack::GetProjectileLaunchTransform() const
 {
 	APBEquipmentActor* WeaponActor = GetEquippedWeaponActor();
@@ -101,8 +103,17 @@ APBEquipmentActor* UPBGameplayAbility_RangedAttack::GetEquippedWeaponActor() con
 	{
 		return nullptr;
 	}
+	
+	// 1. Override 설정으로 검색
+	if (EquipmentSlotOverride.IsValid())
+	{
+		if (APBEquipmentActor* Attached = Character->GetAttachedEquipment(EquipmentSlotOverride))
+		{
+			return Attached;
+		}
+	}
 
-	// Spec DynamicTags에서 Equipment.Slot 태그를 탐색하여 부착된 무기 액터 반환
+	// 2. Spec DynamicTags에서 Equipment.Slot 태그를 탐색하여 부착된 무기 액터 반환
 	const FGameplayAbilitySpec* Spec = GetCurrentAbilitySpec();
 	if (!Spec)
 	{
@@ -122,5 +133,15 @@ APBEquipmentActor* UPBGameplayAbility_RangedAttack::GetEquippedWeaponActor() con
 
 void UPBGameplayAbility_RangedAttack::OnProjectileResolved(AActor* HitActor)
 {
-	EndAbility(CachedHandle, &CachedActorInfo, CachedActivationInfo, true, false);
+	ResolvedCount++;
+	
+	if (IsValid(HitActor))
+	{
+		OnProjectileHit(HitActor);
+	}
+	
+	if (ResolvedCount >= ProjectileCount)
+	{
+		EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);	
+	}
 }
