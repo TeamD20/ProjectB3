@@ -71,7 +71,8 @@ void UPBSkillTooltipWidget::SetTooltipData(const FPBSkillSlotData& InSlotData)
 		if (!InSlotData.DiceRollDesc.IsEmpty())
 		{
 			DiceRollDescText->SetText(InSlotData.DiceRollDesc);
-			DiceRollDescText->SetColorAndOpacity(InSlotData.DiceRollColor);
+			// 디자이너 지정 색상을 보호하기 위해 동적 C++ 덮어씌우기 제거
+			// DiceRollDescText->SetColorAndOpacity(InSlotData.DiceRollColor); 
 			DiceRollDescText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 		}
 		else
@@ -82,9 +83,9 @@ void UPBSkillTooltipWidget::SetTooltipData(const FPBSkillSlotData& InSlotData)
 
 	if (DiceRollIcon)
 	{
-		if (!InSlotData.DiceRollIcon.IsNull())
+		// 텍스트가 존재할 경우 다이스 아이콘은 동적 데이터 할당 없이 BP에 할당된 이미지가 뜨도록 고정
+		if (!InSlotData.DiceRollDesc.IsEmpty())
 		{
-			DiceRollIcon->SetBrushFromSoftTexture(InSlotData.DiceRollIcon);
 			DiceRollIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 		}
 		else
