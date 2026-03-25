@@ -46,6 +46,9 @@ public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 
+	UFUNCTION(BlueprintCallable, Category = "ViewModel")
+	void ResetSystem();
+	
 	/*~ Global ViewModel ~*/
 
 	// Global ViewModel 등록 (이미 존재하면 기존 반환)

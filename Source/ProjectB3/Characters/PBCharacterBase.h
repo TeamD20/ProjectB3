@@ -65,6 +65,9 @@ public:
 
 	// 실제 행동 차례가 됐을 때 호출
 	virtual void OnTurnActivated() override;
+	
+	// 턴이 한 차례 진행 됐을 때 호출
+	virtual void OnProgressTurn() override;
 
 	// 턴 종료 시 호출
 	virtual void OnTurnEnd() override;
