@@ -85,6 +85,9 @@ public:
 
 	// 투사체 경로에 장애물이 있는지 여부
 	bool IsProjectilePathBlocked() const { return bProjectilePathBlocked; }
+	
+	// 선택된 타겟 개수
+	int32 NumSelectedTargets() const {return SelectedTargets.Num();}
 
 private:
 	// SelectedTargets를 FPBAbilityTargetData로 변환하는 내부 헬퍼

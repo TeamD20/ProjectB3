@@ -219,6 +219,12 @@ protected:
 
 	// DynamicTag에 장비 슬롯 태그가 있으면 해당 무기를 캐릭터에 자동 부착
 	void TryAutoAttachEquipment(const FGameplayAbilitySpecHandle& Handle, const FGameplayAbilityActorInfo* ActorInfo) const;
+	
+	// 장비 해제 애니메이션 자동 재생
+	void TryAutoPlayDetachEquipment(const FGameplayAbilitySpecHandle& Handle, const FGameplayAbilityActorInfo* ActorInfo) const;
+	
+	// 장비 인스턴스 조회
+	APBEquipmentActor* GetAttachedEquipment(const FGameplayAbilitySpecHandle& Handle, const FGameplayAbilityActorInfo* ActorInfo) const;
 
 	// Source to Target 방향 라인 트레이스로 HitResult를 생성하여 EffectContext에 설정
 	void SetTraceHitResultToContext(FGameplayEffectContextHandle& ContextHandle, const UAbilitySystemComponent* InTargetASC) const;
@@ -291,4 +297,8 @@ protected:
 	// 어빌리티 사용시 자동 장착할 슬롯
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Equipment")
 	FGameplayTag EquipmentSlotOverride = PBGameplayTags::Equipment_Slot_RightHand;
+	
+	// 어빌리티 발동/해제 시 애니메이션 자동 재생 여부
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Equipment")
+	bool bAutoPlayEquipAnim = true;
 };

@@ -46,7 +46,7 @@ public:
 	float GetAoERadius() const { return AoERadius; }
 
 	// 타겟팅 모드 조회
-		EPBTargetingMode GetTargetingMode() const { return TargetingMode; }
+	EPBTargetingMode GetTargetingMode() const { return TargetingMode; }
 
 	// MultiTarget 최대 선택 수 조회
 	int32 GetMaxTargetCount() const { return MaxTargetCount; }
@@ -78,6 +78,10 @@ protected:
 	// 수신된 타겟 데이터 기반 어빌리티 로직 실행. 스킬 어빌리티에서 override하여 구현.
 	virtual void ExecuteTargetLogic(const FPBAbilityTargetData& TargetData);
 
+	// 타겟팅 태스크 시작 직전 호출되는 블루프린트 이벤트
+	UFUNCTION(BlueprintImplementableEvent, Category = "Ability|Targeting")
+	void OnStartTargeting();
+
 private:
 	void InternalExecuteTargetLogic(const FPBAbilityTargetData& TargetData);
 	
@@ -89,6 +93,10 @@ private:
 
 	// 타겟팅 취소 콜백 — Task로부터 수신
 	void OnTargetingCancelled();
+
+	// InitialTargetingDelay 대기 완료 콜백
+	UFUNCTION()
+	void OnTargetingDelayFinished();
 
 	// EndMode == Auto일 때만 EndAbility를 호출하는 내부 헬퍼
 	void TryAutoEndAbility(const FGameplayAbilitySpecHandle& Handle,
@@ -124,4 +132,8 @@ protected:
 	// 액터 미지정 시 지면 위치 타겟 허용 (SingleTarget / MultiTarget 모드에서 유효)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Targeting")
 	bool bAllowGroundTarget = false;
+
+	// 타겟팅 태스크 시작 전 지연 시간 (초). 0이면 즉시 시작.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Targeting", meta = (ClampMin = "0.0"))
+	float InitialTargetingDelay = 0.f;
 };

@@ -585,10 +585,11 @@ void UPBCombatManagerSubsystem::BeginTurnForCurrentEntry()
 		{
 			if (IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(Member))
 			{
+				Participant->OnProgressTurn();
+				
 				if (!Participant->IsIncapacitated())
 				{
 					bAllIncapacitated = false;
-					break;
 				}
 			}
 		}
@@ -642,6 +643,8 @@ void UPBCombatManagerSubsystem::BeginTurnForCurrentEntry()
 			AdvanceToNextTurn();
 			return;
 		}
+		
+		Participant->OnProgressTurn();
 
 		if (Participant->IsIncapacitated())
 		{

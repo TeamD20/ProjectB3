@@ -573,7 +573,7 @@ void APBGameplayPlayerController::OnRightClick(const FInputActionValue& Value)
 	// Targeting 모드 처리. MultiTarget: 마지막 후보 제거.
 	if (CurrentMode == EPBPlayerControllerMode::Targeting)
 	{
-		if (TargetingComponent->IsMultiTargetMode())
+		if (TargetingComponent->IsMultiTargetMode() && TargetingComponent->NumSelectedTargets() > 0)
 		{
 			TargetingComponent->RemoveLastTarget();
 		}

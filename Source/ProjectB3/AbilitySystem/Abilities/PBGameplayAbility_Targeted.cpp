@@ -5,6 +5,7 @@
 #include "ProjectB3/AbilitySystem/Payload/PBTargetPayload.h"
 #include "ProjectB3/AbilitySystem/Tasks/PBAbilityTask_WaitTargeting.h"
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
+#include "Abilities/Tasks/AbilityTask_WaitDelay.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPBAbilityTargeted, Log, All);
 
@@ -102,8 +103,17 @@ void UPBGameplayAbility_Targeted::ActivateAbility(
 	case EPBTargetingMode::Location:
 	case EPBTargetingMode::AoE:
 		{
-			// AbilityTask로 비동기 타겟팅 진입
-			StartTargetingTask();
+			// InitialTargetingDelay만큼 지연 후 비동기 타겟팅 진입
+			if (InitialTargetingDelay > 0.f)
+			{
+				UAbilityTask_WaitDelay* DelayTask = UAbilityTask_WaitDelay::WaitDelay(this, InitialTargetingDelay);
+				DelayTask->OnFinish.AddDynamic(this, &UPBGameplayAbility_Targeted::OnTargetingDelayFinished);
+				DelayTask->ReadyForActivation();
+			}
+			else
+			{
+				StartTargetingTask();
+			}
 			break;
 		}
 
@@ -214,8 +224,19 @@ bool UPBGameplayAbility_Targeted::IsTargetSelf(const AActor* InTargetActor) cons
 }
 
 
+void UPBGameplayAbility_Targeted::OnTargetingDelayFinished()
+{
+	if (!IsActive())
+	{
+		return;
+	}
+	StartTargetingTask();
+}
+
 void UPBGameplayAbility_Targeted::StartTargetingTask()
 {
+	// 타겟팅 시작 직전 BP 이벤트 호출
+	OnStartTargeting();
 	UPBAbilityTask_WaitTargeting* Task = UPBAbilityTask_WaitTargeting::CreateTask(this);
 	if (!IsValid(Task))
 	{
