@@ -24,6 +24,7 @@
 #include "ProjectB3/Characters/PBCharacterBase.h"
 #include "ProjectB3/Utils/PBGameplayStatics.h"
 #include "ProjectB3/Environment/PBEnvironmentSubsystem.h"
+#include "ProjectB3/Game/PBGameplayHUD.h"
 #include "Components/MeshComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "TimerManager.h"
@@ -46,10 +47,44 @@ APBGameplayPlayerController::APBGameplayPlayerController()
 	DialogueManagerComponent = CreateDefaultSubobject<UPBDialogueManagerComponent>(TEXT("DialogueManagerComponent"));
 }
 
+void APBGameplayPlayerController::FadeInFromBlack()
+{
+	if (APBGameplayHUD* GameplayHUD = GetHUD<APBGameplayHUD>())
+	{
+		GameplayHUD->ScheduleInitializeHUDWidgets(FadeInInitialDelay);
+	}
+
+	if (APlayerCameraManager* CamManager = PlayerCameraManager)
+	{
+		CamManager->SetManualCameraFade(1.0f, FLinearColor::Black, true);
+
+		if (FadeInInitialDelay <= 0.0f)
+		{
+			CamManager->StartCameraFade(1.0f, 0.0f, FadeInDuration, FLinearColor::Black, false, true);
+			return;
+		}
+
+		TWeakObjectPtr<APlayerCameraManager> WeakCamManager = CamManager;
+		FTimerDelegate FadeDelegate = FTimerDelegate::CreateWeakLambda(this,
+			[this, WeakCamManager]()
+			{
+				if (WeakCamManager.IsValid())
+				{
+					WeakCamManager->StartCameraFade(1.0f, 0.0f, FadeInDuration, FLinearColor::Black, false, true);
+				}
+			});
+
+		FTimerHandle FadeInDelayHandle;
+		GetWorldTimerManager().SetTimer(FadeInDelayHandle, FadeDelegate, FadeInInitialDelay, false);
+	}
+}
+
 void APBGameplayPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	FadeInFromBlack();
+
 	CurrentMouseCursor = EMouseCursor::Default;
 	
 	if (PathFollowingComponent)

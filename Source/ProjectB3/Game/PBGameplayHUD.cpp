@@ -28,25 +28,50 @@
 #include "ProjectB3/UI/Combat/PBActionIndicatorViewModel.h"
 #include "ProjectB3/UI/CombatLog/PBCombatLogViewModel.h"
 #include "ProjectB3/UI/TurnInfoHUD/PBTurnOrderViewModel.h"
+#include "TimerManager.h"
 
 void APBGameplayHUD::BeginPlay()
 {
 	Super::BeginPlay();
 
 	BindGameStateEvents();
-	// PlayerController 초기화 및 기타 월드 액터들의 초기화가 완료된 이후 위젯을 Push한다.
-	GetWorldTimerManager().SetTimerForNextTick(this, &APBGameplayHUD::InitializeHUDWidgets);
 }
 
 void APBGameplayHUD::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
+
+	GetWorldTimerManager().ClearTimer(HUDInitializeTimerHandle);
 	
 	UnbindGameStateEvents();
 }
 
+void APBGameplayHUD::ScheduleInitializeHUDWidgets(float DelaySeconds)
+{
+	if (bHUDWidgetsInitialized)
+	{
+		return;
+	}
+
+	GetWorldTimerManager().ClearTimer(HUDInitializeTimerHandle);
+
+	if (DelaySeconds <= 0.0f)
+	{
+		InitializeHUDWidgets();
+		return;
+	}
+
+	GetWorldTimerManager().SetTimer(HUDInitializeTimerHandle, this,
+		&APBGameplayHUD::InitializeHUDWidgets, DelaySeconds, false);
+}
+
 void APBGameplayHUD::InitializeHUDWidgets()
 {
+	if (bHUDWidgetsInitialized)
+	{
+		return;
+	}
+
 	APlayerController* PC = GetOwningPlayerController();
 	if (!IsValid(PC))
 	{
@@ -73,6 +98,8 @@ void APBGameplayHUD::InitializeHUDWidgets()
 		}
 		UIManager->PushUI(WidgetClass);
 	}
+
+	bHUDWidgetsInitialized = true;
 }
 
 void APBGameplayHUD::BindGameStateEvents()

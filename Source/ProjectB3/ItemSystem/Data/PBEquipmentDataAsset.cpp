@@ -3,14 +3,14 @@
 #include "PBEquipmentDataAsset.h"
 #include "ProjectB3/ItemSystem/PBEquipmentActor.h"
 
-void UPBEquipmentDataAsset::CollectPrewarmChildren_Implementation(TArray<UObject*>& OutChildren)
+void UPBEquipmentDataAsset::NativeCollectPrewarmTargets(FPBPrewarmTargets& InOutTargets)
 {
 	// 장비 액터 CDO
 	if (!EquipmentActorClass.IsNull())
 	{
 		if (UClass* LoadedClass = EquipmentActorClass.LoadSynchronous())
 		{
-			OutChildren.Add(LoadedClass->GetDefaultObject());
+			InOutTargets.Children.AddUnique(LoadedClass->GetDefaultObject());
 		}
 	}
 
@@ -19,7 +19,7 @@ void UPBEquipmentDataAsset::CollectPrewarmChildren_Implementation(TArray<UObject
 	{
 		if (Entry.AbilityClass)
 		{
-			OutChildren.Add(Entry.AbilityClass.GetDefaultObject());
+			InOutTargets.Children.AddUnique(Entry.AbilityClass.GetDefaultObject());
 		}
 	}
 }

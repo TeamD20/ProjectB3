@@ -47,7 +47,7 @@ public:
 	const FPBGameplayTagDisplayRow* FindTagDisplayRow(const FGameplayTag& Tag) const;
 
 	/*~ IPBPrewarmInterface ~*/
-	virtual void CollectPrewarmChildren_Implementation(TArray<UObject*>& OutChildren) override;
+	virtual void NativeCollectPrewarmTargets(FPBPrewarmTargets& InOutTargets) override;
 
 protected:
 	// 공용 어빌리티 세트

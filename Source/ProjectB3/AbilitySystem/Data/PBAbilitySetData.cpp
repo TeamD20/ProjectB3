@@ -66,14 +66,14 @@ FPBAbilityGrantedHandles UPBAbilitySetData::GrantToAbilitySystem(
 	return Handles;
 }
 
-void UPBAbilitySetData::CollectPrewarmChildren_Implementation(TArray<UObject*>& OutChildren)
+void UPBAbilitySetData::NativeCollectPrewarmTargets(FPBPrewarmTargets& InOutTargets)
 {
-	// 어빌리티 CDO를 자식으로 반환 → 각 어빌리티의 Collect 함수가 재귀 호출됨
+	// 어빌리티 CDO를 자식으로 반환
 	for (const FPBAbilityGrantEntry& Entry : Abilities)
 	{
 		if (Entry.AbilityClass)
 		{
-			OutChildren.Add(Entry.AbilityClass.GetDefaultObject());
+			InOutTargets.Children.AddUnique(Entry.AbilityClass.GetDefaultObject());
 		}
 	}
 }
