@@ -407,6 +407,15 @@ void APBCharacterBase::HandleGameplayTagUpdated(const FGameplayTag& ChangedTag, 
 	}
 	if (ChangedTag == PBGameplayTags::Character_State_Dead && TagExists)
 	{
+		// 사망도 행동불능의 일종 — CombatManager에 통보하여
+		// 현재 턴 소유자 사망 시 턴을 정상 종료시킨다 (틱뎀 사망 등).
+		if (UPBCombatManagerSubsystem* CombatManager = UPBCombatSystemLibrary::GetCombatManager(this))
+		{
+			if (CombatManager->IsInCombat())
+			{
+				CombatManager->NotifyCombatantIncapacitated(this);
+			}
+		}
 		HandleDeath();
 	}
 }

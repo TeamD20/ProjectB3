@@ -143,6 +143,11 @@ struct FPBUtilityContext
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Context")
 	FVector LastActionLocation = FVector::ZeroVector;
 
+	// 이번 시퀀스에서 넉백/밀치기로 밀려난 타겟 목록.
+	// DFS 분기 내에서 Displacement 어빌리티 사용 후,
+	// 해당 타겟에 대한 근접 공격 후보를 제외하는 데 사용.
+	TSet<TObjectPtr<AActor>> DisplacedTargets;
+
 	// Cost만큼 자원을 차감한다. 자원이 부족하면 false를 반환하고 차감하지 않는다.
 	// DFS에서 해당 행동 분기 진입 가능 여부를 판정하는 데 사용.
 	bool TryConsumeResources(const FPBCostData& Cost)
@@ -159,13 +164,18 @@ struct FPBUtilityContext
 		return true;
 	}
 
+	// NavMesh 실경로 보정 계수.
+	// 유클리드 직선 거리에 이 값을 곱해 NavMesh 경로 길이를 보수적으로 근사.
+	// 1.3 = 직선 대비 30% 여유 (실측 기반 — 장애물/우회가 많은 맵에서 1.4~1.5 권장)
+	static constexpr float PathEstimateFactor = 1.3f;
+
 	// 현재 위치에서 TargetLocation까지의 이동이 잔여 MP 내에서 가능한지 판정.
-	// 유클리드 직선 거리 기반 휴리스틱 — NavMesh 실경로보다 항상 짧으므로
-	// false가 나오면 확실히 불가능(안전한 가지치기).
+	// 유클리드 직선 거리 × PathEstimateFactor로 NavMesh 경로를 보수적 추정.
+	// false면 확실히 불가능(안전한 가지치기), true여도 실경로는 더 길 수 있음.
 	bool CanReachTarget(const FVector& TargetLocation) const
 	{
 		const float DistToTarget = FVector::Dist(LastActionLocation, TargetLocation);
-		return (AccumulatedMP + DistToTarget) <= RemainingMP;
+		return (AccumulatedMP + DistToTarget * PathEstimateFactor) <= RemainingMP;
 	}
 };
 

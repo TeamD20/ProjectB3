@@ -68,15 +68,36 @@ EStateTreeRunStatus UPBExecuteSequenceTask::EnterState(
   bIsActionInProgress = false;
   bWaitingForSequenceReady = false;
   AbilityTimeoutRemaining = 0.0f;
+  TurnStartDelayRemaining = 0.f;
 
-  // EQS 좌표 최적화 대기: Generate가 아직 EQS 쿼리를 처리 중이면
-  // 행동 실행을 보류하고 Tick에서 bIsReady를 폴링한다.
-  if (!SequenceToExecute.bIsReady) {
+  // 턴 시작 시각적 딜레이: 첫 마이크로 턴에서만 1초 대기.
+  // DoT/HoT GameplayCue 연출이 끝난 뒤 AI가 행동을 시작하도록 한다.
+  if (UWorld* World = SelfActor->GetWorld())
+  {
+    if (UPBUtilityClearinghouse* CH = World->GetSubsystem<UPBUtilityClearinghouse>())
+    {
+      if (CH->IsTurnStartDelayPending())
+      {
+        TurnStartDelayRemaining = TurnStartDelaySeconds;
+        CH->SetTurnStartDelayPending(false);
+        UE_LOG(LogPBStateTreeExec, Display,
+          TEXT("[턴 시작 딜레이] %.1f초 대기 후 시퀀스 실행 시작"),
+          TurnStartDelaySeconds);
+      }
+    }
+  }
+
+  // 턴 시작 딜레이 또는 EQS 대기 중이면 Tick에서 처리.
+  // bWaitingForSequenceReady를 true로 설정하여 Tick Phase 1이
+  // 딜레이 종료 후 시퀀스 실행을 시작하도록 한다.
+  if (TurnStartDelayRemaining > 0.f || !SequenceToExecute.bIsReady) {
     bWaitingForSequenceReady = true;
     UpdateExecutionDebugState();
-    UE_LOG(LogPBStateTreeExec, Display,
-           TEXT("ExecuteSequenceTask: EQS 좌표 최적화 대기 중. "
-                "Tick에서 준비 완료 후 실행을 시작합니다."));
+    if (!SequenceToExecute.bIsReady) {
+      UE_LOG(LogPBStateTreeExec, Display,
+             TEXT("ExecuteSequenceTask: EQS 좌표 최적화 대기 중. "
+                  "Tick에서 준비 완료 후 실행을 시작합니다."));
+    }
     return EStateTreeRunStatus::Running;
   }
 
@@ -613,6 +634,13 @@ EStateTreeRunStatus UPBExecuteSequenceTask::ProcessSingleAction() {
 EStateTreeRunStatus
 UPBExecuteSequenceTask::Tick(FStateTreeExecutionContext &Context,
                              const float DeltaTime) {
+  // Phase 0: 턴 시작 시각적 딜레이 (DoT/HoT 큐 연출 대기)
+  if (TurnStartDelayRemaining > 0.f)
+  {
+    TurnStartDelayRemaining -= DeltaTime;
+    return EStateTreeRunStatus::Running;
+  }
+
   // Phase 1: EQS 좌표 최적화 완료 대기
   // Generate의 EQS 콜백이 bIsReady를 true로 전환할 때까지 대기.
   // Generate의 Tick 타임아웃 (0.5초)이 안전장치로 동작하므로
