@@ -49,7 +49,7 @@ APBCharacterPreviewActor::APBCharacterPreviewActor()
 	SceneCaptureComp->SetRelativeLocation(FVector(-1000.0f, 0.0f, 0.0f));
 	
 	// SceneCapture 기본 설정 (TextureTarget은 InitializeCapture에서 RenderTarget 생성 후 할당)
-	SceneCaptureComp->CaptureSource         = ESceneCaptureSource::SCS_FinalColorLDR;
+	SceneCaptureComp->CaptureSource         = ESceneCaptureSource::SCS_SceneColorHDR;
 	SceneCaptureComp->bCaptureEveryFrame    = false;
 	SceneCaptureComp->bCaptureOnMovement    = false;
 	SceneCaptureComp->PrimitiveRenderMode   = ESceneCapturePrimitiveRenderMode::PRM_UseShowOnlyList;
