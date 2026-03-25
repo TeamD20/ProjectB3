@@ -7,6 +7,9 @@
 #include "ProjectB3/UI/PBWidgetBase.h"
 #include "PBInventoryPanelWidget.generated.h"
 
+class UMaterialInterface;
+class UMaterialInstanceDynamic;
+
 class APBGameplayPlayerState;
 class UImage;
 class UTextBlock;
@@ -138,6 +141,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Inventory", meta = (AllowPrivateAccess = "true", ClampMin = "1"))
 	int32 InventoryGridColumns = 5;
 
+	// 캐릭터 배경 렌더링 머티리얼 (M_Character_BG_Render 할당)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI|Character", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UMaterialInterface> CharacterBGMaterial;
+
 private:
 	// 현재 바인딩된 인벤토리 ViewModel
 	UPROPERTY(Transient)
@@ -162,6 +169,10 @@ private:
 	// 컨텍스트 메뉴 위젯 캐시 (패널 당 1개 재사용)
 	UPROPERTY(Transient)
 	TObjectPtr<UPBInventoryContextMenuWidget> CachedContextMenuWidget;
+
+	// 캐릭터 배경 DMI 캐시 (패널 재초기화 시 재생성)
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInstanceDynamic> CachedCharacterDMI;
 
 	// Inventory 슬롯 갱신 델리게이트 핸들
 	FDelegateHandle InventorySlotUpdatedHandle;

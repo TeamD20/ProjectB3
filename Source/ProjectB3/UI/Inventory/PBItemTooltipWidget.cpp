@@ -91,6 +91,7 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 		}
 		else
 		{
+			// 동적 데이터가 없더라도 툴팁 위젯의 FallbackDiceIcon 속성에 할당해둔 이미지가 나오도록 복구
 			const TSoftObjectPtr<UTexture2D>& ActiveDiceIcon = !InData.DiceIcon.IsNull() ? InData.DiceIcon : FallbackDiceIcon;
 			if (!ActiveDiceIcon.IsNull())
 			{
@@ -99,7 +100,7 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 			}
 			else
 			{
-				DiceIcon->SetVisibility(ESlateVisibility::Collapsed);
+				DiceIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 			}
 		}
 	}
@@ -114,13 +115,14 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 		else if (!InData.DiceText.IsEmpty())
 		{
 			DiceText->SetText(InData.DiceText);
-			DiceText->SetColorAndOpacity(InData.DiceColor);
+			// FSlateColor 구조체 초기화 불량이나 런타임 캐시 오류로 인한 마젠타 버그를 방지하기 위해 가장 안전한 렌더러 컬러로 강제 주입
+			DiceText->SetColorAndOpacity(FSlateColor(FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 			DiceText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 		}
 		else if (!FallbackDice.IsEmpty())
 		{
 			DiceText->SetText(FallbackDice);
-			DiceText->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+			DiceText->SetColorAndOpacity(FSlateColor(FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 			DiceText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 		}
 		else

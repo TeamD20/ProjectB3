@@ -611,3 +611,21 @@ FVector APBCharacterBase::GetCombatTargetLocation() const
 	// TODO: 허리 위치나 흉부 위치 반환.
 	return GetActorLocation();
 }
+
+void APBCharacterBase::CollectPrewarmChildren_Implementation(TArray<UObject*>& OutChildren)
+{
+	// 고유 어빌리티 세트
+	if (IsValid(InnateAbilitySet))
+	{
+		OutChildren.Add(InnateAbilitySet);
+	}
+
+	// 부착된 장비 액터
+	for (const auto& Pair : AttachedEquipments)
+	{
+		if (IsValid(Pair.Value))
+		{
+			OutChildren.Add(Pair.Value);
+		}
+	}
+}

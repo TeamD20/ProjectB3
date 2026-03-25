@@ -307,19 +307,58 @@ void UPBSkillBarViewModel::BuildSlotsFromFilter(
 		const FPBDiceSpec& DiceSpec = PBAbilityCDO->GetDiceSpec();
 		SlotData.RollTypeEnum = DiceSpec.RollType;
 
-		// DamageDesc 자동 계산 (예: 1~10 피해, 1~10 회복)
+		// DamageDesc 및 가독성 최적화 (0 피해 방어코드 + DiceBonus 반영)
 		EPBAbilityCategory Category = PBAbilityCDO->GetAbilityCategory();
+		const int32 Bonus = DiceSpec.DiceBonus;
+		int32 MinDamage = FMath::Max(0, DiceSpec.DiceCount + Bonus);
+		int32 MaxDamage = FMath::Max(0, DiceSpec.DiceCount * DiceSpec.DiceFaces + Bonus);
+
+		auto FormatDamageDesc = [](int32 MinVal, int32 MaxVal, const TCHAR* Suffix) -> FText
+		{
+			if (MinVal == 0 && MaxVal == 0)
+			{
+				return FText::FromString(FString::Printf(TEXT("0 %s"), Suffix));
+			}
+			else if (MinVal == MaxVal)
+			{
+				return FText::FromString(FString::Printf(TEXT("%d %s"), MaxVal, Suffix));
+			}
+			return FText::FromString(FString::Printf(TEXT("%d~%d %s"), MinVal, MaxVal, Suffix));
+		};
+
 		if (Category == EPBAbilityCategory::Heal)
 		{
-			SlotData.DamageDesc = FText::FromString(FString::Printf(TEXT("%d~%d 회복"), DiceSpec.DiceCount, DiceSpec.DiceCount * DiceSpec.DiceFaces));
+			SlotData.DamageDesc = FormatDamageDesc(MinDamage, MaxDamage, TEXT("회복"));
 		}
 		else
 		{
-			SlotData.DamageDesc = FText::FromString(FString::Printf(TEXT("%d~%d 피해"), DiceSpec.DiceCount, DiceSpec.DiceCount * DiceSpec.DiceFaces));
+			SlotData.DamageDesc = FormatDamageDesc(MinDamage, MaxDamage, TEXT("피해"));
 		}
 
-		// 디자이너 지정 설명이 있으면 우선, 없으면 자동 생성 ("1d10")
-		SlotData.DiceRollDesc = FText::FromString(FString::Printf(TEXT("%dd%d"), DiceSpec.DiceCount, DiceSpec.DiceFaces));
+		// 주사위 표기 숨김 조건:
+		// 1) 주사위 수/면체가 0인 경우 (피해 없음)
+		// 2) 1면체(1d1)인 경우 — 고정 데미지이므로 주사위·피해 표기 모두 불필요
+		if ((DiceSpec.DiceCount == 0 && DiceSpec.DiceFaces == 0) || DiceSpec.DiceFaces == 1)
+		{
+			SlotData.DiceRollDesc = FText::GetEmpty();
+			SlotData.DamageDesc = FText::GetEmpty();
+		}
+		else
+		{
+			// 보너스가 있으면 "1d6+3", 없으면 "1d6"
+			if (Bonus > 0)
+			{
+				SlotData.DiceRollDesc = FText::FromString(FString::Printf(TEXT("%dd%d+%d"), DiceSpec.DiceCount, DiceSpec.DiceFaces, Bonus));
+			}
+			else if (Bonus < 0)
+			{
+				SlotData.DiceRollDesc = FText::FromString(FString::Printf(TEXT("%dd%d%d"), DiceSpec.DiceCount, DiceSpec.DiceFaces, Bonus));
+			}
+			else
+			{
+				SlotData.DiceRollDesc = FText::FromString(FString::Printf(TEXT("%dd%d"), DiceSpec.DiceCount, DiceSpec.DiceFaces));
+			}
+		}
 
 		if (DiceSpec.RollType == EPBDiceRollType::HitRoll)
 		{

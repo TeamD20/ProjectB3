@@ -715,3 +715,16 @@ void UPBTargetingComponent::HideProjectilePath()
 	bShowingProjectilePath = false;
 	bProjectilePathBlocked = false;
 }
+
+void UPBTargetingComponent::CollectPrewarmNiagaraAssets_Implementation(
+	TArray<TSoftObjectPtr<UNiagaraSystem>>& OutAssets)
+{
+	if (IsValid(AoETelegraphNiagaraSystem))
+	{
+		OutAssets.AddUnique(TSoftObjectPtr<UNiagaraSystem>(AoETelegraphNiagaraSystem));
+	}
+	if (IsValid(RangeTelegraphNiagaraSystem))
+	{
+		OutAssets.AddUnique(TSoftObjectPtr<UNiagaraSystem>(RangeTelegraphNiagaraSystem));
+	}
+}
