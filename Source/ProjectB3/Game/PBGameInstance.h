@@ -4,14 +4,29 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+#include "Engine/StreamableManager.h"
+#include "GameplayTagContainer.h"
 #include "ProjectB3/ItemSystem/PBItemTypes.h"
 #include "PBGameInstance.generated.h"
 
-struct FGameplayTag;
 class UPBAbilitySetData;
 class UPBAbilitySystemRegistry;
 class UPBItemDataAsset;
 class UPBEquipmentDataAsset;
+
+// 에셋 번들 로드 완료 콜백
+DECLARE_DYNAMIC_DELEGATE_OneParam(FOnBundleLoadComplete, const FGameplayTag&, BundleTag);
+
+// 에셋 번들 정의 — BP에서 로딩 대상 소프트 오브젝트 목록을 설정
+USTRUCT(BlueprintType)
+struct FPBAssetBundle
+{
+	GENERATED_BODY()
+
+	// 번들에 포함된 소프트 오브젝트 목록
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Bundle")
+	TArray<TSoftObjectPtr<UObject>> Assets;
+};
 
 // 게임 전역 데이터 및 설정을 보관하는 GameInstance.
 UCLASS()
@@ -41,6 +56,17 @@ public:
 	// 특정 슬롯에 장착 가능한 장비 DA 목록 반환
 	static TArray<UPBEquipmentDataAsset*> GetAllEquipmentForSlot(const UObject* WorldContextObject, EPBEquipSlot Slot);
 
+	// 번들 태그로 에셋 비동기 로드 시작. 로드 완료 시 프리웜 인터페이스 검사 후 프리웜 실행, OnComplete 콜백 호출.
+	UFUNCTION(BlueprintCallable, Category = "AssetBundle")
+	void LoadAssetBundle(const FGameplayTag& BundleTag, FOnBundleLoadComplete OnComplete);
+
+private:
+	// 번들 비동기 로드 완료 내부 핸들러
+	void OnBundleAssetsLoaded(FGameplayTag BundleTag, FOnBundleLoadComplete OnComplete);
+
+	// AssetManager 기반 아이템 DA 일괄 로드
+	void LoadAllItemData();
+
 protected:
 	// ==== 소프트 레퍼런스 (BP에서 지정) ====
 
@@ -48,14 +74,18 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Data|Registries")
 	TSoftObjectPtr<UPBAbilitySystemRegistry> AbilitySetRegistry;
 
-private:
-	// AssetManager 기반 아이템 DA 일괄 로드
-	void LoadAllItemData();
+	// 에셋 번들 매핑 (번들 태그 → 로딩 대상 소프트 오브젝트 목록)
+	UPROPERTY(EditDefaultsOnly, Category = "Data|Bundles")
+	TMap<FGameplayTag, FPBAssetBundle> AssetBundles;
 
+private:
 	// 로드된 에셋 보관 (GC 방지용)
 	UPROPERTY()
 	TSet<TObjectPtr<UObject>> LoadedAssets;
 
 	// 타입별 아이템 DA 인덱스 (GC 루팅은 LoadedAssets가 담당)
 	TMap<EPBItemType, TArray<TObjectPtr<UPBItemDataAsset>>> CategoryIndex;
+
+	// 진행 중인 번들 비동기 로드 핸들 (GC 방지 및 취소용)
+	TMap<FGameplayTag, TSharedPtr<FStreamableHandle>> PendingBundleHandles;
 };

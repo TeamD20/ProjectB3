@@ -10,6 +10,7 @@
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
 #include "ProjectB3/Interaction/PBInteractionInterface.h"
 #include "ProjectB3/ItemSystem/PBItemTypes.h"
+#include "ProjectB3/Game/PBPrewarmInterface.h"
 #include "PBCharacterBase.generated.h"
 
 class UNiagaraComponent;
@@ -33,7 +34,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCharacterEquipmentChanged, const 
 
 // 플레이어와 AI가 공유하는 캐릭터 기반 클래스.
 UCLASS()
-class PROJECTB3_API APBCharacterBase : public ACharacter, public IAbilitySystemInterface, public IPBCombatParticipant, public IPBCombatTarget, public IPBInteractionInterface
+class PROJECTB3_API APBCharacterBase : public ACharacter, public IAbilitySystemInterface, public IPBCombatParticipant, public IPBCombatTarget, public IPBInteractionInterface, public IPBPrewarmInterface
 {
 	GENERATED_BODY()
 
@@ -171,6 +172,9 @@ protected:
 	/*~ AActor Interface ~*/
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	/*~ IPBPrewarmInterface ~*/
+	virtual void CollectPrewarmChildren_Implementation(TArray<UObject*>& OutChildren) override;
 
 	/*~ APBCharacterBase Interface ~*/
 	// 어빌리티 초기 부여 (InitAbilityActorInfo 이후 호출)
