@@ -8,6 +8,7 @@
 #include "PBEnvironmentTypes.h"
 #include "PBEnvironmentSubsystem.generated.h"
 
+class UGameplayEffect;
 class UPBLineOfSightStrategy;
 class AController;
 
@@ -78,6 +79,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Environment|Hazard")
 	FPBHazardQueryResult QueryHazardAtPoint(const FVector& Point) const;
 
+	/**
+	 * 라운드별 같은 GE 타입 장판 효과 중복 적용 방지 (D&D 규칙: 동일 효과 미중첩).
+	 * 첫 호출 시 등록 후 true 반환, 이미 등록되어 있으면 false 반환.
+	 * 라운드가 바뀌면 자동 초기화.
+	 */
+	bool TryMarkAreaEffectApplied(const AActor* Target, const UGameplayEffect* EffectDef, int32 CurrentRound);
+
 	/* === 캐시 수명 관리 === */
 
 	// 캐시 세션 시작 — 이후 판정 결과를 캐싱
@@ -117,4 +125,8 @@ private:
 
 	// Source 좌표 동일 판정 허용 오차 (기본 50cm)
 	float LoSCacheTolerance = 50.0f;
+
+	// 라운드별 영역 효과 중복 방지 세트 — {Actor, GE CDO} 해시 조합
+	TSet<uint64> AreaEffectDedupSet;
+	int32 AreaEffectDedupRound = -1;
 };

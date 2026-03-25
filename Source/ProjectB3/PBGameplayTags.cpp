@@ -67,6 +67,7 @@ namespace PBGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Source_Status, "Ability.Source.Status", "상태 효과 어빌리티 출처");
 	
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Active_Move, "Ability.Active.Move", "이동 어빌리티");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Passive_HitReact, "Ability.Passive.HitReact", "피격 어빌리티");
 
 	// 어빌리티 타입 태그 (행동 자원 소모 유형)
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Ability_Type, "Ability.Type", "어빌리티 타입 구분 태그");

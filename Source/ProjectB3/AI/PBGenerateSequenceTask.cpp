@@ -519,6 +519,48 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		return EStateTreeRunStatus::Failed;
 	}
 
+	// 5-2. 사거리 밖 접근 우선: 모든 적이 (이동력+사거리) 밖이면
+	//       MP를 접근에 우선 배분하고 남은 자원으로 DFS 실행
+	float ApproachReserveMP = 0.f;
+	FVector PrecomputedApproachPos = FVector::ZeroVector;
+
+	if (CurrentMovement > 10.f)
+	{
+		const FVector TestApproachPos =
+			CachedClearinghouse->CalculateFallbackPosition(
+				SelfActor, CurrentMovement);
+
+		if (!TestApproachPos.IsZero())
+		{
+			const FVector AIPos = SelfActor->GetActorLocation();
+			const auto& ApproachTargets = CachedClearinghouse->GetCachedTargets();
+			bool bNeedsApproach = false;
+			for (const TWeakObjectPtr<AActor>& WeakTarget : ApproachTargets)
+			{
+				if (const AActor* Target = WeakTarget.Get())
+				{
+					if (FVector::DistXY(TestApproachPos, Target->GetActorLocation())
+						< FVector::DistXY(AIPos, Target->GetActorLocation()))
+					{
+						bNeedsApproach = true;
+						break;
+					}
+				}
+			}
+
+			if (bNeedsApproach)
+			{
+				ApproachReserveMP = CurrentMovement;
+				PrecomputedApproachPos = TestApproachPos;
+				CurrentMovement = 0.f;
+
+				UE_LOG(LogPBStateTree, Display,
+					TEXT("[접근 우선] 모든 적이 사거리 밖 → MP=%.0f 접근 예약, DFS MP=0"),
+					ApproachReserveMP);
+			}
+		}
+	}
+
 	// 6. DFS 초기 컨텍스트 구성
 	FPBUtilityContext InitialContext;
 	InitialContext.RemainingAP = CurrentAction;
@@ -555,36 +597,70 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		// Phase 3: DFS 결과에서 MovementCost > 0인 행동 앞에 Move 노드 삽입
 		InjectMoveActions(GeneratedSequence);
 
-		// Fallback 후퇴 검토: 시퀀스 실행 후 잔여 이동력으로 방어적 후퇴
-		float ConsumedMP = 0.0f;
-		for (const FPBSequenceAction& Action : BestPath)
+		// Fallback 처리: 접근 예약이 있으면 접근, 없으면 기존 방어적 후퇴
+		if (ApproachReserveMP > 0.f)
 		{
-			ConsumedMP += Action.Cost.MovementCost;
+			FPBSequenceAction ApproachAction;
+			ApproachAction.ActionType = EPBActionType::Move;
+			ApproachAction.TargetActor = nullptr;
+			ApproachAction.TargetLocation = PrecomputedApproachPos;
+			ApproachAction.Cost.MovementCost = ApproachReserveMP;
+			GeneratedSequence.Actions.Add(ApproachAction);
+
+			bFallbackIsApproach = true;
+
+			UE_LOG(LogPBStateTree, Display,
+				TEXT("[접근 우선] 시퀀스 후 사거리 밖 접근 추가. MP=%.0f, 목표: (%s)"),
+				ApproachReserveMP, *PrecomputedApproachPos.ToCompactString());
 		}
-		const float RemainingMPAfterSequence = CurrentMovement - ConsumedMP;
-
-		if (RemainingMPAfterSequence > 10.0f
-			&& !ShouldSkipFallback(RemainingMPAfterSequence))
+		else
 		{
-			const FVector FallbackPos =
-				CachedClearinghouse->CalculateFallbackPosition(
-					SelfActor, RemainingMPAfterSequence);
-
-			if (!FallbackPos.IsZero())
+			float ConsumedMP = 0.0f;
+			for (const FPBSequenceAction& Action : BestPath)
 			{
-				FPBSequenceAction FallbackAction;
-				FallbackAction.ActionType = EPBActionType::Move;
-				FallbackAction.TargetActor = nullptr;
-				FallbackAction.TargetLocation = FallbackPos;
-				FallbackAction.Cost.MovementCost = RemainingMPAfterSequence;
-				GeneratedSequence.Actions.Add(FallbackAction);
+				ConsumedMP += Action.Cost.MovementCost;
+			}
+			const float RemainingMPAfterSequence = CurrentMovement - ConsumedMP;
 
-				UE_LOG(LogPBStateTree, Display,
-				       TEXT("[Fallback] 시퀀스 후 방어적 후퇴 추가. "
-					       "목표: (%s)"),
-				       *FallbackPos.ToCompactString());
+			if (RemainingMPAfterSequence > 10.0f
+				&& !ShouldSkipFallback(RemainingMPAfterSequence))
+			{
+				const FVector FallbackPos =
+					CachedClearinghouse->CalculateFallbackPosition(
+						SelfActor, RemainingMPAfterSequence);
+
+				if (!FallbackPos.IsZero())
+				{
+					FPBSequenceAction FallbackAction;
+					FallbackAction.ActionType = EPBActionType::Move;
+					FallbackAction.TargetActor = nullptr;
+					FallbackAction.TargetLocation = FallbackPos;
+					FallbackAction.Cost.MovementCost = RemainingMPAfterSequence;
+					GeneratedSequence.Actions.Add(FallbackAction);
+
+					UE_LOG(LogPBStateTree, Display,
+					       TEXT("[Fallback] 시퀀스 후 방어적 후퇴 추가. "
+						       "목표: (%s)"),
+					       *FallbackPos.ToCompactString());
+				}
 			}
 		}
+	}
+	else if (ApproachReserveMP > 0.f)
+	{
+		// DFS 행동 없음 + 접근 예약 → 접근만 실행
+		FPBSequenceAction ApproachAction;
+		ApproachAction.ActionType = EPBActionType::Move;
+		ApproachAction.TargetActor = nullptr;
+		ApproachAction.TargetLocation = PrecomputedApproachPos;
+		ApproachAction.Cost.MovementCost = ApproachReserveMP;
+		GeneratedSequence.Actions.Add(ApproachAction);
+
+		bFallbackIsApproach = true;
+
+		UE_LOG(LogPBStateTree, Display,
+			TEXT("[접근 우선] DFS 행동 없음, 사거리 밖 접근 실행. MP=%.0f, 목표: (%s)"),
+			ApproachReserveMP, *PrecomputedApproachPos.ToCompactString());
 	}
 	else
 	{
@@ -695,7 +771,11 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 				A.ActionType == EPBActionType::Attack  ? TEXT("Atk") :
 				A.ActionType == EPBActionType::Move    ? TEXT("Mov") :
 				A.ActionType == EPBActionType::Heal    ? TEXT("Heal") :
-				TEXT("Other");
+				A.ActionType == EPBActionType::Buff    ? TEXT("Buff") :
+				A.ActionType == EPBActionType::Debuff  ? TEXT("Debf") :
+				A.ActionType == EPBActionType::Control ? TEXT("Ctrl") :
+				A.ActionType == EPBActionType::None    ? TEXT("None") :
+				TEXT("?");
 			const FString TgtName = IsValid(A.TargetActor)
 				? A.TargetActor->GetName() : TEXT("Pos");
 			SeqSummary += FString::Printf(TEXT("[%d]%s→%s "), i, T, *TgtName);
@@ -704,6 +784,65 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 			TEXT("[Generate] Score=%.2f %s%s"),
 			GeneratedSequence.TotalUtilityScore, *SeqSummary,
 			bWaitingForEQS ? TEXT("[EQS pending]") : TEXT("[Ready]"));
+
+		// Visual Logger: 시퀀스 경로 시각화 (AI → 행동1 → 행동2 → ...)
+		FVector PrevPos = SelfActor->GetActorLocation();
+		for (int32 i = 0; i < GeneratedSequence.Actions.Num(); ++i)
+		{
+			const FPBSequenceAction& A = GeneratedSequence.Actions[i];
+
+			// 행동별 목표 위치 결정
+			FVector ActionPos = FVector::ZeroVector;
+			if (A.ActionType == EPBActionType::Move && !A.TargetLocation.IsZero())
+			{
+				ActionPos = A.TargetLocation;
+			}
+			else if (IsValid(A.TargetActor))
+			{
+				ActionPos = A.TargetActor->GetActorLocation();
+			}
+
+			if (ActionPos.IsZero()) continue;
+
+			// 행동 타입별 색상
+			const FColor SegColor =
+				A.ActionType == EPBActionType::Move    ? FColor::White :
+				A.ActionType == EPBActionType::Attack  ? FColor::Red :
+				A.ActionType == EPBActionType::Heal    ? FColor::Green :
+				A.ActionType == EPBActionType::Buff    ? FColor::Cyan :
+				A.ActionType == EPBActionType::Debuff  ? FColor::Magenta :
+				A.ActionType == EPBActionType::Control ? FColor::Yellow :
+				FColor::Silver;
+
+			const TCHAR* Label =
+				A.ActionType == EPBActionType::Move    ? TEXT("Mov") :
+				A.ActionType == EPBActionType::Attack  ? TEXT("Atk") :
+				A.ActionType == EPBActionType::Heal    ? TEXT("Heal") :
+				A.ActionType == EPBActionType::Buff    ? TEXT("Buff") :
+				A.ActionType == EPBActionType::Debuff  ? TEXT("Debf") :
+				A.ActionType == EPBActionType::Control ? TEXT("Ctrl") :
+				TEXT("?");
+			UE_VLOG_SEGMENT(SelfActor, LogPBStateTree, Log,
+				PrevPos, ActionPos, SegColor,
+				TEXT("[%d] %s"), i, Label);
+
+			// 행동 위치에 마커
+			UE_VLOG_LOCATION(SelfActor, LogPBStateTree, Log,
+				ActionPos, 20.0f, SegColor,
+				TEXT("[%d]"), i);
+
+			// Move 행동은 다음 행동의 시작점을 갱신
+			if (A.ActionType == EPBActionType::Move)
+			{
+				PrevPos = ActionPos;
+			}
+		}
+	}
+
+	// 디버거용 시퀀스 캐싱 (EQS 미사용 시 이것이 최종본)
+	if (CachedClearinghouse)
+	{
+		CachedClearinghouse->SetLastGeneratedSequence(GeneratedSequence);
 	}
 
 	// StateTree 하위 State(Execute)가 유지되도록 Running 반환
@@ -731,6 +870,12 @@ EStateTreeRunStatus UPBGenerateSequenceTask::Tick(
 			bWaitingForEQS = false;
 			PendingEQSQueryCount = 0;
 			GeneratedSequence.bIsReady = true;
+
+			// 디버거용 시퀀스 캐싱 갱신 (EQS 타임아웃 후 최종본)
+			if (CachedClearinghouse)
+			{
+				CachedClearinghouse->SetLastGeneratedSequence(GeneratedSequence);
+			}
 		}
 	}
 
@@ -1210,6 +1355,12 @@ void UPBGenerateSequenceTask::CheckAllEQSComplete()
 		}
 
 		GeneratedSequence.bIsReady = true;
+
+		// 디버거용 시퀀스 캐싱 갱신 (EQS 완료 후 최종본)
+		if (CachedClearinghouse)
+		{
+			CachedClearinghouse->SetLastGeneratedSequence(GeneratedSequence);
+		}
 
 		UE_LOG(LogPBStateTree, Display,
 			TEXT("[EQS] 모든 EQS 쿼리 완료. 시퀀스 준비 완료."));

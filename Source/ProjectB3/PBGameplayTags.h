@@ -73,6 +73,7 @@ namespace PBGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Source_Status);
 	
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Active_Move);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Passive_HitReact);
 
 	// 어빌리티 타입 태그 (행동 자원 소모 유형)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Ability_Type);

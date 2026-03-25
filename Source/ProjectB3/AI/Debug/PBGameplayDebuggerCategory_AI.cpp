@@ -75,6 +75,52 @@ void FPBGameplayDebuggerCategory_AI::CollectData(
 		CollectScoreEntries(
 			Clearinghouse->GetCachedHealScores(),
 			DataPack.TopHealScores, 5);
+
+		// Buff 스코어링 상위 5개
+		CollectScoreEntries(
+			Clearinghouse->GetCachedBuffScores(),
+			DataPack.TopBuffScores, 5);
+
+		// Debuff 스코어링 상위 5개
+		CollectScoreEntries(
+			Clearinghouse->GetCachedDebuffScores(),
+			DataPack.TopDebuffScores, 5);
+
+		// Control 스코어링 상위 5개
+		CollectScoreEntries(
+			Clearinghouse->GetCachedControlScores(),
+			DataPack.TopControlScores, 5);
+
+		// 마지막 생성된 시퀀스
+		const FPBActionSequence& Seq = Clearinghouse->GetLastGeneratedSequence();
+		DataPack.SequenceTotalScore = Seq.TotalUtilityScore;
+		DataPack.bSequenceReady = Seq.bIsReady;
+
+		for (const FPBSequenceAction& Act : Seq.Actions)
+		{
+			FRepData::FSequenceEntry Entry;
+
+			// ActionType 문자열 변환
+			switch (Act.ActionType)
+			{
+			case EPBActionType::Move:    Entry.ActionType = TEXT("Move");    break;
+			case EPBActionType::Attack:  Entry.ActionType = TEXT("Attack");  break;
+			case EPBActionType::Heal:    Entry.ActionType = TEXT("Heal");    break;
+			case EPBActionType::Buff:    Entry.ActionType = TEXT("Buff");    break;
+			case EPBActionType::Debuff:  Entry.ActionType = TEXT("Debuff");  break;
+			case EPBActionType::Control: Entry.ActionType = TEXT("Control"); break;
+			case EPBActionType::None:    Entry.ActionType = TEXT("None");    break;
+			default:                     Entry.ActionType = TEXT("?");       break;
+			}
+
+			Entry.TargetName = IsValid(Act.TargetActor)
+				? Act.TargetActor->GetName() : TEXT("-");
+			Entry.AbilityTag = Act.AbilityTag.IsValid()
+				? Act.AbilityTag.ToString() : TEXT("");
+			Entry.TargetLocation = Act.TargetLocation;
+
+			DataPack.SequenceActions.Add(MoveTemp(Entry));
+		}
 	}
 
 	// StateTree Task 상태 조회: AIController → StateTreeComponent → Task
@@ -86,14 +132,16 @@ void FPBGameplayDebuggerCategory_AI::CollectData(
 		return;
 	}
 
-	// StateTreeComponent에서 현재 실행 중인 Task를 직접 조회할 수는 없으므로,
-	// Generate/Execute Task의 public UPROPERTY를 통해 상태를 읽는다.
-	// 현재 구조에서는 Task가 UObject이므로 직접 참조가 어려움.
-	// 대신 Clearinghouse에서 생성한 캐시 데이터로 시퀀스 정보를 가져온다.
-
-	// GenerateSequenceTask의 출력은 Generate→Execute 바인딩으로 넘어가므로
-	// 외부에서 직접 접근이 제한적. Clearinghouse에 마지막 시퀀스를 캐싱한다.
-	// (아래 DrawData에서 시퀀스 정보 표시)
+	// Clearinghouse에 캐싱된 실행 상태 조회
+	if (Clearinghouse)
+	{
+		const auto& ExecState = Clearinghouse->GetExecutionDebugState();
+		DataPack.bWaitingForSequenceReady = ExecState.bWaitingForSequenceReady;
+		DataPack.bExecuting = ExecState.bExecuting;
+		DataPack.CurrentActionIndex = ExecState.CurrentActionIndex;
+		DataPack.TotalActions = ExecState.TotalActions;
+		DataPack.CurrentActionDesc = ExecState.CurrentActionDesc;
+	}
 }
 
 //----------------------------------------------------------------------
@@ -124,9 +172,10 @@ void FPBGameplayDebuggerCategory_AI::DrawData(
 		for (const auto& Entry : DataPack.TopAttackScores)
 		{
 			CanvasContext.Printf(
-				TEXT("{white}  %s: ExpDmg={cyan}%.1f{white} Action={cyan}%.1f{white} Total={yellow}%.2f {white}[%s]"),
+				TEXT("{white}  %s: ExpDmg={cyan}%.1f{white} TM={cyan}%.2f{white} Action={cyan}%.1f{white} Total={yellow}%.2f {white}[%s]"),
 				*Entry.TargetName,
 				Entry.ExpectedDamage,
+				Entry.TargetModifier,
 				Entry.ActionScore,
 				Entry.TotalScore,
 				*Entry.AbilityTag);
@@ -141,15 +190,70 @@ void FPBGameplayDebuggerCategory_AI::DrawData(
 		for (const auto& Entry : DataPack.TopHealScores)
 		{
 			CanvasContext.Printf(
-				TEXT("{white}  %s: EffHeal={cyan}%.1f{white} Action={cyan}%.1f{white} Total={yellow}%.2f"),
+				TEXT("{white}  %s: EffHeal={cyan}%.1f{white} TM={cyan}%.2f{white} Action={cyan}%.1f{white} Total={yellow}%.2f"),
 				*Entry.TargetName,
 				Entry.ExpectedDamage,
+				Entry.TargetModifier,
 				Entry.ActionScore,
 				Entry.TotalScore);
 		}
 	}
 
-	// --- 4) 시퀀스 정보 ---
+	// --- 4) Buff 스코어링 ---
+	if (DataPack.TopBuffScores.Num() > 0)
+	{
+		CanvasContext.Printf(TEXT(""));
+		CanvasContext.Printf(TEXT("{green}--- Buff Scores (Top %d) ---"), DataPack.TopBuffScores.Num());
+		for (const auto& Entry : DataPack.TopBuffScores)
+		{
+			CanvasContext.Printf(
+				TEXT("{white}  %s: Effect={cyan}%.1f{white} TM={cyan}%.2f{white} Action={cyan}%.1f{white} Total={yellow}%.2f {white}[%s]"),
+				*Entry.TargetName,
+				Entry.ExpectedDamage,
+				Entry.TargetModifier,
+				Entry.ActionScore,
+				Entry.TotalScore,
+				*Entry.AbilityTag);
+		}
+	}
+
+	// --- 5) Debuff 스코어링 ---
+	if (DataPack.TopDebuffScores.Num() > 0)
+	{
+		CanvasContext.Printf(TEXT(""));
+		CanvasContext.Printf(TEXT("{green}--- Debuff Scores (Top %d) ---"), DataPack.TopDebuffScores.Num());
+		for (const auto& Entry : DataPack.TopDebuffScores)
+		{
+			CanvasContext.Printf(
+				TEXT("{white}  %s: Effect={cyan}%.1f{white} TM={cyan}%.2f{white} Action={cyan}%.1f{white} Total={yellow}%.2f {white}[%s]"),
+				*Entry.TargetName,
+				Entry.ExpectedDamage,
+				Entry.TargetModifier,
+				Entry.ActionScore,
+				Entry.TotalScore,
+				*Entry.AbilityTag);
+		}
+	}
+
+	// --- 6) Control 스코어링 ---
+	if (DataPack.TopControlScores.Num() > 0)
+	{
+		CanvasContext.Printf(TEXT(""));
+		CanvasContext.Printf(TEXT("{green}--- Control Scores (Top %d) ---"), DataPack.TopControlScores.Num());
+		for (const auto& Entry : DataPack.TopControlScores)
+		{
+			CanvasContext.Printf(
+				TEXT("{white}  %s: Effect={cyan}%.1f{white} TM={cyan}%.2f{white} Action={cyan}%.1f{white} Total={yellow}%.2f {white}[%s]"),
+				*Entry.TargetName,
+				Entry.ExpectedDamage,
+				Entry.TargetModifier,
+				Entry.ActionScore,
+				Entry.TotalScore,
+				*Entry.AbilityTag);
+		}
+	}
+
+	// --- 7) 시퀀스 정보 ---
 	CanvasContext.Printf(TEXT(""));
 	CanvasContext.Printf(TEXT("{green}--- Generated Sequence ---"));
 	if (DataPack.SequenceActions.Num() == 0)
@@ -236,6 +340,7 @@ void FPBGameplayDebuggerCategory_AI::CollectScoreEntries(
 		FRepData::FScoreEntry Entry;
 		Entry.TargetName = Actor->GetName();
 		Entry.ExpectedDamage = Score.ExpectedDamage;
+		Entry.TargetModifier = Score.TargetModifier;
 		Entry.ActionScore = Score.GetActionScore();
 		Entry.TotalScore = Score.GetTotalScore();
 		Entry.AbilityTag = Score.AbilityTag.IsValid()

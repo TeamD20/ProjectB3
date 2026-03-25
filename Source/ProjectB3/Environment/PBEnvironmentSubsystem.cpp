@@ -4,12 +4,24 @@
 #include "PBLineOfSightStrategy.h"
 #include "PBLoS_Trace.h"
 #include "ProjectB3/Combat/DamageArea/PBDamageArea.h"
+#include "ProjectB3/Player/PBPartyAIController.h"
 #include "AIController.h"
 #include "NavigationSystem.h"
 #include "NavigationPath.h"
+#include "NavFilters/NavigationQueryFilter.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "Engine/World.h"
-#include "Kismet/GameplayStatics.h"
+#include "Navigation/PBNavQueryFilter_IgnoreHazard.h"
+
+namespace
+{
+	// 플레이어측 컨트롤러 여부 판별 (PlayerController 또는 PartyAIController)
+	bool IsPlayerSideController(const AController* Controller)
+	{
+		return IsValid(Controller) &&
+			(Controller->IsA<APlayerController>() || Controller->IsA<APBPartyAIController>());
+	}
+}
 
 void UPBEnvironmentSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -218,6 +230,12 @@ FPBPathFindResult UPBEnvironmentSubsystem::CalculatePathForAgent(const AControll
 	FPathFindingQuery Query(Controller, *NavData, AgentNavLocation, GoalLocation);
 	Query.SetAllowPartialPaths(bAllowPartialPath);
 
+	// 플레이어측 컨트롤러는 Hazard 비용 무시 필터 적용
+	if (IsPlayerSideController(Controller))
+	{
+		Query.QueryFilter = UNavigationQueryFilter::GetQueryFilter<UPBNavQueryFilter_IgnoreHazard>(*NavData);
+	}
+
 	const FPathFindingResult PathResult = NavSys->FindPathSync(Query);
 	if (!PathResult.IsSuccessful() || !PathResult.Path.IsValid())
 	{
@@ -327,6 +345,13 @@ bool UPBEnvironmentSubsystem::RequestMoveToLocation(AController* Controller, con
 	{
 		FPathFindingQuery Query(Controller, *NavData, AgentNavLocation, GoalLocation);
 		Query.SetAllowPartialPaths(bAllowPartialPath);
+
+		// 플레이어측 컨트롤러는 Hazard 비용 무시 필터 적용
+		if (IsPlayerSideController(Controller))
+		{
+			Query.QueryFilter = UNavigationQueryFilter::GetQueryFilter<UPBNavQueryFilter_IgnoreHazard>(*NavData);
+		}
+
 		const FPathFindingResult PathResult = NavSys->FindPathSync(Query);
 		if (!PathResult.IsSuccessful() || !PathResult.Path.IsValid())
 		{
@@ -495,6 +520,27 @@ FPBHazardQueryResult UPBEnvironmentSubsystem::QueryHazardAtPoint(const FVector& 
 	}
 
 	return Result;
+}
+
+// 영역 효과 중복 적용 방지
+
+bool UPBEnvironmentSubsystem::TryMarkAreaEffectApplied(
+	const AActor* Target, const UGameplayEffect* EffectDef, int32 CurrentRound)
+{
+	// 라운드가 바뀌면 기존 기록 초기화
+	if (CurrentRound != AreaEffectDedupRound)
+	{
+		AreaEffectDedupRound = CurrentRound;
+		AreaEffectDedupSet.Empty();
+	}
+
+	const uint64 Key = HashCombine(GetTypeHash(Target), GetTypeHash(EffectDef));
+	if (AreaEffectDedupSet.Contains(Key))
+	{
+		return false;
+	}
+	AreaEffectDedupSet.Add(Key);
+	return true;
 }
 
 // 캐시 수명 관리

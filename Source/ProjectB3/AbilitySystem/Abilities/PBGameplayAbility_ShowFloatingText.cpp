@@ -87,15 +87,15 @@ APBFloatingTextActor* UPBGameplayAbility_ShowFloatingText::SpawnWidgetActor(
 		return nullptr;
 	}
 
-	// 스폰 위치: 캐릭터 위치 + Z 오프셋
-	FVector SpawnLocation = AvatarActor->GetActorLocation() + FVector(0.f, 0.f, OffsetZ);
-	FTransform SpawnTransform(FRotator::ZeroRotator, SpawnLocation);
+	// 스폰 위치: 캐릭터 위치 (Tick에서 카메라 Up 기준으로 오프셋 적용)
+	FTransform SpawnTransform(FRotator::ZeroRotator, AvatarActor->GetActorLocation());
 
 	APBFloatingTextActor* WidgetActor = World->SpawnActorDeferred<APBFloatingTextActor>(
 		WidgetActorClass, SpawnTransform);
 	if (IsValid(WidgetActor))
 	{
 		WidgetActor->InitWithPayload(Payload, WidgetClass);
+		WidgetActor->SetFollowParams(AvatarActor, OffsetZ);
 		WidgetActor->FinishSpawning(SpawnTransform);
 	}
 

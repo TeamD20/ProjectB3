@@ -5,6 +5,7 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystemInterface.h"
 #include "GameplayEffect.h"
+#include "NavModifierComponent.h"
 #include "Components/SphereComponent.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
 #include "ProjectB3/AbilitySystem/Components/PBTurnEffectComponent.h"
@@ -13,6 +14,7 @@
 #include "ProjectB3/Environment/PBEnvironmentSubsystem.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/ProjectB3.h"
+#include "ProjectB3/Environment/Navigation/PBNavArea_Hazard.h"
 
 APBDamageArea::APBDamageArea()
 {
@@ -25,6 +27,10 @@ APBDamageArea::APBDamageArea()
 	CollisionComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	CollisionComponent->SetGenerateOverlapEvents(true);
 	SetRootComponent(CollisionComponent);
+
+	// AI 경로 탐색 시 위험 영역 비용 부여 — NavMesh에 Hazard AreaClass 적용
+	NavModifierComponent = CreateDefaultSubobject<UNavModifierComponent>(TEXT("NavModifierComponent"));
+	NavModifierComponent->SetAreaClass(UPBNavArea_Hazard::StaticClass());
 }
 
 void APBDamageArea::InitDamageArea(const FGameplayEffectSpecHandle& InEffectSpec,
@@ -146,8 +152,33 @@ void APBDamageArea::ReapplyEffectToOverlappingActors()
 	TArray<AActor*> OverlappingActors;
 	GetOverlappingActors(OverlappingActors);
 
+	// 같은 GE 타입 장판 중복 적용 방지 (D&D 규칙: 동일 주문 효과 미중첩)
+	UPBEnvironmentSubsystem* EnvSys = nullptr;
+	int32 CurrentRound = 0;
+
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		EnvSys = GI->GetSubsystem<UPBEnvironmentSubsystem>();
+	}
+	if (UWorld* World = GetWorld())
+	{
+		if (const UPBCombatManagerSubsystem* CombatMgr = World->GetSubsystem<UPBCombatManagerSubsystem>())
+		{
+			CurrentRound = CombatMgr->GetCurrentRound();
+		}
+	}
+
+	const UGameplayEffect* GEDef = EffectSpecHandle.IsValid()
+		? EffectSpecHandle.Data->Def
+		: nullptr;
+
 	for (AActor* Actor : OverlappingActors)
 	{
+		// 같은 라운드에 같은 GE 타입이 이미 적용된 대상이면 스킵
+		if (EnvSys && GEDef && !EnvSys->TryMarkAreaEffectApplied(Actor, GEDef, CurrentRound))
+		{
+			continue;
+		}
 		ApplyEffectToActor(Actor);
 	}
 }

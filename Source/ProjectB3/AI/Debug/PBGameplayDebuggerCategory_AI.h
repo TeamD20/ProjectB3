@@ -48,12 +48,16 @@ protected:
 		{
 			FString TargetName;
 			float ExpectedDamage = 0.0f;
+			float TargetModifier = 1.0f;
 			float ActionScore = 0.0f;
 			float TotalScore = 0.0f;
 			FString AbilityTag;
 		};
 		TArray<FScoreEntry> TopAttackScores;
 		TArray<FScoreEntry> TopHealScores;
+		TArray<FScoreEntry> TopBuffScores;
+		TArray<FScoreEntry> TopDebuffScores;
+		TArray<FScoreEntry> TopControlScores;
 
 		// 생성된 시퀀스
 		struct FSequenceEntry

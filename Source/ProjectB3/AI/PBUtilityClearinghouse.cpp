@@ -142,6 +142,9 @@ float UPBUtilityClearinghouse::GetTargetVulnerabilityScore(
 		   *(ActiveTurnActor ? ActiveTurnActor->GetName() : TEXT("Unknown")),
 		   *TargetActor->GetName(), CalculatedVulnerabilityScore);
 
+	const_cast<UPBUtilityClearinghouse*>(this)->CachedVulnerabilityMap.Add(
+		TargetActor, CalculatedVulnerabilityScore);
+
 	return CalculatedVulnerabilityScore;
 }
 
@@ -470,6 +473,8 @@ void UPBUtilityClearinghouse::ClearCache()
 	CachedAllControlScores.Empty();
 	CachedAoECandidates.Empty();
 	CachedMultiTargetCandidates.Empty();
+	LastGeneratedSequence = FPBActionSequence();
+	CachedExecutionState = FExecutionDebugState();
 	CachedArchetypeWeights = FPBCachedArchetypeWeights();
 	CachedMaxMovement = 1000.0f;
 	EQSTargetActor = nullptr;
@@ -1414,9 +1419,15 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 
 	if (BestDebuffHandle.IsValid())
 	{
-		CachedDebuffScoreMap.Add(TargetActor,
-			BuildEffectScore(BestDebuff, BestDebuffTag, BestDebuffHandle,
-				CachedArchetypeWeights.DebuffWeight));
+		const FPBTargetScore DebuffEntry = BuildEffectScore(
+			BestDebuff, BestDebuffTag, BestDebuffHandle,
+			CachedArchetypeWeights.DebuffWeight);
+		CachedDebuffScoreMap.Add(TargetActor, DebuffEntry);
+
+		// Visual Logger: Debuff 스코어 마커 (마젠타)
+		UE_VLOG_LOCATION(ActiveTurnActor, LogPBUtility, Log,
+			TargetActor->GetActorLocation() + FVector(0, 0, 20), 25.0f, FColor::Magenta,
+			TEXT("Debuff %s: %.1f"), *TargetActor->GetName(), DebuffEntry.GetTotalScore());
 	}
 	if (BestAPDebuffHandle.IsValid())
 	{
@@ -1434,9 +1445,15 @@ UPBUtilityClearinghouse::EvaluateActionScore(AActor *TargetActor)
 	// --- Control 캐시 맵 갱신 ---
 	if (BestControlHandle.IsValid())
 	{
-		CachedControlScoreMap.Add(TargetActor,
-			BuildEffectScore(BestControl, BestControlTag, BestControlHandle,
-				CachedArchetypeWeights.ControlWeight));
+		const FPBTargetScore ControlEntry = BuildEffectScore(
+			BestControl, BestControlTag, BestControlHandle,
+			CachedArchetypeWeights.ControlWeight);
+		CachedControlScoreMap.Add(TargetActor, ControlEntry);
+
+		// Visual Logger: Control 스코어 마커 (노랑)
+		UE_VLOG_LOCATION(ActiveTurnActor, LogPBUtility, Log,
+			TargetActor->GetActorLocation() + FVector(0, 0, 40), 25.0f, FColor::Yellow,
+			TEXT("Ctrl %s: %.1f"), *TargetActor->GetName(), ControlEntry.GetTotalScore());
 	}
 	if (BestAPControlHandle.IsValid())
 	{
@@ -1702,6 +1719,11 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateHealScore(AActor* AllyTarget)
 	// 결과 캐싱 (전체 최고 — 디버거/존재확인/B&B용)
 	CachedHealScoreMap.Add(AllyTarget, Score);
 
+	// Visual Logger: Heal 스코어 마커 (초록)
+	UE_VLOG_LOCATION(ActiveTurnActor, LogPBUtility, Log,
+		AllyTarget->GetActorLocation() + FVector(0, 0, 20), 25.0f, FColor::Green,
+		TEXT("Heal %s: %.1f"), *AllyTarget->GetName(), FinalScore);
+
 	// --- 자원 유형별 캐시 맵 갱신 (DFS 후보 생성용) ---
 	// UrgencyMultiplier, ArchetypeWeight는 아군 수준 속성이므로 공유
 	if (BestAPHealHandle.IsValid())
@@ -1827,11 +1849,11 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 
 		float HPValue = AbilityCDO->GetEstimatedHPValue();
 		const int32 Duration = AbilityCDO->GetEffectDuration();
+		const EPBStatModType ModType = AbilityCDO->GetStatModType();
 
 		// 수동값 미설정 + StatModType 지정 → 자동 HP 환산
 		if (HPValue <= 0.0f)
 		{
-			const EPBStatModType ModType = AbilityCDO->GetStatModType();
 			if (ModType != EPBStatModType::None)
 			{
 				HPValue = CalcAutoStatModHP(
@@ -1845,11 +1867,24 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 			continue;
 		}
 
+		// 틱힐형 버프 (StatModType == None): 만피면 가치 없음
+		if (ModType == EPBStatModType::None && IsValid(AllyASC))
+		{
+			bool bHPFound = false, bMaxHPFound = false;
+			const float CurHP = AllyASC->GetGameplayAttributeValue(
+				UPBCharacterAttributeSet::GetHPAttribute(), bHPFound);
+			const float MaxHP = AllyASC->GetGameplayAttributeValue(
+				UPBCharacterAttributeSet::GetMaxHPAttribute(), bMaxHPFound);
+			if (bHPFound && bMaxHPFound && MaxHP > 0.0f && (MaxHP - CurHP) <= 0.0f)
+			{
+				continue;
+			}
+		}
+
 		// BaseScore = EstimatedHPValue × DurationFactor × RoleSynergyFactor
 		// DurationFactor = min(EffectDuration, 3) / 3.0
 		const float DurationFactor =
 			FMath::Min(static_cast<float>(Duration), 3.0f) / 3.0f;
-		const EPBStatModType ModType = AbilityCDO->GetStatModType();
 		const EPBCombatRole AllyRole = DetermineCombatRole(AllyTarget);
 		const float RoleSynergy = CalcRoleSynergyFactor(ModType, AllyRole);
 		const float CandidateScore = HPValue * DurationFactor * RoleSynergy;
@@ -1934,6 +1969,11 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 
 	// 결과 캐싱 (전체 최고 — 디버거/존재확인/B&B용)
 	CachedBuffScoreMap.Add(AllyTarget, Score);
+
+	// Visual Logger: Buff 스코어 마커 (시안)
+	UE_VLOG_LOCATION(ActiveTurnActor, LogPBUtility, Log,
+		AllyTarget->GetActorLocation() + FVector(0, 0, 40), 25.0f, FColor::Cyan,
+		TEXT("Buff %s: %.1f"), *AllyTarget->GetName(), FinalScore);
 
 	// --- 자원 유형별 캐시 맵 갱신 (DFS 후보 생성용) ---
 	if (BestAPBuffHandle.IsValid())
