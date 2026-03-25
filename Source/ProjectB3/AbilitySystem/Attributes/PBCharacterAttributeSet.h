@@ -31,11 +31,7 @@ public:
 	virtual void PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue) override;
 	virtual void PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data) override;
 	virtual void PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) override;
-
-private:
-	// GE 실행 컨텍스트를 기반으로 GameplayCue를 전송
-	void SendCombatGameplayCue(const FGameplayEffectModCallbackData& Data, const FGameplayTag& CueTag, float Magnitude) const;
-
+	
 public:
 	// 근력 (Strength): 근접 공격 명중/피해
 	UPROPERTY(BlueprintReadOnly, Category = "Attributes|Base")

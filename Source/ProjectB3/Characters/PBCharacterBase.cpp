@@ -169,9 +169,28 @@ APBEquipmentActor* APBCharacterBase::AttachEquipment(const FGameplayTag& InSlotT
 	}
 
 	SpawnedEquipment->LinkAnimLayer(GetMesh());
+	
 	AttachedEquipments.Add(InSlotTag, SpawnedEquipment);
 	OnCharacterEquipmentChanged.Broadcast(InSlotTag);
 	return SpawnedEquipment;
+}
+
+bool APBCharacterBase::DetachEquipmentInstance(APBEquipmentActor* EquipmentInstance)
+{
+	if (!IsValid(EquipmentInstance))
+	{
+		return false;
+	}
+	
+	for (TPair<FGameplayTag, APBEquipmentActor*>& KVP :AttachedEquipments)
+	{
+		if (KVP.Value == EquipmentInstance)
+		{
+			return DetachEquipment(KVP.Key);
+		}
+	}
+	
+	return false;
 }
 
 bool APBCharacterBase::DetachEquipment(const FGameplayTag& InSlotTag)

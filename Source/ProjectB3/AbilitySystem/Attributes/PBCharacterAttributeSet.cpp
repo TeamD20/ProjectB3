@@ -6,68 +6,6 @@
 #include "ProjectB3/AbilitySystem/PBAbilitySystemComponent.h"
 #include "GameFramework/Actor.h"
 
-void UPBCharacterAttributeSet::SendCombatGameplayCue(
-	const FGameplayEffectModCallbackData& Data,
-	const FGameplayTag& CueTag,
-	float Magnitude) const
-{
-	if (Magnitude <= 0.0f)
-	{
-		return;
-	}
-
-	UAbilitySystemComponent* ASC = GetOwningAbilitySystemComponent();
-	if (!IsValid(ASC))
-	{
-		return;
-	}
-
-	FGameplayCueParameters CueParams;
-	CueParams.RawMagnitude = Magnitude;
-	CueParams.NormalizedMagnitude = Magnitude;
-	CueParams.AbilityLevel = Data.EffectSpec.GetLevel();
-	CueParams.GameplayEffectLevel = Data.EffectSpec.GetLevel();
-
-	const FGameplayEffectContextHandle EffectContext = Data.EffectSpec.GetContext();
-	CueParams.EffectContext = EffectContext;
-
-	if (EffectContext.IsValid())
-	{
-		CueParams.Instigator = EffectContext.GetInstigator();
-		CueParams.EffectCauser = EffectContext.GetEffectCauser();
-		CueParams.SourceObject = EffectContext.GetSourceObject();
-
-		if (const FHitResult* HitResult = EffectContext.GetHitResult())
-		{
-			CueParams.Location = HitResult->ImpactPoint;
-			CueParams.Normal = HitResult->ImpactNormal;
-			CueParams.PhysicalMaterial = HitResult->PhysMaterial.Get();
-		}
-	}
-
-	if (const FGameplayTagContainer* SourceTags = Data.EffectSpec.CapturedSourceTags.GetAggregatedTags())
-	{
-		CueParams.AggregatedSourceTags = *SourceTags;
-	}
-
-	if (const FGameplayTagContainer* TargetTags = Data.EffectSpec.CapturedTargetTags.GetAggregatedTags())
-	{
-		CueParams.AggregatedTargetTags = *TargetTags;
-	}
-
-	if (AActor* TargetActor = Data.Target.GetAvatarActor())
-	{
-		if (CueParams.Location.IsNearlyZero())
-		{
-			CueParams.Location = TargetActor->GetActorLocation();
-		}
-
-		CueParams.TargetAttachComponent = TargetActor->GetRootComponent();
-	}
-
-	ASC->ExecuteGameplayCue(CueTag, CueParams);
-}
-
 UPBCharacterAttributeSet::UPBCharacterAttributeSet()
 {
 	// 1. 핵심 능력치 초기화 (기본값 10)
@@ -126,7 +64,6 @@ void UPBCharacterAttributeSet::PostGameplayEffectExecute(const FGameplayEffectMo
 		if (!bMiss && Damage > 0.f)
 		{
 			SetHP(FMath::Max(0.f, GetHP() - Damage));
-			SendCombatGameplayCue(Data, PBGameplayTags::GameplayCue_Combat_Damage, Damage);
 		}
 
 		//GE 실행 결과 중계 (Miss이면 EffectiveValue = 0)
@@ -143,7 +80,6 @@ void UPBCharacterAttributeSet::PostGameplayEffectExecute(const FGameplayEffectMo
 		if (Heal > 0.f)
 		{
 			SetHP(FMath::Min(GetMaxHP(), GetHP() + Heal));
-			SendCombatGameplayCue(Data, PBGameplayTags::GameplayCue_Combat_Heal, Heal);
 		}
 
 		// GE 실행 결과 중계
