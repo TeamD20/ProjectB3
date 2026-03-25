@@ -15,6 +15,7 @@ class APBGameplayPlayerState;
 class UButton;
 class UProgressBar;
 class UPBCombatManagerSubsystem;
+class UPBInventoryViewModel;
 class UPBCombatStatsViewModel;
 enum class EPBCombatState : uint8;
 
@@ -146,4 +147,8 @@ private:
 
 	// 이동력 비율 변경 델리게이트 핸들
 	FDelegateHandle MovementPercentChangedHandle;
+
+	// 무기 슬롯 동기화용 인벤토리 ViewModel 캐시
+	UPROPERTY(Transient)
+	TObjectPtr<UPBInventoryViewModel> CachedInventoryVM;
 };
