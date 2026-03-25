@@ -87,6 +87,12 @@ protected:
   // AI 행동 간 시각적 간격을 위한 딜레이 (초). 발표/데모 시 조절 가능.
   static constexpr float ActionDelaySeconds = 0.8f;
 
+  // 턴 시작 시각적 딜레이 (초). DoT/HoT 큐 연출 후 AI 행동 시작까지 대기.
+  static constexpr float TurnStartDelaySeconds = 1.0f;
+
+  // 턴 시작 딜레이 잔여 시간 (Tick에서 카운트다운, 첫 마이크로 턴에서만 적용)
+  float TurnStartDelayRemaining = 0.f;
+
   // 딜레이 후 다음 행동 실행을 예약 (비동기 행동 완료 콜백에서 호출)
   void ScheduleNextAction();
 

@@ -2810,6 +2810,9 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 		return Candidates;
 	}
 
+	// 근접 사거리 임계값 (이하면 근접 어빌리티로 간주)
+	static constexpr float MeleeRangeThreshold = 250.0f;
+
 	// Phase 3: 전체 어빌리티 배열에서 공격 후보 생성
 	// 같은 타겟에 대해 여러 어빌리티가 각각 후보로 등록된다.
 	auto GenerateAttackCandidates = [&](const TArray<FPBTargetScore>& AllScores)
@@ -2846,6 +2849,14 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 						AbilityRange = TargetedAbility->GetRange();
 					}
 				}
+			}
+
+			// 넉백된 타겟에 대한 근접 어빌리티 후보 제외
+			// (Kick으로 밀어낸 뒤 근접공격 시도 → 사거리 밖 문제 방지)
+			if (AbilityRange > 0.0f && AbilityRange <= MeleeRangeThreshold
+				&& Context.DisplacedTargets.Contains(Target))
+			{
+				continue;
 			}
 
 			// IsTargetInRange과 동일한 2D(XY) 수평 거리 사용 (고도 차이 무시)
@@ -2904,6 +2915,11 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 						}
 						else
 						{
+							// NavMesh 보정 후 클램핑 시 사거리 밖이면 후보 제외
+							if (NeededMovement * FPBUtilityContext::PathEstimateFactor > AvailableMP)
+							{
+								continue;
+							}
 							AttackAction.Cost.MovementCost = AvailableMP;
 						}
 					}
@@ -2926,8 +2942,9 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 		}
 	};
 
-	// Phase 3: 전체 어빌리티 배열에서 공격 후보 생성 (타겟×어빌리티 모든 조합)
-	GenerateAttackCandidates(CachedAllAttackScores);
+	// Phase 3: 후보 생성 순서 — Buff/Debuff/Control → Heal → Attack
+	// DFS가 동점일 때 먼저 탐색한 경로를 BestPath로 유지하므로,
+	// 보조 행동(버프/디버프)을 먼저 생성하면 자연스럽게 "보조 먼저, 공격 나중" 순서가 된다.
 
 	// --- Heal/Buff 후보: 전체 어빌리티 배열에서 아군 대상 ---
 	auto GenerateHealCandidates = [&](const TArray<FPBTargetScore>& AllScores,
@@ -3017,7 +3034,12 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 						}
 						else
 						{
-							HealAction.Cost.MovementCost = AvailableMP;  // EQS가 우회 위치 찾아줌
+							// NavMesh 보정 후 클램핑 시 사거리 밖이면 후보 제외
+							if (NeededMovement * FPBUtilityContext::PathEstimateFactor > AvailableMP)
+							{
+								continue;
+							}
+							HealAction.Cost.MovementCost = AvailableMP;
 						}
 					}
 					else
@@ -3036,9 +3058,6 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			}
 		}
 	};
-
-	// Phase 3: 전체 힐 어빌리티 배열에서 후보 생성
-	GenerateHealCandidates(CachedAllHealScores);
 
 	// --- Debuff/Control 후보: 전체 어빌리티 배열에서 적 대상 ---
 	auto GenerateEnemyEffectCandidates = [&](
@@ -3091,6 +3110,13 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 				}
 			}
 
+			// 넉백된 타겟에 대한 근접 Debuff/Control 후보 제외
+			if (AbilityRange > 0.0f && AbilityRange <= MeleeRangeThreshold
+				&& Context.DisplacedTargets.Contains(Target))
+			{
+				continue;
+			}
+
 			const float DistXY = FVector::DistXY(
 				Context.LastActionLocation, Target->GetActorLocation());
 			const bool bUnlimited = (AbilityRange <= 0.0f);
@@ -3131,7 +3157,12 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 					}
 					else
 					{
-						Action.Cost.MovementCost = AvailableMP;  // EQS가 우회 위치 찾아줌
+						// NavMesh 보정 후 클램핑 시 사거리 밖이면 후보 제외
+						if (Needed * FPBUtilityContext::PathEstimateFactor > AvailableMP)
+						{
+							continue;
+						}
+						Action.Cost.MovementCost = AvailableMP;
 					}
 				}
 				else
@@ -3150,10 +3181,16 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 		}
 	};
 
-	// Phase 3: 전체 어빌리티 배열에서 Debuff/Control/Buff 후보 생성
+	// Buff/Debuff/Control 후보 (소프트 우선 — DFS 탐색 시 먼저 평가)
+	GenerateHealCandidates(CachedAllBuffScores, EPBActionType::Buff);
 	GenerateEnemyEffectCandidates(CachedAllDebuffScores, EPBActionType::Debuff);
 	GenerateEnemyEffectCandidates(CachedAllControlScores, EPBActionType::Control);
-	GenerateHealCandidates(CachedAllBuffScores, EPBActionType::Buff);
+
+	// Heal 후보
+	GenerateHealCandidates(CachedAllHealScores);
+
+	// Attack 후보 (마지막 — 동점 시 버프/디버프 먼저 경로가 우선)
+	GenerateAttackCandidates(CachedAllAttackScores);
 
 	// --- AoE 후보: CachedAoECandidates에서 후보 생성 ---
 	for (const FPBAoECandidate& AoECandidate : CachedAoECandidates)
@@ -3459,6 +3496,25 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 		{
 			BranchContext.LastActionLocation =
 				Candidate.TargetActor->GetActorLocation();
+		}
+
+		// Displacement 어빌리티(넉백/밀치기)를 선택하면 해당 타겟을
+		// DisplacedTargets에 추가하여, 이후 분기에서 근접 공격 후보를 제외한다.
+		if (IsValid(Candidate.TargetActor) && Candidate.AbilitySpecHandle.IsValid())
+		{
+			if (UAbilitySystemComponent* ASC =
+					UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(ActiveTurnActor))
+			{
+				if (const FGameplayAbilitySpec* Spec =
+						ASC->FindAbilitySpecFromHandle(Candidate.AbilitySpecHandle))
+				{
+					if (Spec->Ability && Spec->Ability->AbilityTags.HasTag(
+							PBGameplayTags::Ability_Effect_Displacement))
+					{
+						BranchContext.DisplacedTargets.Add(Candidate.TargetActor);
+					}
+				}
+			}
 		}
 
 		// 행동 점수: GetCandidateActions에서 어빌리티별 개별 점수를 캐싱

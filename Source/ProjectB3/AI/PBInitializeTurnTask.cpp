@@ -31,6 +31,11 @@ EStateTreeRunStatus UPBInitializeTurnTask::EnterState(
 			// GenerateSequenceTask가 캐시를 바로 활용할 수 있도록 여기서 선처리
 			Clearinghouse->CacheTurnData(SelfActor);
 
+			// 3. 턴 시작 시각적 딜레이 예약
+			// DoT/HoT 큐 연출이 끝난 뒤 AI가 행동을 시작하도록
+			// Execute의 첫 Tick에서 1초 대기 후 실행한다.
+			Clearinghouse->SetTurnStartDelayPending(true);
+
 			UE_LOG(LogPBInitTurn, Display,
 			       TEXT("=== AI [%s]의 턴 시작. 자원 회복 및 데이터 캐싱 완료 ==="),
 			       *SelfActor->GetName());
