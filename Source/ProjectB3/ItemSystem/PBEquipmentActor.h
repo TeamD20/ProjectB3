@@ -5,12 +5,13 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "GameplayTagContainer.h"
+#include "ProjectB3/Game/PBPrewarmInterface.h"
 #include "PBEquipmentActor.generated.h"
 
 
 // 장비 액터, 필드 드랍 혹은 캐릭터 메시에 부착
 UCLASS()
-class PROJECTB3_API APBEquipmentActor : public AActor
+class PROJECTB3_API APBEquipmentActor : public AActor, public IPBPrewarmInterface
 {
 	GENERATED_BODY()
 

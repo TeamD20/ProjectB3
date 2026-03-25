@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
+#include "ProjectB3/Game/PBPrewarmInterface.h"
 #include "PBTargetingComponent.generated.h"
 
 class UNiagaraComponent;
@@ -29,7 +30,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnPBSelectionChanged, const FPBAbilityTarge
  * 타겟팅 세션 수명 관리 컴포넌트. PlayerController에 부착.
  */
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
-class PROJECTB3_API UPBTargetingComponent : public UActorComponent
+class PROJECTB3_API UPBTargetingComponent : public UActorComponent, public IPBPrewarmInterface
 {
 	GENERATED_BODY()
 
@@ -88,6 +89,9 @@ public:
 	
 	// 선택된 타겟 개수
 	int32 NumSelectedTargets() const {return SelectedTargets.Num();}
+
+	/*~ IPBPrewarmInterface ~*/
+	virtual void CollectPrewarmNiagaraAssets_Implementation(TArray<TSoftObjectPtr<UNiagaraSystem>>& OutAssets) override;
 
 private:
 	// SelectedTargets를 FPBAbilityTargetData로 변환하는 내부 헬퍼

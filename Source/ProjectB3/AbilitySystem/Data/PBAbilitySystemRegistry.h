@@ -6,6 +6,7 @@
 #include "Engine/DataAsset.h"
 #include "Engine/DataTable.h"
 #include "GameplayTagContainer.h"
+#include "ProjectB3/Game/PBPrewarmInterface.h"
 #include "PBAbilitySystemRegistry.generated.h"
 
 class UPBAbilitySetData;
@@ -16,7 +17,7 @@ struct FPBGameplayTagDisplayRow;
 
 // 어빌리티 관련 DA 중앙 매핑 레지스트리 (세이브/로드 등에서 사용)
 UCLASS(BlueprintType)
-class PROJECTB3_API UPBAbilitySystemRegistry : public UPrimaryDataAsset
+class PROJECTB3_API UPBAbilitySystemRegistry : public UPrimaryDataAsset, public IPBPrewarmInterface
 {
 	GENERATED_BODY()
 
@@ -44,6 +45,9 @@ public:
 
 	// 태그에 해당하는 표시 행 반환 (없으면 nullptr)
 	const FPBGameplayTagDisplayRow* FindTagDisplayRow(const FGameplayTag& Tag) const;
+
+	/*~ IPBPrewarmInterface ~*/
+	virtual void CollectPrewarmChildren_Implementation(TArray<UObject*>& OutChildren) override;
 
 protected:
 	// 공용 어빌리티 세트
