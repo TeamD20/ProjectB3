@@ -47,6 +47,9 @@ public:
 
 	// 실제 행동 차례가 됐을 때 호출. 공유 턴 그룹에서는 활성 멤버 1명에게만 호출됨
 	virtual void OnTurnActivated() = 0;
+	
+	// 턴마다 실행되어야 하는 로직 구현. 행동 불능으로 턴이 넘어가는 경우에도 호출.
+	virtual void OnProgressTurn() = 0;
 
 	// 턴 종료 시 호출
 	virtual void OnTurnEnd() = 0;

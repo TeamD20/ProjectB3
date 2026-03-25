@@ -10,6 +10,12 @@ void UPBViewModelSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 void UPBViewModelSubsystem::Deinitialize()
 {
+	ResetSystem();
+	Super::Deinitialize();
+}
+
+void UPBViewModelSubsystem::ResetSystem()
+{
 	// Global ViewModel 정리
 	for (auto& [Class, VM] : GlobalViewModelMap)
 	{
@@ -30,8 +36,6 @@ void UPBViewModelSubsystem::Deinitialize()
 	}
 	ActorViewModelMap.Empty();
 	BoundActors.Empty();
-
-	Super::Deinitialize();
 }
 
 UPBViewModelBase* UPBViewModelSubsystem::RegisterGlobalViewModel(TSubclassOf<UPBViewModelBase> ViewModelClass)
