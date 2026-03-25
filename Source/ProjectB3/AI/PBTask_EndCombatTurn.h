@@ -10,6 +10,7 @@
  * 마이크로 턴 루프(Micro-Turn Loop) 종료 시 호출되는 전용 Task.
  * 남은 자원으로 할 행동이 없다고 판단될 때 이 Task로 들어와,
  * 전투 매니저 서브시스템(PBCombatManagerSubsystem)에 턴 종료를 선언한다.
+ * 시각적 간격을 위해 TurnTransitionDelay(초)만큼 대기 후 턴을 넘긴다.
  */
 UCLASS(Blueprintable,
 	meta = (DisplayName = "End Combat Turn", Category = "AI|Combat"))
@@ -29,4 +30,9 @@ protected:
 	virtual EStateTreeRunStatus
 	EnterState(FStateTreeExecutionContext& Context,
 	           const FStateTreeTransitionResult& Transition) override;
+
+private:
+	// AI 턴 종료 후 다음 턴 시작까지 시각적 간격 (초).
+	// 플레이어가 전장 상황을 파악할 시간을 확보한다.
+	static constexpr float TurnTransitionDelay = 1.5f;
 };

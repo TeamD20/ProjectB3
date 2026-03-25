@@ -519,43 +519,68 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		return EStateTreeRunStatus::Failed;
 	}
 
-	// 5-2. 사거리 밖 접근 우선: 모든 적이 (이동력+사거리) 밖이면
-	//       MP를 접근에 우선 배분하고 남은 자원으로 DFS 실행
+	// 5-2. 사거리 밖 접근 우선: 가장 가까운 적이 (MP+최대사거리) 밖일 때만
+	//       DFS Macro-action이 도달 가능하면 DFS에 MP를 넘겨 이동+공격 통합 탐색
 	float ApproachReserveMP = 0.f;
 	FVector PrecomputedApproachPos = FVector::ZeroVector;
 
+	// 최대 어빌리티 사거리 조회 (ASC의 Targeted 어빌리티 중 최대 Range)
+	// DFS 접근 판정 + 시퀀스 후 Fallback 판정에서 공용으로 사용
+	float MaxAbilityRange = 0.f;
+	if (const UAbilitySystemComponent* RangeASC =
+			UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(SelfActor))
+	{
+		for (const FGameplayAbilitySpec& Spec : RangeASC->GetActivatableAbilities())
+		{
+			if (const UPBGameplayAbility_Targeted* Targeted =
+					Cast<UPBGameplayAbility_Targeted>(Spec.Ability))
+			{
+				MaxAbilityRange = FMath::Max(MaxAbilityRange, Targeted->GetRange());
+			}
+		}
+	}
+
 	if (CurrentMovement > 10.f)
 	{
-		const FVector TestApproachPos =
-			CachedClearinghouse->CalculateFallbackPosition(
-				SelfActor, CurrentMovement);
+		const FVector AIPos = SelfActor->GetActorLocation();
+		const auto& ApproachTargets = CachedClearinghouse->GetCachedTargets();
 
-		if (!TestApproachPos.IsZero())
+		// 가장 가까운 적까지의 거리 계산
+		float NearestEnemyDist = TNumericLimits<float>::Max();
+		for (const TWeakObjectPtr<AActor>& WeakTarget : ApproachTargets)
 		{
-			const FVector AIPos = SelfActor->GetActorLocation();
-			const auto& ApproachTargets = CachedClearinghouse->GetCachedTargets();
-			bool bNeedsApproach = false;
-			for (const TWeakObjectPtr<AActor>& WeakTarget : ApproachTargets)
+			if (const AActor* Target = WeakTarget.Get())
 			{
-				if (const AActor* Target = WeakTarget.Get())
-				{
-					if (FVector::DistXY(TestApproachPos, Target->GetActorLocation())
-						< FVector::DistXY(AIPos, Target->GetActorLocation()))
-					{
-						bNeedsApproach = true;
-						break;
-					}
-				}
+				const float Dist = FVector::DistXY(AIPos, Target->GetActorLocation());
+				NearestEnemyDist = FMath::Min(NearestEnemyDist, Dist);
 			}
+		}
 
-			if (bNeedsApproach)
+		// DFS Macro-action으로 도달 불가능할 때만 접근 우선 발동.
+		// PathEstimateFactor는 이동 필요 거리(적 거리 - 사거리)에만 적용.
+		// 후보 필터링(NeededMovement × Factor > MP)과 동일한 기준.
+		const float EstimatedMovementNeeded =
+			FMath::Max(0.f, NearestEnemyDist - MaxAbilityRange)
+			* FPBUtilityContext::PathEstimateFactor;
+		const bool bBeyondDFSReach = (EstimatedMovementNeeded > CurrentMovement);
+
+		if (bBeyondDFSReach)
+		{
+			const FVector TestApproachPos =
+				CachedClearinghouse->CalculateFallbackPosition(
+					SelfActor, CurrentMovement);
+
+			if (!TestApproachPos.IsZero())
 			{
 				ApproachReserveMP = CurrentMovement;
 				PrecomputedApproachPos = TestApproachPos;
 				CurrentMovement = 0.f;
 
 				UE_LOG(LogPBStateTree, Display,
-					TEXT("[접근 우선] 모든 적이 사거리 밖 → MP=%.0f 접근 예약, DFS MP=0"),
+					TEXT("[접근 우선] DFS 도달 불가 (적=%.0f, 추정이동=%.0f > MP=%.0f, Range=%.0f) → "
+						 "MP=%.0f 접근 예약"),
+					NearestEnemyDist, EstimatedMovementNeeded,
+					ApproachReserveMP, MaxAbilityRange,
 					ApproachReserveMP);
 			}
 		}
@@ -615,33 +640,49 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 		}
 		else
 		{
-			float ConsumedMP = 0.0f;
-			for (const FPBSequenceAction& Action : BestPath)
+			// 근접 전사(최대 사거리 ≤ 300cm)는 DFS 후 방어적 후퇴 생략.
+			// 근접 캐릭터가 적에게 접근하여 공격한 뒤 다시 뒤로 빠지는
+			// 부자연스러운 카이트 패턴을 방지한다.
+			static constexpr float MeleeRangeThreshold = 300.f;
+			const bool bIsMeleeArchetype = (MaxAbilityRange <= MeleeRangeThreshold);
+
+			if (bIsMeleeArchetype)
 			{
-				ConsumedMP += Action.Cost.MovementCost;
+				UE_LOG(LogPBStateTree, Display,
+					TEXT("[Fallback] 근접 아키타입(MaxRange=%.0f ≤ %.0f) — "
+						 "시퀀스 후 방어적 후퇴 생략"),
+					MaxAbilityRange, MeleeRangeThreshold);
 			}
-			const float RemainingMPAfterSequence = CurrentMovement - ConsumedMP;
-
-			if (RemainingMPAfterSequence > 10.0f
-				&& !ShouldSkipFallback(RemainingMPAfterSequence))
+			else
 			{
-				const FVector FallbackPos =
-					CachedClearinghouse->CalculateFallbackPosition(
-						SelfActor, RemainingMPAfterSequence);
-
-				if (!FallbackPos.IsZero())
+				float ConsumedMP = 0.0f;
+				for (const FPBSequenceAction& Action : BestPath)
 				{
-					FPBSequenceAction FallbackAction;
-					FallbackAction.ActionType = EPBActionType::Move;
-					FallbackAction.TargetActor = nullptr;
-					FallbackAction.TargetLocation = FallbackPos;
-					FallbackAction.Cost.MovementCost = RemainingMPAfterSequence;
-					GeneratedSequence.Actions.Add(FallbackAction);
+					ConsumedMP += Action.Cost.MovementCost;
+				}
+				const float RemainingMPAfterSequence = CurrentMovement - ConsumedMP;
 
-					UE_LOG(LogPBStateTree, Display,
-					       TEXT("[Fallback] 시퀀스 후 방어적 후퇴 추가. "
-						       "목표: (%s)"),
-					       *FallbackPos.ToCompactString());
+				if (RemainingMPAfterSequence > 10.0f
+					&& !ShouldSkipFallback(RemainingMPAfterSequence))
+				{
+					const FVector FallbackPos =
+						CachedClearinghouse->CalculateFallbackPosition(
+							SelfActor, RemainingMPAfterSequence);
+
+					if (!FallbackPos.IsZero())
+					{
+						FPBSequenceAction FallbackAction;
+						FallbackAction.ActionType = EPBActionType::Move;
+						FallbackAction.TargetActor = nullptr;
+						FallbackAction.TargetLocation = FallbackPos;
+						FallbackAction.Cost.MovementCost = RemainingMPAfterSequence;
+						GeneratedSequence.Actions.Add(FallbackAction);
+
+						UE_LOG(LogPBStateTree, Display,
+							   TEXT("[Fallback] 시퀀스 후 방어적 후퇴 추가. "
+								   "목표: (%s)"),
+							   *FallbackPos.ToCompactString());
+					}
 				}
 			}
 		}

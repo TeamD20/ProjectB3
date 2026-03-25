@@ -116,6 +116,11 @@ public:
 
 	/*~ 캐싱 (라이프사이클) 관리 인터페이스 ~*/
 
+	// 턴 첫 실행 딜레이 플래그.
+	// InitTurn에서 true로 설정, Execute 첫 Tick에서 소비 후 false.
+	bool IsTurnStartDelayPending() const { return bTurnStartDelayPending; }
+	void SetTurnStartDelayPending(bool bPending) { bTurnStartDelayPending = bPending; }
+
 	// 턴 시작 시 1회 호출. 타겟/스코어/어빌리티 캐싱.
 	UFUNCTION(BlueprintCallable, Category = "AI|Clearinghouse")
 	void CacheTurnData(AActor* CurrentTurnActor);
@@ -256,6 +261,9 @@ public:
 		const FPBUtilityContext& Context) const;
 
 protected:
+	// 턴 시작 시각적 딜레이 대기 여부 (Execute 첫 Tick에서 소비)
+	bool bTurnStartDelayPending = false;
+
 	// 이번 턴에 연산 및 판단 주체가 되는 주인공 액터.
 	UPROPERTY(Transient)
 	TObjectPtr<AActor> ActiveTurnActor;
