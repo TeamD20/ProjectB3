@@ -208,6 +208,8 @@ void UPBGameplayAbility::EndAbility(
 	{
 		PBASC->NotifyPBAbilityEnded(Handle, bWasCancelled);
 	}
+	
+	TryAutoPlayDetachEquipment(Handle, ActorInfo);
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }
@@ -585,78 +587,147 @@ void UPBGameplayAbility::TryAutoAttachEquipment(
 		return;
 	}
 
-	UPBEquipmentComponent* EquipComp = Character->FindComponentByClass<UPBEquipmentComponent>();
-	if (!IsValid(EquipComp))
+	APBEquipmentActor* AttachedEquipment = GetAttachedEquipment(Handle, ActorInfo);	
+	if (!IsValid(AttachedEquipment))
 	{
 		return;
 	}
+	
+	AttachedEquipment->SetHidden(false);
+	// 장착 애니메이션 재생
+	if (IsValid(AttachedEquipment) && bAutoPlayEquipAnim)
+	{
+		if (UAnimMontage* EquipMontage = AttachedEquipment->GetEquipAnimMontage())
+		{
+			Character->PlayAnimMontage(EquipMontage);
+		}
+	}
+}
+
+void UPBGameplayAbility::TryAutoPlayDetachEquipment(const FGameplayAbilitySpecHandle& Handle,
+	const FGameplayAbilityActorInfo* ActorInfo) const
+{
+	if (!ActorInfo)
+	{
+		return;
+	}
+	
+	// 캐릭터와 EquipmentComponent 조회
+	APBCharacterBase* Character = Cast<APBCharacterBase>(ActorInfo->AvatarActor.Get());
+	if (!IsValid(Character))
+	{
+		return;
+	}
+
+	APBEquipmentActor* AttachedEquipment = GetAttachedEquipment(Handle, ActorInfo);	
+	if (!IsValid(AttachedEquipment))
+	{
+		return;
+	}
+	
+	// 장착 해제 애니메이션 재생
+	if (IsValid(AttachedEquipment) && bAutoPlayEquipAnim)
+	{
+		if (UAnimMontage* UnEquipMontage = AttachedEquipment->GetUnEquipAnimMontage())
+		{
+			Character->PlayAnimMontage(UnEquipMontage);
+		}
+		else
+		{
+			Character->DetachEquipmentInstance(AttachedEquipment);
+		}
+	}
+}
+
+APBEquipmentActor* UPBGameplayAbility::GetAttachedEquipment(const FGameplayAbilitySpecHandle& Handle,
+                                                            const FGameplayAbilityActorInfo* ActorInfo) const
+{
+	if (!ActorInfo)
+	{
+		return nullptr;
+	}
+	
+	// 캐릭터와 EquipmentComponent 조회
+	APBCharacterBase* Character = Cast<APBCharacterBase>(ActorInfo->AvatarActor.Get());
+	if (!IsValid(Character))
+	{
+		return nullptr;
+	}
+
+	UPBEquipmentComponent* EquipComp = Character->FindComponentByClass<UPBEquipmentComponent>();
+	if (!IsValid(EquipComp))
+	{
+		return nullptr;
+	}
+	
+	const APBEquipmentActor* AttachedEquipment = nullptr;
 	
 	// 1. Override 설정으로 착용 시도
 	if (!EquipmentActorOverride.IsNull() && EquipmentSlotOverride.IsValid())
 	{
 		if (const TSubclassOf<APBEquipmentActor> LoadedClass = EquipmentActorOverride.LoadSynchronous())
 		{
-			if (Character->AttachEquipment(EquipmentSlotOverride, LoadedClass))
-			{
-				return;
-			}
+			return Character->AttachEquipment(EquipmentSlotOverride, LoadedClass);
 		}
 	}
 
 	// 2. DynamicTags로 착용 시도
-	UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
-	if (!IsValid(ASC))
+	if (AttachedEquipment == nullptr)
 	{
-		return;
-	}
-
-	FGameplayAbilitySpec* Spec = ASC->FindAbilitySpecFromHandle(Handle);
-	if (!Spec)
-	{
-		return;
-	}
-
-	// DynamicTags에서 Equipment.Slot 태그 탐색
-	const FGameplayTagContainer& DynamicTags = Spec->GetDynamicSpecSourceTags();
-	FGameplayTag FoundSlotTag;
-	for (const FGameplayTag& Tag : DynamicTags)
-	{
-		if (Tag.MatchesTag(PBGameplayTags::Equipment_Slot))
+		UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
+		if (!IsValid(ASC))
 		{
-			FoundSlotTag = Tag;
-			break;
-		}
-	}
-
-	if (!FoundSlotTag.IsValid())
-	{
-		return;
-	}
-
-	
-
-	// 해당 슬롯 태그에 대응하는 장착 아이템의 EquipmentActorClass 조회
-	for (const auto& Pair : EquipComp->GetEquippedItems())
-	{
-		const UPBEquipmentDataAsset* EquipData = Cast<UPBEquipmentDataAsset>(Pair.Value.ItemDataAsset);
-		if (!IsValid(EquipData) || EquipData->EquipmentActorClass.IsNull())
-		{
-			continue;
+			return nullptr;
 		}
 
-		// 이 슬롯의 부착 태그가 찾은 태그와 일치하는지 확인
-		const FGameplayTag SlotTag = EquipData->AttachSlotOverride.IsValid() ? EquipData->AttachSlotOverride : UPBEquipmentComponent::GetAttachSlotTag(Pair.Key);
-		if (SlotTag == FoundSlotTag)
+		FGameplayAbilitySpec* Spec = ASC->FindAbilitySpecFromHandle(Handle);
+		if (!Spec)
 		{
-			FGameplayTag AttachSlotTag = FoundSlotTag;
-			const TSubclassOf<APBEquipmentActor> LoadedClass = EquipData->EquipmentActorClass.LoadSynchronous();
-			if (LoadedClass)
+			return nullptr;
+		}
+
+		// DynamicTags에서 Equipment.Slot 태그 탐색
+		const FGameplayTagContainer& DynamicTags = Spec->GetDynamicSpecSourceTags();
+		FGameplayTag FoundSlotTag;
+		for (const FGameplayTag& Tag : DynamicTags)
+		{
+			if (Tag.MatchesTag(PBGameplayTags::Equipment_Slot))
 			{
-				Character->AttachEquipment(AttachSlotTag, LoadedClass);
+				FoundSlotTag = Tag;
+				break;
 			}
-			break;
+		}
+
+		if (!FoundSlotTag.IsValid())
+		{
+			return nullptr;
+		}
+	
+		// 해당 슬롯 태그에 대응하는 장착 아이템의 EquipmentActorClass 조회
+		for (const auto& Pair : EquipComp->GetEquippedItems())
+		{
+			const UPBEquipmentDataAsset* EquipData = Cast<UPBEquipmentDataAsset>(Pair.Value.ItemDataAsset);
+			if (!IsValid(EquipData) || EquipData->EquipmentActorClass.IsNull())
+			{
+				continue;
+			}
+
+			// 이 슬롯의 부착 태그가 찾은 태그와 일치하는지 확인
+			const FGameplayTag SlotTag = EquipData->AttachSlotOverride.IsValid() ? EquipData->AttachSlotOverride : UPBEquipmentComponent::GetAttachSlotTag(Pair.Key);
+			if (SlotTag == FoundSlotTag)
+			{
+				FGameplayTag AttachSlotTag = FoundSlotTag;
+				const TSubclassOf<APBEquipmentActor> LoadedClass = EquipData->EquipmentActorClass.LoadSynchronous();
+				if (LoadedClass)
+				{
+					return Character->AttachEquipment(AttachSlotTag, LoadedClass);
+				}
+				break;
+			}
 		}
 	}
+	
+	return nullptr;
 }
 
 

@@ -65,6 +65,9 @@ public:
 
 	// 실제 행동 차례가 됐을 때 호출
 	virtual void OnTurnActivated() override;
+	
+	// 턴이 한 차례 진행 됐을 때 호출
+	virtual void OnProgressTurn() override;
 
 	// 턴 종료 시 호출
 	virtual void OnTurnEnd() override;
@@ -120,17 +123,21 @@ public:
 	UPBTurnResourceAttributeSet* GetTurnResourceAttributeSet() const { return TurnResourceAttributeSet; }
 
 	// 장비 부착후 스폰된 액터 반환
-	UFUNCTION(BlueprintCallable, Category = "Combat")
+	UFUNCTION(BlueprintCallable, Category = "Equipment")
 	APBEquipmentActor* AttachEquipment(const FGameplayTag& InSlotTag, TSubclassOf<APBEquipmentActor> EquipmentClass);
 
+	// 인스턴스 기준으로 장비 제거 성공 여부 반환
+	UFUNCTION(BlueprintCallable, Category = "Equipment")
+	bool DetachEquipmentInstance(APBEquipmentActor* EquipmentInstance);
+	
 	// 슬롯 기준으로 장비 제거 성공 여부 반환
-	UFUNCTION(BlueprintCallable, Category = "Combat")
+	UFUNCTION(BlueprintCallable, Category = "Equipment")
 	bool DetachEquipment(const FGameplayTag& InSlotTag);
 
 	// 슬롯 태그에 부착된 장비 액터 반환. 없으면 nullptr.
 	APBEquipmentActor* GetAttachedEquipment(const FGameplayTag& SlotTag) const;
 	
-	UFUNCTION(BlueprintCallable, Category = "Combat", meta = (DisplayName = "GetAttachedEquipment", DeterminesOutputType = "EquipmentClass"))
+	UFUNCTION(BlueprintCallable, Category = "Equipment", meta = (DisplayName = "GetAttachedEquipment", DeterminesOutputType = "EquipmentClass"))
 	APBEquipmentActor* K2_GetAttachedEquipment(const FGameplayTag SlotTag, TSubclassOf<APBEquipmentActor> EquipmentClass);
 	
 	// VisualMesh 설정

@@ -169,9 +169,28 @@ APBEquipmentActor* APBCharacterBase::AttachEquipment(const FGameplayTag& InSlotT
 	}
 
 	SpawnedEquipment->LinkAnimLayer(GetMesh());
+	
 	AttachedEquipments.Add(InSlotTag, SpawnedEquipment);
 	OnCharacterEquipmentChanged.Broadcast(InSlotTag);
 	return SpawnedEquipment;
+}
+
+bool APBCharacterBase::DetachEquipmentInstance(APBEquipmentActor* EquipmentInstance)
+{
+	if (!IsValid(EquipmentInstance))
+	{
+		return false;
+	}
+	
+	for (TPair<FGameplayTag, APBEquipmentActor*>& KVP :AttachedEquipments)
+	{
+		if (KVP.Value == EquipmentInstance)
+		{
+			return DetachEquipment(KVP.Key);
+		}
+	}
+	
+	return false;
 }
 
 bool APBCharacterBase::DetachEquipment(const FGameplayTag& InSlotTag)
@@ -484,14 +503,21 @@ void APBCharacterBase::OnTurnBegin()
 		AbilitySystemComponent->SetNumericAttributeBase(UPBTurnResourceAttributeSet::GetActionAttribute(), 1.0f);
 		AbilitySystemComponent->SetNumericAttributeBase(UPBTurnResourceAttributeSet::GetBonusActionAttribute(), 1.0f);
 		AbilitySystemComponent->ResetMovementResource();
-		// 이펙트 스택 차감
-		AbilitySystemComponent->OnProgressTurn();
 	}
 }
 
 void APBCharacterBase::OnTurnActivated()
 {
 	// 기본 구현: 별도 처리 없음 (하위 클래스에서 override)
+}
+
+void APBCharacterBase::OnProgressTurn()
+{
+	if (IsValid(AbilitySystemComponent))
+	{
+		// 이펙트 스택 차감
+		AbilitySystemComponent->OnProgressTurn();
+	}
 }
 
 void APBCharacterBase::OnTurnEnd()

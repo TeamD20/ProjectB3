@@ -41,13 +41,6 @@ namespace PBGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Result_Miss,         "Combat.Result.Miss",         "명중 실패");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Result_Save_Success, "Combat.Result.Save.Success", "내성 성공");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Result_Save_Failed,  "Combat.Result.Save.Failed",  "내성 실패");
-	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Damage, "GameplayCue.Combat.Damage", "전투 데미지 GameplayCue");
-	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Heal, "GameplayCue.Combat.Heal", "전투 힐 GameplayCue");
-
-	// 버프 GameplayCue (부여 시 Burst VFX)
-	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Buff_AC,  "GameplayCue.Combat.Buff.AC",  "방어도 강화 버프 VFX — GCN_Burst에서 Niagara 재생");
-	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Buff_ATK, "GameplayCue.Combat.Buff.ATK", "명중률 강화 버프 VFX — GCN_Burst에서 Niagara 재생");
-	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Buff_DMG, "GameplayCue.Combat.Buff.DMG", "데미지 강화 버프 VFX — GCN_Burst에서 Niagara 재생");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Faction_Player, "Combat.Faction.Player", "플레이어 진영");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Faction_Enemy, "Combat.Faction.Enemy", "적 진영");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Combat_Faction_Neutral, "Combat.Faction.Neutral", "중립 진영");
@@ -120,4 +113,14 @@ namespace PBGameplayTags
 
 	// UI 이벤트 태그
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Event_UI_FloatingText, "Event.UI.FloatingText", "플로팅 텍스트 위젯 표시 이벤트");
+	
+	// Gameplay Cues
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Damage, "GameplayCue.Combat.Damage", "전투 데미지 GameplayCue");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Heal, "GameplayCue.Combat.Heal", "전투 힐 GameplayCue");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Explode, "GameplayCue.Explode", "폭발 GameplayCue");
+
+	// 버프 GameplayCue (부여 시 Burst VFX)
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Buff_AC,  "GameplayCue.Combat.Buff.AC",  "방어도 강화 버프 VFX — GCN_Burst에서 Niagara 재생");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Buff_ATK, "GameplayCue.Combat.Buff.ATK", "명중률 강화 버프 VFX — GCN_Burst에서 Niagara 재생");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Buff_DMG, "GameplayCue.Combat.Buff.DMG", "데미지 강화 버프 VFX — GCN_Burst에서 Niagara 재생");
 }

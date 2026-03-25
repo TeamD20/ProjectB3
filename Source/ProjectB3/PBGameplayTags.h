@@ -52,13 +52,6 @@ namespace PBGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Result_Miss);         // 명중 실패
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Result_Save_Success); // 내성 성공 (데미지 반감)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Result_Save_Failed);  // 내성 실패 (데미지 전량)
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Combat_Damage);   // 데미지 GameplayCue
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Combat_Heal);     // 힐 GameplayCue
-
-	// 버프 GameplayCue (부여 시 Burst VFX)
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Combat_Buff_AC);  // 방어도 강화 버프
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Combat_Buff_ATK); // 명중률 강화 버프
-	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Combat_Buff_DMG); // 데미지 강화 버프
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Faction_Player);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Faction_Enemy);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Combat_Faction_Neutral);
@@ -126,4 +119,14 @@ namespace PBGameplayTags
 
 	// UI 이벤트 태그
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Event_UI_FloatingText); // 플로팅 텍스트 위젯 표시 이벤트
+	
+	// Gameplay Cues
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Combat_Damage);   // 데미지 GameplayCue
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Combat_Heal);     // 힐 GameplayCue
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Explode);     // 폭발 GameplayCue
+
+	// 버프 GameplayCue (부여 시 Burst VFX)
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Combat_Buff_AC);  // 방어도 강화 버프
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Combat_Buff_ATK); // 명중률 강화 버프
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Combat_Buff_DMG); // 데미지 강화 버프
 }
