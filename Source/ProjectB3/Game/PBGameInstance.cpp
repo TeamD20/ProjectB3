@@ -2,6 +2,8 @@
 
 #include "PBGameInstance.h"
 #include "Engine/AssetManager.h"
+#include "PBPrewarmInterface.h"
+#include "PBPrewarmManagerSubsystem.h"
 #include "ProjectB3/AbilitySystem/Data/PBAbilitySystemRegistry.h"
 #include "ProjectB3/ItemSystem/Data/PBItemDataAsset.h"
 #include "ProjectB3/ItemSystem/Data/PBEquipmentDataAsset.h"
@@ -69,6 +71,94 @@ const UPBAbilitySetData* UPBGameInstance::FindAbilitySetByTag(const UObject* Wor
 		return AbilityRegistry->FindAbilitySetByTag(Tag);
 	}
 	return nullptr;
+}
+
+void UPBGameInstance::LoadAssetBundle(const FGameplayTag& BundleTag, FOnBundleLoadComplete OnComplete)
+{
+	const FPBAssetBundle* Bundle = AssetBundles.Find(BundleTag);
+	if (!Bundle)
+	{
+		UE_LOG(LogPBGameInstance, Warning, TEXT("LoadAssetBundle: 번들 태그 [%s]에 매핑된 번들이 없습니다."), *BundleTag.ToString());
+		OnComplete.ExecuteIfBound(BundleTag);
+		return;
+	}
+
+	// 소프트 오브젝트 경로 수집
+	TArray<FSoftObjectPath> PathsToLoad;
+	for (const TSoftObjectPtr<UObject>& Soft : Bundle->Assets)
+	{
+		if (!Soft.IsNull())
+		{
+			PathsToLoad.Add(Soft.ToSoftObjectPath());
+		}
+	}
+
+	if (PathsToLoad.IsEmpty())
+	{
+		UE_LOG(LogPBGameInstance, Log, TEXT("LoadAssetBundle: 번들 [%s] 로드 대상이 없습니다."), *BundleTag.ToString());
+		OnComplete.ExecuteIfBound(BundleTag);
+		return;
+	}
+
+	UE_LOG(LogPBGameInstance, Log, TEXT("LoadAssetBundle: 번들 [%s] 비동기 로드 시작 (%d개 에셋)"),
+		*BundleTag.ToString(), PathsToLoad.Num());
+
+	// 비동기 로드 요청
+	FStreamableManager& Streamable = UAssetManager::Get().GetStreamableManager();
+	TSharedPtr<FStreamableHandle> Handle = Streamable.RequestAsyncLoad(
+		PathsToLoad,
+		FStreamableDelegate::CreateUObject(this, &UPBGameInstance::OnBundleAssetsLoaded, BundleTag, OnComplete));
+
+	if (Handle.IsValid())
+	{
+		PendingBundleHandles.Add(BundleTag, Handle);
+	}
+}
+
+void UPBGameInstance::OnBundleAssetsLoaded(FGameplayTag BundleTag, FOnBundleLoadComplete OnComplete)
+{
+	PendingBundleHandles.Remove(BundleTag);
+
+	const FPBAssetBundle* Bundle = AssetBundles.Find(BundleTag);
+	if (!Bundle)
+	{
+		OnComplete.ExecuteIfBound(BundleTag);
+		return;
+	}
+
+	// 로드된 에셋 보관 및 프리웜 대상 수집
+	TArray<UObject*> PrewarmRoots;
+	for (const TSoftObjectPtr<UObject>& Soft : Bundle->Assets)
+	{
+		UObject* Loaded = Soft.Get();
+		if (IsValid(Loaded))
+		{
+			LoadedAssets.Add(Loaded);
+
+			// 프리웜 인터페이스 구현 여부 검사
+			if (Loaded->GetClass()->ImplementsInterface(UPBPrewarmInterface::StaticClass()))
+			{
+				PrewarmRoots.Add(Loaded);
+			}
+		}
+	}
+
+	// 프리웜 실행
+	if (PrewarmRoots.Num() > 0)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			if (UPBPrewarmManagerSubsystem* PrewarmManager = World->GetSubsystem<UPBPrewarmManagerSubsystem>())
+			{
+				PrewarmManager->ExecutePrewarm(PrewarmRoots);
+			}
+		}
+	}
+
+	UE_LOG(LogPBGameInstance, Log, TEXT("LoadAssetBundle: 번들 [%s] 로드 완료 (%d개 에셋, %d개 프리웜)"),
+		*BundleTag.ToString(), Bundle->Assets.Num(), PrewarmRoots.Num());
+
+	OnComplete.ExecuteIfBound(BundleTag);
 }
 
 void UPBGameInstance::LoadAllItemData()

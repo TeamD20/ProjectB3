@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameplayEffectTypes.h"
 #include "GameFramework/Actor.h"
+#include "ProjectB3/Game/PBPrewarmInterface.h"
 #include "PBProjectile.generated.h"
 
 class UAbilitySystemComponent;
@@ -18,7 +19,7 @@ DECLARE_DELEGATE_OneParam(FOnProjectileResolvedSiganture, AActor*);
 
 // 투사체 기반 클래스. Bezier 곡선 보간으로 발사 지점 → 타겟 위치까지 이동.
 UCLASS(Abstract)
-class PROJECTB3_API APBProjectile : public AActor
+class PROJECTB3_API APBProjectile : public AActor, public IPBPrewarmInterface
 {
 	GENERATED_BODY()
 

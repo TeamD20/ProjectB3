@@ -2,6 +2,7 @@
 
 #include "PBAbilitySystemRegistry.h"
 #include "PBAbilitySetData.h"
+#include "ProjectB3/Game/PBPrewarmInterface.h"
 #include "PBCharacterStatsRow.h"
 #include "AbilitySystemComponent.h"
 #include "GameplayEffect.h"
@@ -163,6 +164,27 @@ FText UPBAbilitySystemRegistry::GetTagDisplayName(const FGameplayTag& Tag) const
 
 	UE_LOG(LogPBAbilitySetRegistry, Verbose, TEXT("태그 [%s]에 매핑된 표시 이름이 없습니다."), *Tag.ToString());
 	return FText::GetEmpty();
+}
+
+void UPBAbilitySystemRegistry::CollectPrewarmChildren_Implementation(TArray<UObject*>& OutChildren)
+{
+	// 공용 어빌리티 세트
+	if (UPBAbilitySetData* CommonSet = CommonAbilitySet.LoadSynchronous())
+	{
+		OutChildren.Add(CommonSet);
+	}
+
+	// 태그별 어빌리티 세트
+	for (const auto& Pair : AbilitySetMap)
+	{
+		if (!Pair.Value.IsNull())
+		{
+			if (UPBAbilitySetData* SetData = Pair.Value.LoadSynchronous())
+			{
+				OutChildren.Add(SetData);
+			}
+		}
+	}
 }
 
 TSoftObjectPtr<UTexture2D> UPBAbilitySystemRegistry::GetTagIcon(const FGameplayTag& Tag) const

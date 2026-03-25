@@ -1,6 +1,28 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
 
 #include "PBEquipmentDataAsset.h"
+#include "ProjectB3/ItemSystem/PBEquipmentActor.h"
+
+void UPBEquipmentDataAsset::CollectPrewarmChildren_Implementation(TArray<UObject*>& OutChildren)
+{
+	// 장비 액터 CDO
+	if (!EquipmentActorClass.IsNull())
+	{
+		if (UClass* LoadedClass = EquipmentActorClass.LoadSynchronous())
+		{
+			OutChildren.Add(LoadedClass->GetDefaultObject());
+		}
+	}
+
+	// 부여 어빌리티 CDO
+	for (const FPBAbilityGrantEntry& Entry : GrantedAbilities)
+	{
+		if (Entry.AbilityClass)
+		{
+			OutChildren.Add(Entry.AbilityClass.GetDefaultObject());
+		}
+	}
+}
 
 FPBDiceSpec UPBEquipmentDataAsset::GetAbilityDamageSpec() const
 {

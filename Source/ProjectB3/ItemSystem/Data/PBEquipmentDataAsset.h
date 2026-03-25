@@ -6,6 +6,7 @@
 #include "PBItemDataAsset.h"
 #include "ProjectB3/AbilitySystem/PBAbilityGrantTypes.h"
 #include "ProjectB3/AbilitySystem/PBAbilityTypes.h"
+#include "ProjectB3/Game/PBPrewarmInterface.h"
 #include "PBEquipmentDataAsset.generated.h"
 
 class APBEquipmentActor;
@@ -13,7 +14,7 @@ class APBEquipmentActor;
 // 장비 전용 DataAsset — UPBItemDataAsset 서브클래스
 // DA_Equip_Longsword, DA_Equip_ChainMail 등
 UCLASS(BlueprintType)
-class PROJECTB3_API UPBEquipmentDataAsset : public UPBItemDataAsset
+class PROJECTB3_API UPBEquipmentDataAsset : public UPBItemDataAsset, public IPBPrewarmInterface
 {
 	GENERATED_BODY()
 
@@ -44,6 +45,9 @@ public:
 	FGameplayTag AttachSlotOverride;
 
 public:
+	/*~ IPBPrewarmInterface ~*/
+	virtual void CollectPrewarmChildren_Implementation(TArray<UObject*>& OutChildren) override;
+
 	// --- Getter 함수 ---
 	FPBDiceSpec GetAbilityDamageSpec() const;
 	int32 GetWeaponBonusModifier() const;

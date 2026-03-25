@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameplayEffectTypes.h"
 #include "GameFramework/Actor.h"
+#include "ProjectB3/Game/PBPrewarmInterface.h"
 #include "PBDamageArea.generated.h"
 
 class UAbilitySystemComponent;
@@ -17,7 +18,7 @@ class UPBCombatManagerSubsystem;
  * 초기화 시 이펙트 스펙을 전달받아, 영역 진입 액터에게 적용한다.
  */
 UCLASS(Abstract)
-class PROJECTB3_API APBDamageArea : public AActor
+class PROJECTB3_API APBDamageArea : public AActor, public IPBPrewarmInterface
 {
 	GENERATED_BODY()
 
