@@ -166,12 +166,12 @@ FText UPBAbilitySystemRegistry::GetTagDisplayName(const FGameplayTag& Tag) const
 	return FText::GetEmpty();
 }
 
-void UPBAbilitySystemRegistry::CollectPrewarmChildren_Implementation(TArray<UObject*>& OutChildren)
+void UPBAbilitySystemRegistry::NativeCollectPrewarmTargets(FPBPrewarmTargets& InOutTargets)
 {
 	// 공용 어빌리티 세트
 	if (UPBAbilitySetData* CommonSet = CommonAbilitySet.LoadSynchronous())
 	{
-		OutChildren.Add(CommonSet);
+		InOutTargets.Children.AddUnique(CommonSet);
 	}
 
 	// 태그별 어빌리티 세트
@@ -181,7 +181,7 @@ void UPBAbilitySystemRegistry::CollectPrewarmChildren_Implementation(TArray<UObj
 		{
 			if (UPBAbilitySetData* SetData = Pair.Value.LoadSynchronous())
 			{
-				OutChildren.Add(SetData);
+				InOutTargets.Children.AddUnique(SetData);
 			}
 		}
 	}

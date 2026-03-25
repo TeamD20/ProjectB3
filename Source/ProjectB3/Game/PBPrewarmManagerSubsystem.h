@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
+#include "PBPrewarmInterface.h"
 #include "PBPrewarmManagerSubsystem.generated.h"
 
 class UNiagaraSystem;
@@ -27,9 +28,8 @@ public:
 
 private:
 	// IPBPrewarmInterface 구현 객체로부터 재귀 에셋 수집
-	void CollectFromObject(UObject* Object, TSet<UObject*>& Visited,
-		TArray<TSoftObjectPtr<UNiagaraSystem>>& OutNiagaraAssets,
-		TArray<TSoftObjectPtr<USoundBase>>& OutSoundAssets);
+	void CollectFromObject(UObject* Object, TSet<const UObject*>& Visited,
+		FPBPrewarmTargets& OutTargets);
 
 	// Niagara 에셋 프리웜 — 월드 밖에서 스폰 후 즉시 비활성화
 	void PrewarmNiagaraAsset(UNiagaraSystem* System);

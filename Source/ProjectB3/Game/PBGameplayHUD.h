@@ -22,6 +22,10 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
+public:
+	// 지정 시간 뒤에 HUD 위젯 초기화를 예약한다.
+	void ScheduleInitializeHUDWidgets(float DelaySeconds);
+
 private:
 	// HUD 위젯들을 UIManager에 Push한다.
 	void InitializeHUDWidgets();
@@ -61,4 +65,10 @@ private:
 
 	// 전투 인디케이터 자동 해제 타이머
 	FTimerHandle CombatIndicatorTimerHandle;
+
+	// HUD 초기화 예약 타이머
+	FTimerHandle HUDInitializeTimerHandle;
+
+	// HUD 위젯 초기화 완료 여부
+	bool bHUDWidgetsInitialized = false;
 };

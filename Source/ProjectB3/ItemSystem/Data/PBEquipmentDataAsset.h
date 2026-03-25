@@ -46,7 +46,7 @@ public:
 
 public:
 	/*~ IPBPrewarmInterface ~*/
-	virtual void CollectPrewarmChildren_Implementation(TArray<UObject*>& OutChildren) override;
+	virtual void NativeCollectPrewarmTargets(FPBPrewarmTargets& InOutTargets) override;
 
 	// --- Getter 함수 ---
 	FPBDiceSpec GetAbilityDamageSpec() const;

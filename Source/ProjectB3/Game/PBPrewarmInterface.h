@@ -8,6 +8,24 @@
 #include "Sound/SoundBase.h"
 #include "PBPrewarmInterface.generated.h"
 
+USTRUCT(BlueprintType)
+struct FPBPrewarmTargets
+{
+	GENERATED_BODY()
+
+	// 프리웜할 나이아가라 에셋 목록
+	UPROPERTY(BlueprintReadWrite, Category = "Prewarm")
+	TArray<TSoftObjectPtr<UNiagaraSystem>> NiagaraAssets;
+
+	// 프리웜할 사운드 에셋 목록
+	UPROPERTY(BlueprintReadWrite, Category = "Prewarm")
+	TArray<TSoftObjectPtr<USoundBase>> SoundAssets;
+
+	// 재귀 수집할 자식 오브젝트 목록
+	UPROPERTY(BlueprintReadWrite, Category = "Prewarm")
+	TArray<UObject*> Children;
+};
+
 UINTERFACE(MinimalAPI, Blueprintable)
 class UPBPrewarmInterface : public UInterface
 {
@@ -23,15 +41,10 @@ class PROJECTB3_API IPBPrewarmInterface
 	GENERATED_BODY()
 
 public:
-	// Niagara 에셋 수집. OutAssets에 프리웜할 나이아가라 시스템을 추가.
-	UFUNCTION(BlueprintNativeEvent, Category = "Prewarm")
-	void CollectPrewarmNiagaraAssets(UPARAM(ref) TArray<TSoftObjectPtr<UNiagaraSystem>>& OutAssets);
+	// BP 구현용 프리웜 타겟 수집. InTargets를 기반으로 결과 타겟을 반환한다.
+	UFUNCTION(BlueprintImplementableEvent, Category = "Prewarm")
+	FPBPrewarmTargets CollectPrewarmTargets(UPARAM(ref) FPBPrewarmTargets& InTargets);
 
-	// Sound 에셋 수집. OutAssets에 프리웜할 사운드를 추가.
-	UFUNCTION(BlueprintNativeEvent, Category = "Prewarm")
-	void CollectPrewarmSoundAssets(UPARAM(ref) TArray<TSoftObjectPtr<USoundBase>>& OutAssets);
-
-	// 자식 객체 수집 (재귀 탐색용). OutChildren에 프리웜 인터페이스를 구현한 자식 객체를 추가.
-	UFUNCTION(BlueprintNativeEvent, Category = "Prewarm")
-	void CollectPrewarmChildren(UPARAM(ref) TArray<UObject*>& OutChildren);
+	// C++ 구현용 프리웜 타겟 수집. InOutTargets에 누적한다.
+	virtual void NativeCollectPrewarmTargets(FPBPrewarmTargets& InOutTargets) {}
 };

@@ -612,12 +612,12 @@ FVector APBCharacterBase::GetCombatTargetLocation() const
 	return GetActorLocation();
 }
 
-void APBCharacterBase::CollectPrewarmChildren_Implementation(TArray<UObject*>& OutChildren)
+void APBCharacterBase::NativeCollectPrewarmTargets(FPBPrewarmTargets& InOutTargets)
 {
 	// 고유 어빌리티 세트
 	if (IsValid(InnateAbilitySet))
 	{
-		OutChildren.Add(InnateAbilitySet);
+		InOutTargets.Children.AddUnique(InnateAbilitySet);
 	}
 
 	// 부착된 장비 액터
@@ -625,7 +625,7 @@ void APBCharacterBase::CollectPrewarmChildren_Implementation(TArray<UObject*>& O
 	{
 		if (IsValid(Pair.Value))
 		{
-			OutChildren.Add(Pair.Value);
+			InOutTargets.Children.AddUnique(Pair.Value);
 		}
 	}
 }
