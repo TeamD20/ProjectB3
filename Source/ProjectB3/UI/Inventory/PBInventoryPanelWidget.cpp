@@ -8,6 +8,7 @@
 #include "Components/TextBlock.h"
 #include "Components/UniformGridPanel.h"
 #include "Engine/TextureRenderTarget2D.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "ProjectB3/Player/PBGameplayPlayerState.h"
 #include "ProjectB3/UI/Common/PBCombatStatsViewModel.h"
 #include "ProjectB3/UI/Inventory/PBEquipSlotWidget.h"
@@ -203,10 +204,25 @@ void UPBInventoryPanelWidget::ApplyCharacterRenderTarget()
 		return;
 	}
 
-	// RenderTarget을 FSlateBrush로 감싸 Image 위젯에 설정
-	FSlateBrush Brush;
-	Brush.SetResourceObject(RenderTarget);
-	CharacterRenderImage->SetBrush(Brush);
+	// CharacterBGMaterial이 할당되어 있으면 DMI를 통해 알파 반전 렌더링 처리
+	if (IsValid(CharacterBGMaterial))
+	{
+		// 파티원마다 독립 DMI를 생성해야 하므로 기존 캐시를 항상 재생성
+		CachedCharacterDMI = UMaterialInstanceDynamic::Create(CharacterBGMaterial, this);
+		CachedCharacterDMI->SetTextureParameterValue(TEXT("Texture"), RenderTarget);
+
+		FSlateBrush Brush;
+		Brush.SetResourceObject(CachedCharacterDMI);
+		Brush.ImageSize = FVector2D(RenderTarget->SizeX, RenderTarget->SizeY);
+		CharacterRenderImage->SetBrush(Brush);
+	}
+	else
+	{
+		// 폴백: 머티리얼 미지정 시 기존 직접 할당 방식
+		FSlateBrush Brush;
+		Brush.SetResourceObject(RenderTarget);
+		CharacterRenderImage->SetBrush(Brush);
+	}
 }
 
 void UPBInventoryPanelWidget::CollectEquipSlotWidgets()
