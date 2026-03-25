@@ -220,7 +220,7 @@ void APBCharacterPreviewActor::InitializeCapture()
 	// 렌더 타겟 동적 생성
 	RenderTarget = NewObject<UTextureRenderTarget2D>(this);
 	RenderTarget->InitCustomFormat(Config.RenderTargetWidth, Config.RenderTargetHeight, PF_B8G8R8A8, false);
-	RenderTarget->ClearColor = FLinearColor::Black;
+	RenderTarget->ClearColor = FLinearColor(0.f, 0.f, 0.f, 0.f);
 	RenderTarget->UpdateResourceImmediate(true);
 
 	// 조명 파라미터 적용

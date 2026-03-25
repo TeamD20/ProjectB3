@@ -37,8 +37,7 @@ private:
 	void HandleDisplayNameChanged(FText NewName);
 	void HandlePortraitChanged(TSoftObjectPtr<UTexture2D> NewPortrait);
 	void HandleHPPercentChanged(float InHealthPercent);
-	void HandleBuffsChanged();
-	void HandleDebuffsChanged();
+	void HandleStatusChanged();
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Turn")
@@ -51,11 +50,9 @@ protected:
 	UPROPERTY(meta = (BindWidgetOptional))
 	class UProgressBar* DamageProgressBar;
 
+	// 버프 + 디버프를 통합 표시하는 단일 상태 아이콘 박스
 	UPROPERTY(meta = (BindWidgetOptional))
-	class UWrapBox* BuffBox;
-
-	UPROPERTY(meta = (BindWidgetOptional))
-	class UWrapBox* DebuffBox;
+	class UWrapBox* StatusBox;
 
 	// 적군/아군 테두리 표시용
 	UPROPERTY(BlueprintReadOnly, meta = (BindWidgetOptional), Category = "Turn|Portrait")

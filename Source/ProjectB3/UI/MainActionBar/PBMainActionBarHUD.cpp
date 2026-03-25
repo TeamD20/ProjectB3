@@ -12,6 +12,7 @@
 #include "ProjectB3/Combat/IPBCombatParticipant.h"
 #include "ProjectB3/PBGameplayTags.h"
 #include "ProjectB3/UI/Common/PBCombatStatsViewModel.h"
+#include "ProjectB3/UI/Inventory/PBInventoryViewModel.h"
 #include "Components/Button.h"
 #include "Components/ProgressBar.h"
 
@@ -78,6 +79,7 @@ void UPBMainActionBarHUD::NativeDestruct()
 		SelectedPartyMemberChangedHandle.Reset();
 	}
 	CachedPlayerState = nullptr;
+	CachedInventoryVM = nullptr;
 
 	if (IsValid(CachedCombatStatsVM) && MovementPercentChangedHandle.IsValid())
 	{
@@ -116,6 +118,20 @@ void UPBMainActionBarHUD::HandleSelectedPartyMemberChanged(AActor* NewActor)
 		{
 			ProfileArea->InitializeProfile(VM);
 		}
+	}
+
+	// 무기 슬롯 동기화를 위해 InventoryViewModel 획득 및 주입
+	CachedInventoryVM = IsValid(NewActor)
+		? UPBUIBlueprintLibrary::GetOrCreateActorViewModel<UPBInventoryViewModel>(GetOwningLocalPlayer(), NewActor)
+		: nullptr;
+
+	if (IsValid(MainWeaponSlot1))
+	{
+		MainWeaponSlot1->InitializeWithInventory(CachedInventoryVM);
+	}
+	if (IsValid(MainWeaponSlot2))
+	{
+		MainWeaponSlot2->InitializeWithInventory(CachedInventoryVM);
 	}
 
 	BindCombatStatsViewModel(NewActor);
