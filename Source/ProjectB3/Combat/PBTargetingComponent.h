@@ -88,7 +88,10 @@ public:
 	bool IsProjectilePathBlocked() const { return bProjectilePathBlocked; }
 	
 	// 선택된 타겟 개수
-	int32 NumSelectedTargets() const {return SelectedTargets.Num();}
+	int32 NumSelectedTargets() const { return SelectedTargets.Num(); }
+
+	// 현재 요청의 최대 타겟 선택 수 반환
+	int32 GetMaxTargetCount() const { return CurrentRequest.MaxTargetCount; }
 
 	/*~ IPBPrewarmInterface ~*/
 	virtual void NativeCollectPrewarmTargets(FPBPrewarmTargets& InOutTargets) override;

@@ -53,6 +53,9 @@ public:
 	// 최대 이동 거리를 설정
 	void SetMaxMoveDistance(float NewMaxMoveDistance) { MaxMoveDistance = NewMaxMoveDistance; }
 
+	// 마지막으로 계산된 전체 경로 거리 반환 (cm)
+	float GetLastTotalDistance() const { return LastTotalDistance; }
+
 	// 이동 시작 시 확정 경로를 전달받아 경로 추적 시작
 	void BeginPathTracking(const TArray<FVector>& PathPoints);
 
@@ -92,9 +95,6 @@ private:
 
 	// 풀의 모든 세그먼트를 숨김
 	void HideAllSegments();
-
-	// 거리 표시
-	void DisplayDistance(const FPBPathDrawData& InDrawData) const;
 
 	// Debug Line으로 경로를 시각화
 	void DrawDebugPath(const FPBPathDrawData& InDrawData) const;
@@ -191,4 +191,7 @@ private:
 
 	// 이동 중 추적할 확정 경로 포인트 (BeginPathTracking으로 설정)
 	TArray<FVector> TrackedPathPoints;
+
+	// 마지막으로 계산된 전체 경로 거리 (cm)
+	float LastTotalDistance = 0.f;
 };

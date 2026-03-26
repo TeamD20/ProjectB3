@@ -20,6 +20,9 @@ class UInputMappingContext;
 class UInputAction;
 struct FPBCameraModeParams;
 struct FPBTargetingRequest;
+class UPBDefaultCursorWidget;
+class UPBTargetingCursorWidget;
+struct FPBAbilityTargetData;
 
 /** PC 입력 처리 모드 */
 UENUM(BlueprintType)
@@ -144,6 +147,9 @@ private:
 	// 인벤토리 토글 입력 이벤트 처리
 	void OnToggleInventory(const FInputActionValue& Value);
 
+	// MultiTarget 선택 변경 시 타겟팅 커서 게이지 갱신
+	void OnTargetSelectionChanged(const FPBAbilityTargetData& TargetData);
+
 public:
 	/*~ Input Settings ~*/
 
@@ -195,12 +201,12 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UPBWidgetBase> GameOverWidgetClass;
 	
-	// 커섯 위젯 설정
+	// 커서 위젯 설정
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<UUserWidget> DefaultCursorWidgetClass;
-	
+	TSubclassOf<UPBDefaultCursorWidget> DefaultCursorWidgetClass;
+
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<UUserWidget> TargetingCursorWidgetClass;
+	TSubclassOf<UPBTargetingCursorWidget> TargetingCursorWidgetClass;
 
 	// 경로 갱신을 트리거하는 최소 커서 이동 거리
 	UPROPERTY(EditAnywhere, Category = "PathDisplay")
@@ -287,8 +293,8 @@ private:
 	TSet<TWeakObjectPtr<AActor>> FadedActors;
 	
 	UPROPERTY()
-	TObjectPtr<UUserWidget> DefaultCursorWidget;
-	
+	TObjectPtr<UPBDefaultCursorWidget> DefaultCursorWidget;
+
 	UPROPERTY()
-	TObjectPtr<UUserWidget> TargetingCursorWidget;
+	TObjectPtr<UPBTargetingCursorWidget> TargetingCursorWidget;
 };
