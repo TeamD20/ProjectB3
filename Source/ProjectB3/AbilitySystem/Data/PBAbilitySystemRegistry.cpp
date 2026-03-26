@@ -95,6 +95,7 @@ void UPBAbilitySystemRegistry::ApplyStatsInitialization(
 			Spec->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Attribute_Intelligence, Row->Intelligence);
 			Spec->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Attribute_MaxHP, Row->BaseMaxHP);
 			Spec->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Attribute_ArmorClass, Row->BaseArmorClass);
+			Spec->SetSetByCallerMagnitude(PBGameplayTags::SetByCaller_Attribute_MaxMovement, Row->MaxMovement);
 
 			ASC->ApplyGameplayEffectSpecToSelf(*Spec);
 

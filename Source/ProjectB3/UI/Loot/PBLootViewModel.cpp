@@ -3,6 +3,7 @@
 #include "PBLootViewModel.h"
 
 #include "ProjectB3/Characters/PBCharacterBase.h"
+#include "ProjectB3/Interaction/PBInteractableComponent.h"
 #include "ProjectB3/ItemSystem/Components/PBInventoryComponent.h"
 #include "ProjectB3/ItemSystem/Components/PBEquipmentComponent.h"
 #include "ProjectB3/ItemSystem/Data/PBItemDataAsset.h"
@@ -41,6 +42,11 @@ void UPBLootViewModel::InitializeForActor(AActor* InTargetActor, ULocalPlayer* I
 	{
 		OwnerName = Character->GetCombatDisplayName();
 	}
+	else if (const UPBInteractableComponent* InteractableComponent = InTargetActor->GetComponentByClass<UPBInteractableComponent>())
+	{
+		OwnerName = InteractableComponent->FallbackDisplayName;
+	}	
+	
 	if (OwnerName.IsEmpty())
 	{
 		OwnerName = FText::FromString(InTargetActor->GetName());

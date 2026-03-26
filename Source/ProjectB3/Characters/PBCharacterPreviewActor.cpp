@@ -223,29 +223,10 @@ void APBCharacterPreviewActor::InitializeCapture()
 	RenderTarget->ClearColor = FLinearColor(0.f, 0.f, 0.f, 0.f);
 	RenderTarget->UpdateResourceImmediate(true);
 
-	// 조명 파라미터 적용
-	if (IsValid(PreviewLightComp))
-	{
-		PreviewLightComp->SetIntensity(Config.PreviewLightIntensity);
-		PreviewLightComp->SetRelativeRotation(Config.PreviewLightRotation);
-	}
-	if (IsValid(FillLightComp))
-	{
-		// Fill Light는 주 조명 반대 방향에서 약하게
-		FillLightComp->SetRelativeRotation(FRotator(
-			Config.PreviewLightRotation.Pitch * -0.5f,
-			Config.PreviewLightRotation.Yaw + 180.0f,
-			0.0f
-		));
-	}
-
 	// RenderTarget 할당 및 ShowOnlyList 설정 (생성자에선 RenderTarget 미생성)
 	SceneCaptureComp->TextureTarget = RenderTarget;
 	SceneCaptureComp->ShowOnlyActors.Reset();
 	SceneCaptureComp->ShowOnlyActors.Add(this);
-
-	SceneCaptureComp->SetRelativeLocation(Config.CaptureOffset);
-	SceneCaptureComp->SetRelativeRotation(Config.CaptureRotation);
 	SceneCaptureComp->SetVisibility(false);
 }
 
