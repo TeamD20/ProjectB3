@@ -26,6 +26,14 @@ bool UPBInteraction_DialogueAction::CanInteract_Implementation(AActor* Interacto
     {
         return false;
     }
+    
+    if (APBCharacterBase* PBCharacter = Cast<APBCharacterBase>(GetOwner()))
+    {
+        if (PBCharacter->IsDead() || PBCharacter->IsIncapacitated())
+        {
+            return false;
+        }
+    }
 
     // Interactor의 DialogueManagerComponent 획득
     APlayerController* PC = Cast<APlayerController>(GetController(Interactor));

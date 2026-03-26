@@ -187,6 +187,56 @@ void UPBAbilitySystemRegistry::NativeCollectPrewarmTargets(FPBPrewarmTargets& In
 	}
 }
 
+void UPBAbilitySystemRegistry::CollectUITexturePaths(TArray<FSoftObjectPath>& OutPaths) const
+{
+	// 1) GameplayTagDisplayTable의 Icon
+	if (UDataTable* DisplayTable = GameplayTagDisplayTable.LoadSynchronous())
+	{
+		TArray<FPBGameplayTagDisplayRow*> Rows;
+		DisplayTable->GetAllRows<FPBGameplayTagDisplayRow>(TEXT("CollectUITexturePaths"), Rows);
+		for (const FPBGameplayTagDisplayRow* Row : Rows)
+		{
+			if (Row && !Row->Icon.IsNull())
+			{
+				OutPaths.AddUnique(Row->Icon.ToSoftObjectPath());
+			}
+		}
+	}
+
+	// 2) 어빌리티 아이콘 (CommonAbilitySet + AbilitySetMap)
+	auto CollectFromAbilitySet = [&OutPaths](const UPBAbilitySetData* SetData)
+	{
+		if (!IsValid(SetData))
+		{
+			return;
+		}
+		for (const FPBAbilityGrantEntry& Entry : SetData->Abilities)
+		{
+			if (!Entry.AbilityClass)
+			{
+				continue;
+			}
+			if (const UPBGameplayAbility* CDO = Cast<UPBGameplayAbility>(Entry.AbilityClass.GetDefaultObject()))
+			{
+				const TSoftObjectPtr<UTexture2D> Icon = CDO->GetAbilityIcon();
+				if (!Icon.IsNull())
+				{
+					OutPaths.AddUnique(Icon.ToSoftObjectPath());
+				}
+			}
+		}
+	};
+
+	CollectFromAbilitySet(CommonAbilitySet.LoadSynchronous());
+	for (const auto& KVP : AbilitySetMap)
+	{
+		if (!KVP.Value.IsNull())
+		{
+			CollectFromAbilitySet(KVP.Value.LoadSynchronous());
+		}
+	}
+}
+
 TSoftObjectPtr<UTexture2D> UPBAbilitySystemRegistry::GetTagIcon(const FGameplayTag& Tag) const
 {
 	const FPBGameplayTagDisplayRow* Row = FindTagDisplayRow(Tag);

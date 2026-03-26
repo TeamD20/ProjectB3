@@ -56,7 +56,7 @@ void APBGameplayPlayerController::FadeInFromBlack()
 
 	if (APlayerCameraManager* CamManager = PlayerCameraManager)
 	{
-		CamManager->SetManualCameraFade(1.0f, FLinearColor::Black, true);
+		CamManager->SetManualCameraFade(1.0f, FLinearColor::Black, false);
 
 		if (FadeInInitialDelay <= 0.0f)
 		{

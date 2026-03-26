@@ -125,4 +125,5 @@ namespace PBGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(GameplayCue_Combat_Buff_DMG, "GameplayCue.Combat.Buff.DMG", "데미지 강화 버프 VFX — GCN_Burst에서 Niagara 재생");
 	
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Asset_Bundle_Preload, "Asset.Bundle.Preload", "프리로드 대상 에셋 그룹");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(Asset_Bundle_Preload_Textures, "Asset.Bundle.Preload.Textures", "프리로드 대상 에셋 그룹");
 }
