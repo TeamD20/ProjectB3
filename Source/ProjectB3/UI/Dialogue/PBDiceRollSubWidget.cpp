@@ -7,6 +7,7 @@
 #include "ProjectB3/UI/PBUIBlueprintLibrary.h"
 #include "ProjectB3/UI/ViewModel/PBViewModelSubsystem.h"
 #include "ProjectB3/UI/Dialogue/PBDialogueViewModel.h"
+#include "Kismet/GameplayStatics.h"
 
 void UPBDiceRollSubWidget::NativeConstruct()
 {
@@ -78,10 +79,18 @@ void UPBDiceRollSubWidget::ShowDiceResult(const FPBDiceRollDisplayInfo& InResult
     // 성공/실패 텍스트 및 색상은 BP 애니메이션에서 처리
     if (InResult.bSuccess)
     {
+        if (IsValid(SuccessSound))
+        {
+            UGameplayStatics::PlaySound2D(this, SuccessSound);
+        }
         PlaySuccessAnimation(InResult);
     }
     else
     {
+        if (IsValid(FailureSound))
+        {
+            UGameplayStatics::PlaySound2D(this, FailureSound);
+        }
         PlayFailureAnimation(InResult);
     }
 }

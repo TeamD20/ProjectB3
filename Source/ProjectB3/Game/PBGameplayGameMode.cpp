@@ -8,6 +8,7 @@
 #include "ProjectB3/Player/PBGameplayPlayerState.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
 
 void APBGameplayGameMode::HandleStartingNewPlayer_Implementation(APlayerController* NewPlayer)
 {
@@ -107,6 +108,11 @@ void APBGameplayGameMode::InitiateCombat(const TArray<AActor*>& Combatants)
 	
 	CombatManager->StartCombat(Combatants);
 	
+	if (IsValid(CombatStartSound))
+	{
+		UGameplayStatics::PlaySound2D(this, CombatStartSound);
+	}
+
 	if (APBGameplayGameState* GS = GetGameState<APBGameplayGameState>())
 	{
 		GS->NotifyCombatStarted();

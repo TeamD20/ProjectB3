@@ -6,6 +6,7 @@
 #include "Components/RichTextBlock.h"
 #include "InputCoreTypes.h"
 #include "ProjectB3/UI/Dialogue/PBDialogueViewModel.h"
+#include "Kismet/GameplayStatics.h"
 
 void UPBDialogueChoiceEntryWidget::NativeConstruct()
 {
@@ -101,6 +102,11 @@ void UPBDialogueChoiceEntryWidget::NativeOnMouseEnter(const FGeometry& InGeometr
     {
         IndicatorImage->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
     }
+
+    if (bChoiceAvailable && IsValid(HoverSound))
+    {
+        UGameplayStatics::PlaySound2D(this, HoverSound);
+    }
 }
 
 void UPBDialogueChoiceEntryWidget::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
@@ -128,6 +134,11 @@ void UPBDialogueChoiceEntryWidget::RequestSelectChoice()
     if (!bChoiceAvailable)
     {
         return;
+    }
+
+    if (IsValid(ClickSound))
+    {
+        UGameplayStatics::PlaySound2D(this, ClickSound);
     }
 
     if (BoundViewModel.IsValid())
