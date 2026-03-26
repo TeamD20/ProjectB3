@@ -41,7 +41,13 @@ int32 UPBEquipmentDataAsset::GetWeaponBonusModifier() const
 
 FGameplayTag UPBEquipmentDataAsset::GetDamageTypeTag() const
 {
-	// TODO: 동적 데이터 연동 전 더미값 반환
+	const int32 RandVal = FMath::RandRange(0, 2);
+	switch (RandVal)
+	{
+		case 0: return FGameplayTag::RequestGameplayTag(FName("Combat.DamageType.Melee"));
+		case 1: return FGameplayTag::RequestGameplayTag(FName("Combat.DamageType.Ranged"));
+		case 2: return FGameplayTag::RequestGameplayTag(FName("Combat.DamageType.Spell"));
+	}
 	return FGameplayTag::EmptyTag;
 }
 
