@@ -32,6 +32,8 @@
 
 #include "ProjectB3/Combat/IPBCombatTarget.h"
 #include "ProjectB3/Environment/PBPathDisplayComponent.h"
+#include "ProjectB3/UI/Cursor/PBDefaultCursorWidget.h"
+#include "ProjectB3/UI/Cursor/PBTargetingCursorWidget.h"
 
 APBGameplayPlayerController::APBGameplayPlayerController()
 {
@@ -158,6 +160,13 @@ void APBGameplayPlayerController::Tick(float DeltaTime)
 		if (CurrentMode == EPBPlayerControllerMode::TurnMovement)
 		{
 			UpdateHoverPathDisplay(CursorHit);
+
+			// 커서 위젯에 이동 거리 표시
+			if (IsValid(DefaultCursorWidget))
+			{
+				const float Meters = PathDisplayComponent->GetLastTotalDistance() / 100.f;
+				DefaultCursorWidget->SetDistance(Meters);
+			}
 		}
 		if (CurrentMode == EPBPlayerControllerMode::Targeting)
 		{
@@ -353,28 +362,32 @@ void APBGameplayPlayerController::SetControllerMode(EPBPlayerControllerMode NewM
 	{
 		if (!IsValid(TargetingCursorWidget) && IsValid(TargetingCursorWidgetClass))
 		{
-			TargetingCursorWidget = CreateWidget<UUserWidget>(this, TargetingCursorWidgetClass);
+			TargetingCursorWidget = CreateWidget<UPBTargetingCursorWidget>(this, TargetingCursorWidgetClass);
 		}
-		if (TargetingCursorWidget)
+		if (IsValid(TargetingCursorWidget))
 		{
-			SetMouseCursorWidget(EMouseCursor::Default, TargetingCursorWidget);	
+			SetMouseCursorWidget(EMouseCursor::Default, TargetingCursorWidget);
 		}
 	}
 	else
 	{
 		if (!IsValid(DefaultCursorWidget) && IsValid(DefaultCursorWidgetClass))
 		{
-			DefaultCursorWidget = CreateWidget<UUserWidget>(this, DefaultCursorWidgetClass);
+			DefaultCursorWidget = CreateWidget<UPBDefaultCursorWidget>(this, DefaultCursorWidgetClass);
 		}
-		if (DefaultCursorWidget)
+		if (IsValid(DefaultCursorWidget))
 		{
-			SetMouseCursorWidget(EMouseCursor::Default, DefaultCursorWidget);	
+			DefaultCursorWidget->ClearDistance();
+			SetMouseCursorWidget(EMouseCursor::Default, DefaultCursorWidget);
 		}
 	}
 
 	// 이전 모드 종료 처리
 	if (CurrentMode == EPBPlayerControllerMode::Targeting)
 	{
+		// MultiTarget 게이지 바인딩 해제
+		TargetingComponent->OnSelectionChanged.RemoveAll(this);
+
 		if (TargetingComponent->IsTargetingActive())
 		{
 			TargetingComponent->ExitTargetingMode();
@@ -388,7 +401,7 @@ void APBGameplayPlayerController::SetControllerMode(EPBPlayerControllerMode NewM
 	CurrentMode = NewMode;
 
 	PathDisplayComponent->ClearPath();
-	
+
 	// FreeMovement 진입 시 PathDisplay 거리 제한 해제
 	if (NewMode == EPBPlayerControllerMode::FreeMovement)
 	{
@@ -422,6 +435,13 @@ void APBGameplayPlayerController::EnterTargetingMode(const FPBTargetingRequest& 
 	// TargetingComponent에 세션 진입 요청 후 모드 전환
 	TargetingComponent->EnterTargetingMode(Request);
 	SetControllerMode(EPBPlayerControllerMode::Targeting);
+
+	// MultiTarget 모드: 게이지 바인딩
+	if (Request.Mode == EPBTargetingMode::MultiTarget && IsValid(TargetingCursorWidget))
+	{
+		TargetingCursorWidget->SetGaugeCount(0, Request.MaxTargetCount);
+		TargetingComponent->OnSelectionChanged.AddUObject(this, &APBGameplayPlayerController::OnTargetSelectionChanged);
+	}
 }
 
 void APBGameplayPlayerController::ExitCurrentMode()
@@ -833,5 +853,17 @@ bool APBGameplayPlayerController::GetCursorHitWithIgnoredActors(ECollisionChanne
 		return GetWorld()->LineTraceSingleByChannel(OutHitResult, Start, End, TraceChannel, QueryParams);
 	}
 	return false;
+}
+
+void APBGameplayPlayerController::OnTargetSelectionChanged(const FPBAbilityTargetData& TargetData)
+{
+	if (!IsValid(TargetingCursorWidget))
+	{
+		return;
+	}
+
+	const int32 Current = TargetingComponent->NumSelectedTargets();
+	const int32 Max = TargetingComponent->GetMaxTargetCount();
+	TargetingCursorWidget->SetGaugeCount(Current, Max);
 }
 
