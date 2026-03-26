@@ -111,10 +111,8 @@ void UPBPathDisplayComponent::DisplayPath(const TArray<FVector>& PathPoints, boo
 	//DrawDebugPath(DrawData);
 	RebuildLineSegments(DrawData);
 
-	if (bDisplayDistance)
-	{
-		DisplayDistance(DrawData);
-	}
+	// 커서 위젯에서 읽을 수 있도록 항상 캐싱
+	LastTotalDistance = DrawData.TotalDistance;
 }
 
 void UPBPathDisplayComponent::ClearPath()
@@ -127,6 +125,7 @@ void UPBPathDisplayComponent::ClearPath()
 
 	FlushPersistentDebugLines(World);
 	HideAllSegments();
+	LastTotalDistance = 0.f;
 }
 
 void UPBPathDisplayComponent::BeginPathTracking(const TArray<FVector>& PathPoints)
@@ -421,15 +420,6 @@ void UPBPathDisplayComponent::HideAllSegments()
 		}
 	}
 }
-
-void UPBPathDisplayComponent::DisplayDistance(const FPBPathDrawData& InDrawData) const
-{
-	// TODO: UI에 거리 표시
-	float MeterDistance = InDrawData.TotalDistance / 100.f;
-	FString DistanceText = FString::Printf(TEXT("%.1fm"), MeterDistance);
-	DebugUtils::PrintOnScreen(DistanceText,1);
-}
-
 
 void UPBPathDisplayComponent::DrawDebugPath(const FPBPathDrawData& InDrawData) const
 {
