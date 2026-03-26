@@ -37,7 +37,7 @@ public:
 
 public:
     // 이 NPC에 할당된 대화 데이터 에셋
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Dialogue")
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Dialogue")
     TObjectPtr<UDialogueData> DialogueDataAsset;
 
 private:

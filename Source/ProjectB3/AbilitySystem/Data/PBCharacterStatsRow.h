@@ -38,4 +38,8 @@ struct FPBCharacterStatsRow : public FTableRowBase
 	// 기본 방어력
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Secondary")
 	float BaseArmorClass = 10.f;
+
+	// 기본 최대 이동력
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Secondary")
+	float MaxMovement = 6.f;
 };

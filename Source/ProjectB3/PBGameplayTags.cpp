@@ -100,6 +100,7 @@ namespace PBGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Attribute_Intelligence, "SetByCaller.Attribute.Intelligence", "지능 초기값");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Attribute_MaxHP, "SetByCaller.Attribute.MaxHP", "기본 최대 체력");
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Attribute_ArmorClass, "SetByCaller.Attribute.ArmorClass", "기본 방어력");
+	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Attribute_MaxMovement, "SetByCaller.Attribute.MaxMovement", "기본 최대 이동력");
 
 	// SetByCaller 데미지 태그
 	UE_DEFINE_GAMEPLAY_TAG_COMMENT(SetByCaller_Damage_DiceRoll, "SetByCaller.Damage.DiceRoll", "무기 데미지 주사위 결과 (치명타 포함)");

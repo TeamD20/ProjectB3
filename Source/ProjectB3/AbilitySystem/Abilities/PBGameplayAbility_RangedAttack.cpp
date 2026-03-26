@@ -140,10 +140,7 @@ void UPBGameplayAbility_RangedAttack::OnProjectileResolved(AActor* HitActor)
 {
 	ResolvedCount++;
 	
-	if (IsValid(HitActor))
-	{
-		OnProjectileHit(HitActor);
-	}
+	OnProjectileHit(HitActor);
 	
 	if (ResolvedCount >= ProjectileCount)
 	{

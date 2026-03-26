@@ -11,6 +11,13 @@
 UPBCharacterPreviewComponent::UPBCharacterPreviewComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
+	PreviewActorClass = APBCharacterPreviewActor::StaticClass();
+	
+	static ConstructorHelpers::FClassFinder<APBCharacterPreviewActor> ClassFinder(TEXT("/Game/0_BP/Characters/BP_PreviewActor.BP_PreviewActor_C"));
+	if (ClassFinder.Succeeded())
+	{
+		PreviewActorClass = ClassFinder.Class;
+	}
 }
 
 void UPBCharacterPreviewComponent::BeginPlay()
@@ -64,7 +71,7 @@ void UPBCharacterPreviewComponent::SpawnPreviewActor()
 
 	// 기본 APBCharacterPreviewActor를 직접 스폰 — 별도 BP 파생 클래스 불필요
 	PreviewActor = GetWorld()->SpawnActor<APBCharacterPreviewActor>(
-		APBCharacterPreviewActor::StaticClass(),
+		PreviewActorClass,
 		SpawnLocation,
 		SpawnRotation,
 		SpawnParams
@@ -79,10 +86,6 @@ void UPBCharacterPreviewComponent::SpawnPreviewActor()
 	FPBPreviewActorConfig ActorConfig;
 	ActorConfig.RenderTargetWidth    = RenderTargetWidth;
 	ActorConfig.RenderTargetHeight   = RenderTargetHeight;
-	ActorConfig.CaptureOffset        = CaptureOffset;
-	ActorConfig.CaptureRotation      = CaptureRotation;
-	ActorConfig.PreviewLightIntensity = PreviewLightIntensity;
-	ActorConfig.PreviewLightRotation  = PreviewLightRotation;
 	ActorConfig.PreviewIdleSequence   = PreviewIdleSequence;
 	PreviewActor->ApplyConfig(ActorConfig);
 

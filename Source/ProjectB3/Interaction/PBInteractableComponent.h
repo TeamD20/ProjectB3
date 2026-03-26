@@ -44,9 +44,12 @@ public:
 
 public:
 	// 이 컴포넌트에 등록된 상호작용 행동 목록
-	UPROPERTY(EditDefaultsOnly, Instanced, BlueprintReadOnly, Category = "Interaction")
+	UPROPERTY(EditAnywhere, Instanced, BlueprintReadOnly, Category = "Interaction")
 	TArray<TObjectPtr<UPBInteractionAction>> InteractionActions;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")
+	FText FallbackDisplayName;
+	
 private:
 	// 현재 포커스 상태 여부
 	bool bIsFocused = false;

@@ -50,30 +50,17 @@ private:
 	void HandleCharacterEquipmentChanged(const FGameplayTag& SlotTag);
 
 protected:
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Preview")
+	TSubclassOf<APBCharacterPreviewActor> PreviewActorClass;
+	
 	// 렌더 타겟 가로 해상도
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Preview", meta = (AllowPrivateAccess = "true", ClampMin = "64"))
-	int32 RenderTargetWidth = 210;
+	int32 RenderTargetWidth = 270;
 
 	// 렌더 타겟 세로 해상도
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Preview", meta = (AllowPrivateAccess = "true", ClampMin = "64"))
-	int32 RenderTargetHeight = 280;
-
-	// BaseMeshComp 기준 SceneCapture 상대 위치 오프셋
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Preview", meta = (AllowPrivateAccess = "true"))
-	FVector CaptureOffset = FVector(120.0f, 0.0f, 90.0f);
-
-	// BaseMeshComp 기준 SceneCapture 상대 회전
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Preview", meta = (AllowPrivateAccess = "true"))
-	FRotator CaptureRotation = FRotator(0.0f, 180.0f, 0.0f);
-
-	// 전용 조명 강도
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Preview", meta = (AllowPrivateAccess = "true"))
-	float PreviewLightIntensity = 3.0f;
-
-	// 전용 조명 방향 (액터 로컬 기준)
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Preview", meta = (AllowPrivateAccess = "true"))
-	FRotator PreviewLightRotation = FRotator(-45.0f, 45.0f, 0.0f);
-
+	int32 RenderTargetHeight = 360;
+	
 	// 프리뷰 전용 Idle 애니메이션 시퀀스 (nullptr 시 T-Pose)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Preview", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UAnimSequence> PreviewIdleSequence;
