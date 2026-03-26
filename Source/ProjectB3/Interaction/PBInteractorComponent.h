@@ -40,6 +40,10 @@ public:
 
 	/** 현재 포커스 대상에 상호작용을 위임한다 */
 	void Interact();
+	
+	/** 지정 타겟 액터로 상호작용 시도 */
+	UFUNCTION(BlueprintCallable, Category = "Interaction")
+	void InteractTarget(AActor* TargetActor);
 
 	/** 현재 포커스 대상 반환 */
 	UPBInteractableComponent* GetFocusedComponent() const { return FocusedComponent; }

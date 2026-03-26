@@ -34,6 +34,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Party")
 	TArray<TSubclassOf<APBCharacterBase>> DefaultPartyMemberClasses;
 
+	// 전투 개시 시 재생될 사운드
+	UPROPERTY(EditDefaultsOnly, Category = "Sound")
+	TObjectPtr<USoundBase> CombatStartSound;
+
 protected:
 	// 파티 캐릭터 스폰 시 캐릭터 간 간격
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Party")
