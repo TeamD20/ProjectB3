@@ -200,6 +200,10 @@ public:
 	// 게임오버 위젯 클래스
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TSubclassOf<UPBWidgetBase> GameOverWidgetClass;
+
+	// 게임오버 시 재생될 사운드
+	UPROPERTY(EditDefaultsOnly, Category = "Sound")
+	TObjectPtr<USoundBase> GameOverSound;
 	
 	// 커서 위젯 설정
 	UPROPERTY(EditDefaultsOnly, Category = "UI")

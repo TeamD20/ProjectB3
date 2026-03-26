@@ -62,6 +62,14 @@ protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Appearance")
     FLinearColor HoveredTextColor = FLinearColor::Yellow;
 
+    // 호버 시 재생될 사운드
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sound")
+    TObjectPtr<USoundBase> HoverSound;
+
+    // 선택(클릭) 시 재생될 사운드
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sound")
+    TObjectPtr<USoundBase> ClickSound;
+
 private:
     /** 버튼 클릭 시 ViewModel에 선택 인덱스 전달 */
     UFUNCTION()

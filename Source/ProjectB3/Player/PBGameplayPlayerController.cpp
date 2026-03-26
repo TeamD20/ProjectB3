@@ -28,6 +28,7 @@
 #include "Components/MeshComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "TimerManager.h"
+#include "Kismet/GameplayStatics.h"
 #include "Navigation/CrowdFollowingComponent.h"
 
 #include "ProjectB3/Combat/IPBCombatTarget.h"
@@ -474,6 +475,11 @@ void APBGameplayPlayerController::OnGameOver()
 {
 	SetControllerMode(EPBPlayerControllerMode::None);
 	
+	if (IsValid(GameOverSound))
+	{
+		UGameplayStatics::PlaySound2D(this, GameOverSound);
+	}
+
 	if (!IsValid(GameOverWidgetClass))
 	{
 		return;

@@ -79,6 +79,14 @@ protected:
     UPROPERTY(BlueprintReadWrite, Category = "Dice Roll")
     bool bResultShown = false;
 
+    // 대성공 시 재생될 사운드
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sound")
+    TObjectPtr<USoundBase> SuccessSound;
+
+    // 대실패 시 재생될 사운드
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sound")
+    TObjectPtr<USoundBase> FailureSound;
+
 private:
     // 현재 표시 중인 주사위 정보
     FPBDiceRollDisplayInfo CurrentInfo;
