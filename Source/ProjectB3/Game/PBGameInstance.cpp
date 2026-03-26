@@ -4,9 +4,13 @@
 #include "Engine/AssetManager.h"
 #include "PBPrewarmInterface.h"
 #include "PBPrewarmManagerSubsystem.h"
+#include "NiagaraSystem.h"
+#include "Sound/SoundBase.h"
+#include "TimerManager.h"
 #include "ProjectB3/AbilitySystem/Data/PBAbilitySystemRegistry.h"
 #include "ProjectB3/ItemSystem/Data/PBItemDataAsset.h"
 #include "ProjectB3/ItemSystem/Data/PBEquipmentDataAsset.h"
+#include "ProjectB3/PBGameplayTags.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPBGameInstance, Log, All);
 
@@ -14,8 +18,168 @@ DEFINE_LOG_CATEGORY_STATIC(LogPBGameInstance, Log, All);
 void UPBGameInstance::Init()
 {
 	Super::Init();
-	// TODO: 타이틀 -> 게임 전환시 로드?
-	LoadAllRegistries();
+}
+
+void UPBGameInstance::StartPreload(FOnPreloadComplete OnComplete)
+{
+	PreloadCompleteCallback = OnComplete;
+	bPreloadFailed = false;
+	PreloadPendingCount = 0;
+
+	LoadedAssets.Reset();
+	LoadAllItemData();
+
+	// 1) AbilitySetRegistry 비동기 로드
+	if (!AbilitySetRegistry.IsNull())
+	{
+		++PreloadPendingCount;
+		FStreamableManager& Streamable = UAssetManager::Get().GetStreamableManager();
+		RegistryLoadHandle = Streamable.RequestAsyncLoad(
+			AbilitySetRegistry.ToSoftObjectPath(),
+			FStreamableDelegate::CreateUObject(this, &UPBGameInstance::OnRegistryLoaded));
+	}
+
+	// 2) Asset_Bundle_Preload 태그에 해당하는 번들 로드 및 프리웜
+	using namespace PBGameplayTags;
+	
+	TArray<FGameplayTag> PreloadTargets;
+	for (TPair<FGameplayTag, FPBAssetBundle>& KVP : AssetBundles)
+	{
+		if (KVP.Key.MatchesTag(Asset_Bundle_Preload))
+		{
+			PreloadTargets.Add(KVP.Key);
+		}
+	}
+	
+	for (FGameplayTag& PreloadKey : PreloadTargets)
+	{
+		const FPBAssetBundle* PreloadBundle = AssetBundles.Find(PreloadKey);
+		if (PreloadBundle && !PreloadBundle->Assets.IsEmpty())
+		{
+			++PreloadPendingCount;
+
+			FOnBundleLoadComplete BundleSuccess;
+			BundleSuccess.BindDynamic(this, &UPBGameInstance::OnPreloadBundleComplete);
+
+			FOnBundleLoadFailed BundleFailed;
+			BundleFailed.BindDynamic(this, &UPBGameInstance::OnPreloadBundleFailed);
+
+			if (UWorld* World = GetWorld())
+			{
+				World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this,
+					[this, PreloadKey, BundleSuccess, BundleFailed]()
+					{
+						LoadAssetBundle(PreloadKey, BundleSuccess, BundleFailed);
+					}));
+			}
+			else
+			{
+				LoadAssetBundle(PreloadKey, BundleSuccess, BundleFailed);
+			}
+		}	
+	}
+
+	// 로드 대상이 하나도 없으면 즉시 완료
+	if (PreloadPendingCount == 0)
+	{
+		UE_LOG(LogPBGameInstance, Log, TEXT("StartPreload: 프리로드 대상 없음, 즉시 완료"));
+		FOnPreloadComplete CallbackCopy = PreloadCompleteCallback;
+		PreloadCompleteCallback.Unbind();
+
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this,
+				[CallbackCopy]() mutable
+				{
+					CallbackCopy.ExecuteIfBound(true);
+				}));
+		}
+		else
+		{
+			CallbackCopy.ExecuteIfBound(true);
+		}
+	}
+}
+
+void UPBGameInstance::OnRegistryLoaded()
+{
+	RegistryLoadHandle.Reset();
+
+	UPBAbilitySystemRegistry* Registry = AbilitySetRegistry.Get();
+	if (IsValid(Registry))
+	{
+		LoadedAssets.Add(Registry);
+
+		// UI 텍스처 사전 로드 (태그 디스플레이 아이콘 + 어빌리티 아이콘)
+		TArray<FSoftObjectPath> TexturePaths;
+		Registry->CollectUITexturePaths(TexturePaths);
+		for (const FSoftObjectPath& Path : TexturePaths)
+		{
+			if (UObject* LoadedTexture = Path.TryLoad())
+			{
+				LoadedAssets.Add(LoadedTexture);
+			}
+		}
+
+		if (UWorld* World = GetWorld())
+		{
+			if (UPBPrewarmManagerSubsystem* PrewarmManager = World->GetSubsystem<UPBPrewarmManagerSubsystem>())
+			{
+				TArray<UObject*> RootObjects = {Registry};
+				PrewarmManager->ExecutePrewarm(RootObjects);
+			}
+		}
+
+		UE_LOG(LogPBGameInstance, Log, TEXT("StartPreload: AbilitySetRegistry 로드 완료 (UI 텍스처 %d개 사전 로드)"), TexturePaths.Num());
+	}
+	else
+	{
+		UE_LOG(LogPBGameInstance, Warning, TEXT("StartPreload: AbilitySetRegistry 로드 실패"));
+		bPreloadFailed = true;
+	}
+
+	CheckPreloadComplete();
+}
+
+void UPBGameInstance::OnPreloadBundleComplete(const FGameplayTag& BundleTag)
+{
+	UE_LOG(LogPBGameInstance, Log, TEXT("StartPreload: 프리로드 번들 [%s] 로드 성공"), *BundleTag.ToString());
+	CheckPreloadComplete();
+}
+
+void UPBGameInstance::OnPreloadBundleFailed(const FGameplayTag& BundleTag, const FString& Reason)
+{
+	UE_LOG(LogPBGameInstance, Warning, TEXT("StartPreload: 프리로드 번들 [%s] 로드 실패 — %s"), *BundleTag.ToString(), *Reason);
+	bPreloadFailed = true;
+	CheckPreloadComplete();
+}
+
+void UPBGameInstance::CheckPreloadComplete()
+{
+	--PreloadPendingCount;
+	if (PreloadPendingCount <= 0)
+	{
+		PreloadPendingCount = 0;
+		const bool bSuccess = !bPreloadFailed;
+		FOnPreloadComplete CallbackCopy = PreloadCompleteCallback;
+		PreloadCompleteCallback.Unbind();
+
+		UE_LOG(LogPBGameInstance, Log, TEXT("StartPreload: 전체 프리로드 완료 (성공=%s)"),
+			bSuccess ? TEXT("true") : TEXT("false"));
+
+		if (UWorld* World = GetWorld())
+		{
+			World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this,
+				[CallbackCopy, bSuccess]() mutable
+				{
+					CallbackCopy.ExecuteIfBound(bSuccess);
+				}));
+		}
+		else
+		{
+			CallbackCopy.ExecuteIfBound(bSuccess);
+		}
+	}
 }
 
 void UPBGameInstance::LoadAllRegistries()
@@ -51,6 +215,11 @@ const UPBAbilitySystemRegistry* UPBGameInstance::GetAbilitySystemRegistry(const 
 	{
 		return nullptr;
 	}
+	
+	if (!GI->AbilitySetRegistry.IsValid())
+	{
+		return GI->AbilitySetRegistry.LoadSynchronous();
+	}
 
 	return GI->AbilitySetRegistry.Get();
 }
@@ -73,13 +242,13 @@ const UPBAbilitySetData* UPBGameInstance::FindAbilitySetByTag(const UObject* Wor
 	return nullptr;
 }
 
-void UPBGameInstance::LoadAssetBundle(const FGameplayTag& BundleTag, FOnBundleLoadComplete OnComplete)
+void UPBGameInstance::LoadAssetBundle(const FGameplayTag& BundleTag, FOnBundleLoadComplete OnComplete, FOnBundleLoadFailed OnFailed)
 {
 	const FPBAssetBundle* Bundle = AssetBundles.Find(BundleTag);
 	if (!Bundle)
 	{
 		UE_LOG(LogPBGameInstance, Warning, TEXT("LoadAssetBundle: 번들 태그 [%s]에 매핑된 번들이 없습니다."), *BundleTag.ToString());
-		OnComplete.ExecuteIfBound(BundleTag);
+		OnFailed.ExecuteIfBound(BundleTag, TEXT("번들 태그에 매핑된 번들이 없습니다."));
 		return;
 	}
 
@@ -107,26 +276,32 @@ void UPBGameInstance::LoadAssetBundle(const FGameplayTag& BundleTag, FOnBundleLo
 	FStreamableManager& Streamable = UAssetManager::Get().GetStreamableManager();
 	TSharedPtr<FStreamableHandle> Handle = Streamable.RequestAsyncLoad(
 		PathsToLoad,
-		FStreamableDelegate::CreateUObject(this, &UPBGameInstance::OnBundleAssetsLoaded, BundleTag, OnComplete));
+		FStreamableDelegate::CreateUObject(this, &UPBGameInstance::OnBundleAssetsLoaded, BundleTag, OnComplete, OnFailed));
 
 	if (Handle.IsValid())
 	{
 		PendingBundleHandles.Add(BundleTag, Handle);
 	}
+	else
+	{
+		UE_LOG(LogPBGameInstance, Warning, TEXT("LoadAssetBundle: 번들 [%s] 비동기 로드 핸들 생성 실패"), *BundleTag.ToString());
+		OnFailed.ExecuteIfBound(BundleTag, TEXT("비동기 로드 핸들 생성 실패"));
+	}
 }
 
-void UPBGameInstance::OnBundleAssetsLoaded(FGameplayTag BundleTag, FOnBundleLoadComplete OnComplete)
+void UPBGameInstance::OnBundleAssetsLoaded(FGameplayTag BundleTag, FOnBundleLoadComplete OnComplete, FOnBundleLoadFailed OnFailed)
 {
 	PendingBundleHandles.Remove(BundleTag);
 
 	const FPBAssetBundle* Bundle = AssetBundles.Find(BundleTag);
 	if (!Bundle)
 	{
-		OnComplete.ExecuteIfBound(BundleTag);
+		OnFailed.ExecuteIfBound(BundleTag, TEXT("로드 완료 후 번들 데이터를 찾을 수 없습니다."));
 		return;
 	}
 
 	// 로드된 에셋 보관 및 프리웜 대상 수집
+	int32 FailedCount = 0;
 	TArray<UObject*> PrewarmRoots;
 	for (const TSoftObjectPtr<UObject>& Soft : Bundle->Assets)
 	{
@@ -135,11 +310,19 @@ void UPBGameInstance::OnBundleAssetsLoaded(FGameplayTag BundleTag, FOnBundleLoad
 		{
 			LoadedAssets.Add(Loaded);
 
-			// 프리웜 인터페이스 구현 여부 검사
-			if (Loaded->GetClass()->ImplementsInterface(UPBPrewarmInterface::StaticClass()))
+			// 프리웜 인터페이스 구현 객체 또는 Niagara/Sound 에셋 자체를 루트로 수집
+			if (Loaded->GetClass()->ImplementsInterface(UPBPrewarmInterface::StaticClass())
+				|| Cast<UNiagaraSystem>(Loaded)
+				|| Cast<USoundBase>(Loaded))
 			{
 				PrewarmRoots.Add(Loaded);
 			}
+		}
+		else
+		{
+			++FailedCount;
+			UE_LOG(LogPBGameInstance, Warning, TEXT("LoadAssetBundle: 번들 [%s] 에셋 로드 실패 — %s"),
+				*BundleTag.ToString(), *Soft.ToSoftObjectPath().ToString());
 		}
 	}
 
@@ -155,10 +338,17 @@ void UPBGameInstance::OnBundleAssetsLoaded(FGameplayTag BundleTag, FOnBundleLoad
 		}
 	}
 
-	UE_LOG(LogPBGameInstance, Log, TEXT("LoadAssetBundle: 번들 [%s] 로드 완료 (%d개 에셋, %d개 프리웜)"),
-		*BundleTag.ToString(), Bundle->Assets.Num(), PrewarmRoots.Num());
+	UE_LOG(LogPBGameInstance, Log, TEXT("LoadAssetBundle: 번들 [%s] 로드 완료 (%d개 에셋, %d개 프리웜, %d개 실패)"),
+		*BundleTag.ToString(), Bundle->Assets.Num(), PrewarmRoots.Num(), FailedCount);
 
-	OnComplete.ExecuteIfBound(BundleTag);
+	if (FailedCount > 0)
+	{
+		OnFailed.ExecuteIfBound(BundleTag, FString::Printf(TEXT("%d개 에셋 로드 실패"), FailedCount));
+	}
+	else
+	{
+		OnComplete.ExecuteIfBound(BundleTag);
+	}
 }
 
 void UPBGameInstance::LoadAllItemData()

@@ -7,6 +7,11 @@
 #include "ProjectB3/ItemSystem/PBEquipmentActor.h"
 #include "ProjectB3/PBGameplayTags.h"
 
+void UPBGameplayAbility_RangedAttack::NativeCollectPrewarmTargets(FPBPrewarmTargets& InOutTargets)
+{
+	InOutTargets.Children.AddUnique(ProjectileClass);
+}
+
 void UPBGameplayAbility_RangedAttack::FireProjectile(const FGameplayEffectSpecHandle& DamageSpecHandle, const FVector& TargetLocation, AActor* TargetActor)
 {
 	// 시전자 캐릭터 획득

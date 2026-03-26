@@ -129,4 +129,8 @@ namespace PBGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Combat_Buff_AC);  // 방어도 강화 버프
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Combat_Buff_ATK); // 명중률 강화 버프
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(GameplayCue_Combat_Buff_DMG); // 데미지 강화 버프
+	
+	// 에셋 태그
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Asset_Bundle_Preload);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Asset_Bundle_Preload_Textures);
 }

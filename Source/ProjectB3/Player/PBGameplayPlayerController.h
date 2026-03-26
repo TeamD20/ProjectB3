@@ -108,6 +108,10 @@ protected:
 
 	
 	/*~ APBGameplayPlayerController Interface ~*/
+
+	// 암전 상태를 유지한 뒤 페이드 인 처리
+	void FadeInFromBlack();
+
 	/*~ Camera Cutout ~*/
 	// 카메라에서 파티원들을 향해 방해물을 검사하여 투명화 처리한다.
 	void UpdateCameraCutout();
@@ -205,6 +209,14 @@ public:
 	/*~ FX Settings ~*/
 	UPROPERTY(EditAnywhere, Category = "Input")
 	UNiagaraSystem* CursorVFX;
+
+	// 맵 진입 시 페이드 인 소요 시간 (초)
+	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	float FadeInDuration = 1.0f;
+
+	// 맵 진입 후 페이드 인 시작 전 암전 유지 시간 (초)
+	UPROPERTY(EditDefaultsOnly, Category = "Camera")
+	float FadeInInitialDelay = 2.5f;
 
 	// 투명화 트레이스를 수행할 주기 (초)
 	UPROPERTY(EditDefaultsOnly, Category = "Camera Cutout")

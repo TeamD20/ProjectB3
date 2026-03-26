@@ -46,8 +46,11 @@ public:
 	// 태그에 해당하는 표시 행 반환 (없으면 nullptr)
 	const FPBGameplayTagDisplayRow* FindTagDisplayRow(const FGameplayTag& Tag) const;
 
+	// UI 텍스처 소프트 참조 수집 (태그 디스플레이 아이콘 + 어빌리티 아이콘)
+	void CollectUITexturePaths(TArray<FSoftObjectPath>& OutPaths) const;
+
 	/*~ IPBPrewarmInterface ~*/
-	virtual void CollectPrewarmChildren_Implementation(TArray<UObject*>& OutChildren) override;
+	virtual void NativeCollectPrewarmTargets(FPBPrewarmTargets& InOutTargets) override;
 
 protected:
 	// 공용 어빌리티 세트

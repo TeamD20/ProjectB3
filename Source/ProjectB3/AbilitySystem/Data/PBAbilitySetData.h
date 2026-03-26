@@ -30,5 +30,5 @@ public:
 	FPBAbilityGrantedHandles GrantToAbilitySystem(UAbilitySystemComponent* ASC, int32 CharacterLevel = 1) const;
 
 	/*~ IPBPrewarmInterface ~*/
-	virtual void CollectPrewarmChildren_Implementation(TArray<UObject*>& OutChildren) override;
+	virtual void NativeCollectPrewarmTargets(FPBPrewarmTargets& InOutTargets) override;
 };

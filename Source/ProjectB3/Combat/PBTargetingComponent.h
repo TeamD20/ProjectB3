@@ -91,7 +91,7 @@ public:
 	int32 NumSelectedTargets() const {return SelectedTargets.Num();}
 
 	/*~ IPBPrewarmInterface ~*/
-	virtual void CollectPrewarmNiagaraAssets_Implementation(TArray<TSoftObjectPtr<UNiagaraSystem>>& OutAssets) override;
+	virtual void NativeCollectPrewarmTargets(FPBPrewarmTargets& InOutTargets) override;
 
 private:
 	// SelectedTargets를 FPBAbilityTargetData로 변환하는 내부 헬퍼

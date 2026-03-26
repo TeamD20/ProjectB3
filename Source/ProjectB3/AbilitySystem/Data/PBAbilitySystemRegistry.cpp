@@ -166,12 +166,12 @@ FText UPBAbilitySystemRegistry::GetTagDisplayName(const FGameplayTag& Tag) const
 	return FText::GetEmpty();
 }
 
-void UPBAbilitySystemRegistry::CollectPrewarmChildren_Implementation(TArray<UObject*>& OutChildren)
+void UPBAbilitySystemRegistry::NativeCollectPrewarmTargets(FPBPrewarmTargets& InOutTargets)
 {
 	// 공용 어빌리티 세트
 	if (UPBAbilitySetData* CommonSet = CommonAbilitySet.LoadSynchronous())
 	{
-		OutChildren.Add(CommonSet);
+		InOutTargets.Children.AddUnique(CommonSet);
 	}
 
 	// 태그별 어빌리티 세트
@@ -181,8 +181,58 @@ void UPBAbilitySystemRegistry::CollectPrewarmChildren_Implementation(TArray<UObj
 		{
 			if (UPBAbilitySetData* SetData = Pair.Value.LoadSynchronous())
 			{
-				OutChildren.Add(SetData);
+				InOutTargets.Children.AddUnique(SetData);
 			}
+		}
+	}
+}
+
+void UPBAbilitySystemRegistry::CollectUITexturePaths(TArray<FSoftObjectPath>& OutPaths) const
+{
+	// 1) GameplayTagDisplayTable의 Icon
+	if (UDataTable* DisplayTable = GameplayTagDisplayTable.LoadSynchronous())
+	{
+		TArray<FPBGameplayTagDisplayRow*> Rows;
+		DisplayTable->GetAllRows<FPBGameplayTagDisplayRow>(TEXT("CollectUITexturePaths"), Rows);
+		for (const FPBGameplayTagDisplayRow* Row : Rows)
+		{
+			if (Row && !Row->Icon.IsNull())
+			{
+				OutPaths.AddUnique(Row->Icon.ToSoftObjectPath());
+			}
+		}
+	}
+
+	// 2) 어빌리티 아이콘 (CommonAbilitySet + AbilitySetMap)
+	auto CollectFromAbilitySet = [&OutPaths](const UPBAbilitySetData* SetData)
+	{
+		if (!IsValid(SetData))
+		{
+			return;
+		}
+		for (const FPBAbilityGrantEntry& Entry : SetData->Abilities)
+		{
+			if (!Entry.AbilityClass)
+			{
+				continue;
+			}
+			if (const UPBGameplayAbility* CDO = Cast<UPBGameplayAbility>(Entry.AbilityClass.GetDefaultObject()))
+			{
+				const TSoftObjectPtr<UTexture2D> Icon = CDO->GetAbilityIcon();
+				if (!Icon.IsNull())
+				{
+					OutPaths.AddUnique(Icon.ToSoftObjectPath());
+				}
+			}
+		}
+	};
+
+	CollectFromAbilitySet(CommonAbilitySet.LoadSynchronous());
+	for (const auto& KVP : AbilitySetMap)
+	{
+		if (!KVP.Value.IsNull())
+		{
+			CollectFromAbilitySet(KVP.Value.LoadSynchronous());
 		}
 	}
 }

@@ -21,21 +21,20 @@ namespace PBPrewarmConstants
 
 void UPBPrewarmManagerSubsystem::ExecutePrewarm(const TArray<UObject*>& RootObjects)
 {
-	TSet<UObject*> Visited;
-	TArray<TSoftObjectPtr<UNiagaraSystem>> NiagaraAssets;
-	TArray<TSoftObjectPtr<USoundBase>> SoundAssets;
+	TSet<const UObject*> Visited;
+	FPBPrewarmTargets PrewarmTargets;
 
 	// 1. 재귀 수집
 	for (UObject* Root : RootObjects)
 	{
-		CollectFromObject(Root, Visited, NiagaraAssets, SoundAssets);
+		CollectFromObject(Root, Visited, PrewarmTargets);
 	}
 
 	UE_LOG(LogPBPrewarm, Display, TEXT("프리웜 수집 완료: Niagara=%d, Sound=%d"),
-		NiagaraAssets.Num(), SoundAssets.Num());
+		PrewarmTargets.NiagaraAssets.Num(), PrewarmTargets.SoundAssets.Num());
 
 	// 2. Niagara 프리웜
-	for (const TSoftObjectPtr<UNiagaraSystem>& Soft : NiagaraAssets)
+	for (const TSoftObjectPtr<UNiagaraSystem>& Soft : PrewarmTargets.NiagaraAssets)
 	{
 		if (UNiagaraSystem* NS = Soft.LoadSynchronous())
 		{
@@ -48,7 +47,7 @@ void UPBPrewarmManagerSubsystem::ExecutePrewarm(const TArray<UObject*>& RootObje
 	}
 
 	// 3. Sound 프리웜
-	for (const TSoftObjectPtr<USoundBase>& Soft : SoundAssets)
+	for (const TSoftObjectPtr<USoundBase>& Soft : PrewarmTargets.SoundAssets)
 	{
 		if (USoundBase* Sound = Soft.LoadSynchronous())
 		{
@@ -71,31 +70,110 @@ void UPBPrewarmManagerSubsystem::ResetPrewarmHistory()
 
 void UPBPrewarmManagerSubsystem::CollectFromObject(
 	UObject* Object,
-	TSet<UObject*>& Visited,
-	TArray<TSoftObjectPtr<UNiagaraSystem>>& OutNiagaraAssets,
-	TArray<TSoftObjectPtr<USoundBase>>& OutSoundAssets)
+	TSet<const UObject*>& Visited,
+	FPBPrewarmTargets& OutTargets)
 {
-	if (!IsValid(Object) || Visited.Contains(Object))
-	{
-		return;
-	}
-	Visited.Add(Object);
-
-	if (!Object->GetClass()->ImplementsInterface(UPBPrewarmInterface::StaticClass()))
+	if (!IsValid(Object))
 	{
 		return;
 	}
 
-	// 타입별 Collect 호출 (BlueprintNativeEvent → BP 오버라이드 자동 실행)
-	IPBPrewarmInterface::Execute_CollectPrewarmNiagaraAssets(Object, OutNiagaraAssets);
-	IPBPrewarmInterface::Execute_CollectPrewarmSoundAssets(Object, OutSoundAssets);
+	UObject* TargetObject = Object;
+	if (UClass* TargetClass = Cast<UClass>(Object))
+	{
+		if (Visited.Contains(TargetClass))
+		{
+			return;
+		}
+		Visited.Add(TargetClass);
+
+		TargetObject = TargetClass->GetDefaultObject();
+		if (!IsValid(TargetObject) || Visited.Contains(TargetObject))
+		{
+			return;
+		}
+		Visited.Add(TargetObject);
+	}
+	else
+	{
+		if (Visited.Contains(Object))
+		{
+			return;
+		}
+		Visited.Add(Object);
+	}
+
+	if (UNiagaraSystem* NiagaraSystem = Cast<UNiagaraSystem>(TargetObject))
+	{
+		OutTargets.NiagaraAssets.AddUnique(TSoftObjectPtr<UNiagaraSystem>(NiagaraSystem));
+		return;
+	}
+
+	if (USoundBase* Sound = Cast<USoundBase>(TargetObject))
+	{
+		OutTargets.SoundAssets.AddUnique(TSoftObjectPtr<USoundBase>(Sound));
+		return;
+	}
+
+	if (!TargetObject->GetClass()->ImplementsInterface(UPBPrewarmInterface::StaticClass()))
+	{
+		return;
+	}
+
+	// C++ 구현 수집
+	FPBPrewarmTargets CollectedTargets;
+	if (IPBPrewarmInterface* PrewarmInterface = Cast<IPBPrewarmInterface>(TargetObject))
+	{
+		PrewarmInterface->NativeCollectPrewarmTargets(CollectedTargets);
+	}
+
+	// BP 구현 수집 (In -> Return)
+	FPBPrewarmTargets BlueprintCollectedTargets = IPBPrewarmInterface::Execute_CollectPrewarmTargets(TargetObject, CollectedTargets);
+
+	for (const TSoftObjectPtr<UNiagaraSystem>& Asset : BlueprintCollectedTargets.NiagaraAssets)
+	{
+		if (!Asset.IsNull())
+		{
+			CollectedTargets.NiagaraAssets.AddUnique(Asset);
+		}
+	}
+
+	for (const TSoftObjectPtr<USoundBase>& Asset : BlueprintCollectedTargets.SoundAssets)
+	{
+		if (!Asset.IsNull())
+		{
+			CollectedTargets.SoundAssets.AddUnique(Asset);
+		}
+	}
+
+	for (UObject* Child : BlueprintCollectedTargets.Children)
+	{
+		if (IsValid(Child))
+		{
+			CollectedTargets.Children.AddUnique(Child);
+		}
+	}
+
+	for (const TSoftObjectPtr<UNiagaraSystem>& Asset : CollectedTargets.NiagaraAssets)
+	{
+		if (!Asset.IsNull())
+		{
+			OutTargets.NiagaraAssets.AddUnique(Asset);
+		}
+	}
+
+	for (const TSoftObjectPtr<USoundBase>& Asset : CollectedTargets.SoundAssets)
+	{
+		if (!Asset.IsNull())
+		{
+			OutTargets.SoundAssets.AddUnique(Asset);
+		}
+	}
 
 	// 자식 재귀 수집
-	TArray<UObject*> Children;
-	IPBPrewarmInterface::Execute_CollectPrewarmChildren(Object, Children);
-	for (UObject* Child : Children)
+	for (UObject* Child : CollectedTargets.Children)
 	{
-		CollectFromObject(Child, Visited, OutNiagaraAssets, OutSoundAssets);
+		CollectFromObject(Child, Visited, OutTargets);
 	}
 }
 
@@ -131,7 +209,16 @@ void UPBPrewarmManagerSubsystem::PrewarmNiagaraAsset(UNiagaraSystem* System)
 
 	if (IsValid(Comp))
 	{
-		Comp->Deactivate();
+		// Loop VFX 대비: 다음 프레임에 비활성화 후 파괴
+		TWeakObjectPtr<UNiagaraComponent> WeakComp = Comp;
+		World->GetTimerManager().SetTimerForNextTick([WeakComp]()
+		{
+			if (WeakComp.IsValid())
+			{
+				WeakComp->Deactivate();
+				WeakComp->DestroyComponent();
+			}
+		});
 	}
 
 	PrewarmedAssets.Add(AssetPath);
