@@ -595,10 +595,17 @@ void UPBCombatManagerSubsystem::BeginTurnForCurrentEntry()
 			if (IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(Member))
 			{
 				Participant->OnProgressTurn();
-				
+			}
+		}
+		
+		for (AActor* Member : Group)
+		{
+			if (IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(Member))
+			{
 				if (!Participant->IsIncapacitated())
 				{
 					bAllIncapacitated = false;
+					break;
 				}
 			}
 		}
@@ -719,7 +726,7 @@ bool UPBCombatManagerSubsystem::CheckCombatEndCondition() const
 			continue;
 		}
 
-		if (!Participant->IsIncapacitated())
+		if (!Participant->IsDead())
 		{
 			FGameplayTag Faction = Participant->GetFactionTag();
 			if (Faction.IsValid())
