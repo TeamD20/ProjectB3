@@ -132,4 +132,5 @@ namespace PBGameplayTags
 	
 	// 에셋 태그
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Asset_Bundle_Preload);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(Asset_Bundle_Preload_Textures);
 }

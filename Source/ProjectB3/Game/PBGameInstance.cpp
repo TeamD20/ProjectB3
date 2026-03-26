@@ -41,18 +41,42 @@ void UPBGameInstance::StartPreload(FOnPreloadComplete OnComplete)
 
 	// 2) Asset_Bundle_Preload 태그에 해당하는 번들 로드 및 프리웜
 	using namespace PBGameplayTags;
-	const FPBAssetBundle* PreloadBundle = AssetBundles.Find(Asset_Bundle_Preload);
-	if (PreloadBundle && !PreloadBundle->Assets.IsEmpty())
+	
+	TArray<FGameplayTag> PreloadTargets;
+	for (TPair<FGameplayTag, FPBAssetBundle>& KVP : AssetBundles)
 	{
-		++PreloadPendingCount;
+		if (KVP.Key.MatchesTag(Asset_Bundle_Preload))
+		{
+			PreloadTargets.Add(KVP.Key);
+		}
+	}
+	
+	for (FGameplayTag& PreloadKey : PreloadTargets)
+	{
+		const FPBAssetBundle* PreloadBundle = AssetBundles.Find(PreloadKey);
+		if (PreloadBundle && !PreloadBundle->Assets.IsEmpty())
+		{
+			++PreloadPendingCount;
 
-		FOnBundleLoadComplete BundleSuccess;
-		BundleSuccess.BindDynamic(this, &UPBGameInstance::OnPreloadBundleComplete);
+			FOnBundleLoadComplete BundleSuccess;
+			BundleSuccess.BindDynamic(this, &UPBGameInstance::OnPreloadBundleComplete);
 
-		FOnBundleLoadFailed BundleFailed;
-		BundleFailed.BindDynamic(this, &UPBGameInstance::OnPreloadBundleFailed);
+			FOnBundleLoadFailed BundleFailed;
+			BundleFailed.BindDynamic(this, &UPBGameInstance::OnPreloadBundleFailed);
 
-		LoadAssetBundle(Asset_Bundle_Preload, BundleSuccess, BundleFailed);
+			if (UWorld* World = GetWorld())
+			{
+				World->GetTimerManager().SetTimerForNextTick(FTimerDelegate::CreateWeakLambda(this,
+					[this, PreloadKey, BundleSuccess, BundleFailed]()
+					{
+						LoadAssetBundle(PreloadKey, BundleSuccess, BundleFailed);
+					}));
+			}
+			else
+			{
+				LoadAssetBundle(PreloadKey, BundleSuccess, BundleFailed);
+			}
+		}	
 	}
 
 	// 로드 대상이 하나도 없으면 즉시 완료
@@ -81,21 +105,32 @@ void UPBGameInstance::OnRegistryLoaded()
 {
 	RegistryLoadHandle.Reset();
 
-	UObject* Loaded = AbilitySetRegistry.Get();
-	if (IsValid(Loaded))
+	UPBAbilitySystemRegistry* Registry = AbilitySetRegistry.Get();
+	if (IsValid(Registry))
 	{
-		LoadedAssets.Add(Loaded);
-		
+		LoadedAssets.Add(Registry);
+
+		// UI 텍스처 사전 로드 (태그 디스플레이 아이콘 + 어빌리티 아이콘)
+		TArray<FSoftObjectPath> TexturePaths;
+		Registry->CollectUITexturePaths(TexturePaths);
+		for (const FSoftObjectPath& Path : TexturePaths)
+		{
+			if (UObject* LoadedTexture = Path.TryLoad())
+			{
+				LoadedAssets.Add(LoadedTexture);
+			}
+		}
+
 		if (UWorld* World = GetWorld())
 		{
 			if (UPBPrewarmManagerSubsystem* PrewarmManager = World->GetSubsystem<UPBPrewarmManagerSubsystem>())
 			{
-				TArray<UObject*> RootObjects = {Loaded};
+				TArray<UObject*> RootObjects = {Registry};
 				PrewarmManager->ExecutePrewarm(RootObjects);
 			}
 		}
-		
-		UE_LOG(LogPBGameInstance, Log, TEXT("StartPreload: AbilitySetRegistry 로드 완료"));
+
+		UE_LOG(LogPBGameInstance, Log, TEXT("StartPreload: AbilitySetRegistry 로드 완료 (UI 텍스처 %d개 사전 로드)"), TexturePaths.Num());
 	}
 	else
 	{

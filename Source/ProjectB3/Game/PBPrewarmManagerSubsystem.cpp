@@ -209,7 +209,16 @@ void UPBPrewarmManagerSubsystem::PrewarmNiagaraAsset(UNiagaraSystem* System)
 
 	if (IsValid(Comp))
 	{
-		Comp->Deactivate();
+		// Loop VFX 대비: 다음 프레임에 비활성화 후 파괴
+		TWeakObjectPtr<UNiagaraComponent> WeakComp = Comp;
+		World->GetTimerManager().SetTimerForNextTick([WeakComp]()
+		{
+			if (WeakComp.IsValid())
+			{
+				WeakComp->Deactivate();
+				WeakComp->DestroyComponent();
+			}
+		});
 	}
 
 	PrewarmedAssets.Add(AssetPath);

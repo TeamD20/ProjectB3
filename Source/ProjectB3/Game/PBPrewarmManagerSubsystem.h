@@ -31,7 +31,7 @@ private:
 	void CollectFromObject(UObject* Object, TSet<const UObject*>& Visited,
 		FPBPrewarmTargets& OutTargets);
 
-	// Niagara 에셋 프리웜 — 월드 밖에서 스폰 후 즉시 비활성화
+	// Niagara 에셋 프리웜 — 월드 밖에서 스폰 후 다음 프레임에 비활성화
 	void PrewarmNiagaraAsset(UNiagaraSystem* System);
 
 	// Sound 에셋 프리웜 — 무음 재생으로 메모리 적재
