@@ -82,16 +82,44 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 		}
 	}
 
+	// DiceText: 무기="1d6", 방어구="경갑" 등
+	if (DiceText)
+	{
+		FText FinalDiceText;
+		if (InData.ItemType == EPBItemType::Consumable)
+		{
+			DiceText->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		else if (!InData.DiceText.IsEmpty() && InData.DiceText.ToString() != TEXT("Null"))
+		{
+			FinalDiceText = InData.DiceText;
+		}
+		else if (!FallbackDice.IsEmpty() && FallbackDice.ToString() != TEXT("Null"))
+		{
+			FinalDiceText = FallbackDice;
+		}
+
+		if (!FinalDiceText.IsEmpty())
+		{
+			DiceText->SetText(FinalDiceText);
+			DiceText->SetColorAndOpacity(FSlateColor(FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+			DiceText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+		}
+		else
+		{
+			DiceText->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+
 	// DiceIcon: 무기=주사위, 등 기타
 	if (DiceIcon)
 	{
-		if (InData.ItemType == EPBItemType::Consumable)
+		if (InData.ItemType == EPBItemType::Consumable || (DiceText && DiceText->GetVisibility() == ESlateVisibility::Collapsed))
 		{
 			DiceIcon->SetVisibility(ESlateVisibility::Collapsed);
 		}
 		else
 		{
-			// 동적 데이터가 없더라도 툴팁 위젯의 FallbackDiceIcon 속성에 할당해둔 이미지가 나오도록 복구
 			const TSoftObjectPtr<UTexture2D>& ActiveDiceIcon = !InData.DiceIcon.IsNull() ? InData.DiceIcon : FallbackDiceIcon;
 			if (!ActiveDiceIcon.IsNull())
 			{
@@ -100,41 +128,15 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 			}
 			else
 			{
-				DiceIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+				DiceIcon->SetVisibility(ESlateVisibility::Collapsed); // 텍스트만 있고 아이콘 비어있으면 숨김
 			}
-		}
-	}
-
-	// DiceText: 무기="1d6", 방어구="경갑" 등
-	if (DiceText)
-	{
-		if (InData.ItemType == EPBItemType::Consumable)
-		{
-			DiceText->SetVisibility(ESlateVisibility::Collapsed);
-		}
-		else if (!InData.DiceText.IsEmpty())
-		{
-			DiceText->SetText(InData.DiceText);
-			// FSlateColor 구조체 초기화 불량이나 런타임 캐시 오류로 인한 마젠타 버그를 방지하기 위해 가장 안전한 렌더러 컬러로 강제 주입
-			DiceText->SetColorAndOpacity(FSlateColor(FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-			DiceText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
-		}
-		else if (!FallbackDice.IsEmpty())
-		{
-			DiceText->SetText(FallbackDice);
-			DiceText->SetColorAndOpacity(FSlateColor(FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-			DiceText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
-		}
-		else
-		{
-			DiceText->SetVisibility(ESlateVisibility::Collapsed);
 		}
 	}
 
 	// ModifierText: 무기="(+3)", 방어구=은신 경고, 소모품/기타=빈값→숨김
 	if (ModifierText)
 	{
-		if (!InData.ModifierText.IsEmpty())
+		if (!InData.ModifierText.IsEmpty() && InData.ModifierText.ToString() != TEXT("Null"))
 		{
 			ModifierText->SetText(InData.ModifierText);
 			ModifierText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
@@ -145,37 +147,49 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 		}
 	}
 
-	// DamageTypeIcon: 무기에서만 사용, 나머지는 빈값→숨김
-	if (DamageTypeIcon)
-	{
-		const TSoftObjectPtr<UTexture2D>& ActiveDamageTypeIcon = !InData.DamageTypeIcon.IsNull() ? InData.DamageTypeIcon : FallbackDamageTypeIcon;
-		if (!ActiveDamageTypeIcon.IsNull())
-		{
-			DamageTypeIcon->SetBrushFromSoftTexture(ActiveDamageTypeIcon);
-			DamageTypeIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
-		}
-		else
-		{
-			DamageTypeIcon->SetVisibility(ESlateVisibility::Collapsed);
-		}
-	}
-
 	// DamageTypeText: 무기에서만 사용, 나머지는 빈값→숨김
 	if (DamageTypeText)
 	{
-		if (!InData.DamageTypeText.IsEmpty())
+		FText FinalDamageTypeText;
+		if (!InData.DamageTypeText.IsEmpty() && InData.DamageTypeText.ToString() != TEXT("Null"))
 		{
-			DamageTypeText->SetText(InData.DamageTypeText);
-			DamageTypeText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+			FinalDamageTypeText = InData.DamageTypeText;
 		}
-		else if (!FallbackDamageType.IsEmpty())
+		else if (!FallbackDamageType.IsEmpty() && FallbackDamageType.ToString() != TEXT("Null"))
 		{
-			DamageTypeText->SetText(FallbackDamageType);
+			FinalDamageTypeText = FallbackDamageType;
+		}
+
+		if (!FinalDamageTypeText.IsEmpty())
+		{
+			DamageTypeText->SetText(FinalDamageTypeText);
 			DamageTypeText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 		}
 		else
 		{
 			DamageTypeText->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+
+	// DamageTypeIcon: 무기에서만 사용, 나머지는 빈값→숨김
+	if (DamageTypeIcon)
+	{
+		if (DamageTypeText && DamageTypeText->GetVisibility() == ESlateVisibility::Collapsed)
+		{
+			DamageTypeIcon->SetVisibility(ESlateVisibility::Collapsed);
+		}
+		else
+		{
+			const TSoftObjectPtr<UTexture2D>& ActiveDamageTypeIcon = !InData.DamageTypeIcon.IsNull() ? InData.DamageTypeIcon : FallbackDamageTypeIcon;
+			if (!ActiveDamageTypeIcon.IsNull())
+			{
+				DamageTypeIcon->SetBrushFromSoftTexture(ActiveDamageTypeIcon);
+				DamageTypeIcon->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+			}
+			else
+			{
+				DamageTypeIcon->SetVisibility(ESlateVisibility::Collapsed);
+			}
 		}
 	}
 
@@ -238,14 +252,22 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 		}
 		else
 		{
-			// 데이터가 없어도 기본 Fallback 텍스트로 박스를 유지하려면, Fallback 텍스트 자체가 비어있지 않은지 판단함.
-			bool bDisplayAbility = InData.bHasAbility || !FallbackAbilityDesc.IsEmpty();
-			if (bDisplayAbility)
+			FText FinalAbilityText;
+			if (InData.bHasAbility && !InData.AbilityDescription.IsEmpty() && InData.AbilityDescription.ToString() != TEXT("Null"))
+			{
+				FinalAbilityText = InData.AbilityDescription;
+			}
+			else if (!FallbackAbilityDesc.IsEmpty() && FallbackAbilityDesc.ToString() != TEXT("Null"))
+			{
+				FinalAbilityText = FallbackAbilityDesc;
+			}
+
+			if (!FinalAbilityText.IsEmpty())
 			{
 				Box_Ability->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 				if (AbilityDescText)
 				{
-					AbilityDescText->SetText(InData.bHasAbility ? InData.AbilityDescription : FallbackAbilityDesc);
+					AbilityDescText->SetText(FinalAbilityText);
 				}
 			}
 			else
@@ -291,7 +313,16 @@ void UPBItemTooltipWidget::SetTooltipData(const FPBItemTooltipData& InData)
 
 			if (ItemCategoryText)
 			{
-				ItemCategoryText->SetText(!InData.ItemCategoryText.IsEmpty() ? InData.ItemCategoryText : FallbackItemCategory);
+				FText FinalCategory = !InData.ItemCategoryText.IsEmpty() ? InData.ItemCategoryText : FallbackItemCategory;
+				if (FinalCategory.ToString() == TEXT("Null"))
+				{
+					ItemCategoryText->SetVisibility(ESlateVisibility::Collapsed);
+				}
+				else
+				{
+					ItemCategoryText->SetText(FinalCategory);
+					ItemCategoryText->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+				}
 			}
 		}
 		else

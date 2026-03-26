@@ -842,7 +842,11 @@ bool APBGameplayPlayerController::GetCursorHitWithIgnoredActors(ECollisionChanne
 		FVector Start = WorldLocation;
 		FVector End = Start + (WorldDirection * 100000.f);
 
-		FCollisionQueryParams QueryParams(TEXT("ClickTraceWithIgnore"), bTraceComplex, GetPawn());
+		FCollisionQueryParams QueryParams(TEXT("ClickTraceWithIgnore"), bTraceComplex);
+		if (CurrentMode != EPBPlayerControllerMode::Targeting)
+		{
+			QueryParams.AddIgnoredActor(GetPawn());
+		}
 		
 		// 투명화된 장애물 액터들을 무시 목록에 추가 (CombatTarget이 아닌 경우만)
 		for (const TWeakObjectPtr<AActor>& FadedActor : FadedActors)
