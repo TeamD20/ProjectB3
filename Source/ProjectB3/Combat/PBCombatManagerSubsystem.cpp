@@ -517,6 +517,15 @@ void UPBCombatManagerSubsystem::SetCombatState(EPBCombatState NewState)
 
 	CombatState = NewState;
 	OnCombatStateChanged.Broadcast(NewState);
+	
+	if (CombatState == EPBCombatState::CombatStarting)
+	{
+		OnCombatStart.Broadcast();
+	}
+	if (CombatState == EPBCombatState::CombatEnding)
+	{
+		OnCombatEnd.Broadcast();
+	}
 }
 
 void UPBCombatManagerSubsystem::AdvanceToNextTurn()

@@ -15,6 +15,9 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnRoundChangedSignature, int32);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnCombatantIncapacitatedSignature, AActor*);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnReactionTriggeredSignature, const FPBReactionContext&);
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCombatStartDelegate);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCombatEndDelegate);
+
 /**
  * 턴 관리의 핵심 서브시스템.
  * 이니셔티브 굴림, 턴 순서 정렬, 공유 턴 그룹, 상태 머신 전이, 라운드 진행을 담당한다.
@@ -126,6 +129,12 @@ public:
 	FOnRoundChangedSignature OnRoundChanged;
 	FOnCombatantIncapacitatedSignature OnCombatantIncapacitated;
 	FOnReactionTriggeredSignature OnReactionTriggered;
+	
+	UPROPERTY(BlueprintAssignable)
+	FOnCombatStartDelegate OnCombatStart;
+	
+	UPROPERTY(BlueprintAssignable)
+	FOnCombatEndDelegate OnCombatEnd;
 	
 private:
 	// 등록된 전투 참가자 목록
