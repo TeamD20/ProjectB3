@@ -37,11 +37,11 @@ public:
 
 public:
 	// ASC가 있는 대상에게 요구하는 루팅 가능 상태 태그
-	UPROPERTY(EditDefaultsOnly, Category = "Loot")
+	UPROPERTY(EditAnywhere, Category = "Loot")
 	FGameplayTag LootableTag = PBGameplayTags::Character_State_Lootable;
 
 	// Push할 루팅 위젯 클래스
-	UPROPERTY(EditDefaultsOnly, Category = "Loot")
+	UPROPERTY(EditAnywhere, Category = "Loot")
 	TSubclassOf<UPBLootPanelWidget> LootWidgetClass;
 
 private:

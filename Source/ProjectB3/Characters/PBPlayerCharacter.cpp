@@ -112,6 +112,7 @@ void APBPlayerCharacter::OnTurnActivated()
 	if (APBGameplayPlayerController* PC = GetController<APBGameplayPlayerController>())
 	{
 		PC->SetControllerMode(EPBPlayerControllerMode::TurnMovement);
+		UpdatePathDisplayMovementRange(PC);
 	}
 	
 	if (APBGameplayPlayerState* PS = Cast<APBGameplayPlayerState>(UGameplayStatics::GetPlayerState(this, 0)))

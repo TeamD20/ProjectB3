@@ -25,22 +25,6 @@ struct FPBPreviewActorConfig
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Preview", meta = (ClampMin = "64"))
 	int32 RenderTargetHeight = 280;
 
-	// BaseMeshComp 기준 SceneCapture 상대 위치 오프셋
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Preview")
-	FVector CaptureOffset = FVector(200.0f, 0.0f, 90.0f);
-
-	// BaseMeshComp 기준 SceneCapture 상대 회전
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Preview")
-	FRotator CaptureRotation = FRotator(-10.0f, 180.0f, 0.0f);
-
-	// 전용 조명 강도
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Preview")
-	float PreviewLightIntensity = 3.0f;
-
-	// 전용 조명 방향 (액터 로컬 기준)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Preview")
-	FRotator PreviewLightRotation = FRotator(-45.0f, 45.0f, 0.0f);
-
 	// 프리뷰 전용 Idle 애니메이션 시퀀스 (nullptr 시 T-Pose)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Preview")
 	TObjectPtr<UAnimSequence> PreviewIdleSequence = nullptr;

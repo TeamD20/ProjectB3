@@ -106,6 +106,7 @@ namespace PBGameplayTags
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Attribute_Intelligence);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Attribute_MaxHP);
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Attribute_ArmorClass);
+	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Attribute_MaxMovement);
 
 	// SetByCaller 데미지 태그 (어빌리티에서 주사위·수정치를 계산 후 GE에 전달)
 	UE_DECLARE_GAMEPLAY_TAG_EXTERN(SetByCaller_Damage_DiceRoll);       // 무기 데미지 주사위 결과 (치명타 포함)
