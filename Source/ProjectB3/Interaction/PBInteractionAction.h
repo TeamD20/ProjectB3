@@ -75,15 +75,15 @@ public:
 
 public:
 	// 이 행동의 기본 우선순위. 하위 클래스에서 재정의 가능
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Interaction")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")
 	int32 Priority = 0;
 
 	// 상호작용 유형 (즉발형/유지형)
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Interaction")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")
 	EPBInteractionType InteractionType = EPBInteractionType::Instant;
 
 	// 거리 유지 필요 여부. true면 InteractorComponent가 Tick에서 거리 체크
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Interaction")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction")
 	bool bRequiresRange = false;
 
 protected:

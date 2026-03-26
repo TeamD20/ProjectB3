@@ -31,6 +31,12 @@ void UPBInteractorComponent::TryFocus(AActor* Actor)
 		ClearFocus();
 		return;
 	}
+	
+	if (ActiveAction.IsValid() && IsValid(FocusedComponent))
+	{
+		FocusedComponent->OnUnfocus();
+		return;
+	}
 
 	IPBInteractionInterface* Interaction = Cast<IPBInteractionInterface>(Actor);
 	SetFocus(Interaction ? Interaction->GetInteractableComponent() : nullptr);
@@ -124,6 +130,18 @@ void UPBInteractorComponent::Interact()
 	{
 		SetActiveInteraction(NewActiveAction, FocusedComponent);
 	}
+}
+
+void UPBInteractorComponent::InteractTarget(AActor* TargetActor)
+{
+	if (!TargetActor || !TargetActor->Implements<UPBInteractionInterface>())
+	{
+		return;
+	}
+	
+	IPBInteractionInterface* Interaction = Cast<IPBInteractionInterface>(TargetActor);
+	SetFocus(Interaction ? Interaction->GetInteractableComponent() : nullptr);
+	Interact();
 }
 
 bool UPBInteractorComponent::HasFocus() const
