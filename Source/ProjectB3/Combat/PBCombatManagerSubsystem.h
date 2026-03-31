@@ -163,4 +163,10 @@ private:
 
 	// 공유 턴 그룹에서 이번 그룹 턴 동안 행동을 완료한 멤버 인덱스 (그룹 배열 기준)
 	TSet<int32> GroupActedMemberIndices;
+
+	// ★ 재진입 방지: OnProgressTurn 처리 중 DoT 사망 시 EndCurrentTurn 재귀 호출 방지
+	bool bIsProcessingTurnProgress = false;
+
+	// ★ OnProgressTurn 도중 사망한 참가자를 지연 처리하기 위한 큐
+	TArray<TWeakObjectPtr<AActor>> PendingIncapacitatedDuringProgress;
 };
