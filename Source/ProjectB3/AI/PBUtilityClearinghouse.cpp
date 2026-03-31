@@ -1942,7 +1942,10 @@ FPBTargetScore UPBUtilityClearinghouse::EvaluateBuffScore(AActor* AllyTarget)
 	// --- TargetModifier 산출 (타겟별 공통 — 루프 외부) ---
 	const float InitFactor = CalcInitiativeFactor(AllyTarget);
 	const float SatFactor = CalcBuffSaturationFactor(ActiveTurnActor, AllyTarget);
-	const float BuffTargetModifier = InitFactor * SatFactor;
+	// ★ Self-Buff 동점 편향 해소: 자신에게 버프 시 미세 감점 (0.98배)
+	// → 동점이면 아군 우선, 점수 차이가 있으면 Self도 정상 선택
+	const float SelfPenalty = (AllyTarget == ActiveTurnActor) ? 0.98f : 1.0f;
+	const float BuffTargetModifier = InitFactor * SatFactor * SelfPenalty;
 
 	// --- Score 조립 ---
 	// ActionScore = (BaseScore × TargetModifier) × BuffWeight
@@ -2894,6 +2897,16 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 
 				if (bNeedsMovement)
 				{
+					// ★ 위험 지역 체크: 이동 목적지(타겟 위치)가 장판 안이면 후보 제외
+					if (CachedEnvSubsystem)
+					{
+						const FPBHazardQueryResult HazardResult = CachedEnvSubsystem->QueryHazardAtPoint(Target->GetActorLocation());
+						if (HazardResult.bIsInHazard)
+						{
+							continue;
+						}
+					}
+
 					const float AvailableMP = Context.RemainingMP - Context.AccumulatedMP;
 
 					if (bOutOfRange)
@@ -3019,6 +3032,16 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 
 				if (bHealNeedsMovement)
 				{
+					// ★ 위험 지역 체크: 이동 목적지(아군 위치)가 장판 안이면 후보 제외
+					if (CachedEnvSubsystem)
+					{
+						const FPBHazardQueryResult HazardResult = CachedEnvSubsystem->QueryHazardAtPoint(Ally->GetActorLocation());
+						if (HazardResult.bIsInHazard)
+						{
+							continue;
+						}
+					}
+
 					if (bHealOutOfRange)
 					{
 						const float NeededMovement = FMath::Max(
@@ -3143,6 +3166,16 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			const bool bNeedsMove = bEffectOutOfRange || !bHasLoS;
 			if (bNeedsMove)
 			{
+				// ★ 위험 지역 체크: 이동 목적지(타겟 위치)가 장판 안이면 후보 제외
+				if (CachedEnvSubsystem)
+				{
+					const FPBHazardQueryResult HazardResult = CachedEnvSubsystem->QueryHazardAtPoint(Target->GetActorLocation());
+					if (HazardResult.bIsInHazard)
+					{
+						continue;
+					}
+				}
+
 				if (bEffectOutOfRange)
 				{
 					const float Needed = FMath::Max(DistXY - AbilityRange, 1.0f);
@@ -3518,7 +3551,15 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 		}
 
 		// 행동 점수: GetCandidateActions에서 어빌리티별 개별 점수를 캐싱
-		const float ActionScore = Candidate.CachedActionScore;
+		float ActionScore = Candidate.CachedActionScore;
+
+		// ★ DisplacedTargets 감점: 밀린 타겟에 대한 후속 공격은 50% 감점
+		// → DFS가 "공격 먼저 → 밀치기 나중" 순서를 자연스럽게 선택
+		if (IsValid(Candidate.TargetActor)
+			&& Context.DisplacedTargets.Contains(Candidate.TargetActor))
+		{
+			ActionScore *= 0.5f;
+		}
 
 		// 경로에 추가 → 재귀 탐색 → 백트래킹
 		CurrentPath.Add(Candidate);

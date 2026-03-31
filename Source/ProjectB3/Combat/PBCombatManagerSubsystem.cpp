@@ -589,7 +589,10 @@ void UPBCombatManagerSubsystem::BeginTurnForCurrentEntry()
 	{
 		// 공유 턴 그룹: 모든 멤버가 행동불능인지 확인
 		TArray<AActor*> Group = GetCurrentSharedTurnGroup();
-		bool bAllIncapacitated = true;
+
+		// ★ 재진입 방지: OnProgressTurn 루프를 가드로 감쌈
+		bIsProcessingTurnProgress = true;
+		PendingIncapacitatedDuringProgress.Empty();
 		for (AActor* Member : Group)
 		{
 			if (IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(Member))
@@ -597,7 +600,23 @@ void UPBCombatManagerSubsystem::BeginTurnForCurrentEntry()
 				Participant->OnProgressTurn();
 			}
 		}
-		
+		bIsProcessingTurnProgress = false;
+
+		// ★ OnProgressTurn 도중 사망한 참가자 지연 처리
+		// (Broadcast는 NotifyCombatantIncapacitated에서 이미 완료됨 — HandleIncapacitated만 지연된 상태)
+		if (PendingIncapacitatedDuringProgress.Num() > 0)
+		{
+			PendingIncapacitatedDuringProgress.Empty();
+
+			// 전투 종료 조건 확인
+			if (CheckCombatEndCondition())
+			{
+				EndCombat();
+				return;
+			}
+		}
+
+		bool bAllIncapacitated = true;
 		for (AActor* Member : Group)
 		{
 			if (IPBCombatParticipant* Participant = Cast<IPBCombatParticipant>(Member))
@@ -660,7 +679,24 @@ void UPBCombatManagerSubsystem::BeginTurnForCurrentEntry()
 			return;
 		}
 		
+		// ★ 재진입 방지: 개별 턴에서도 동일 가드 적용
+		bIsProcessingTurnProgress = true;
+		PendingIncapacitatedDuringProgress.Empty();
 		Participant->OnProgressTurn();
+		bIsProcessingTurnProgress = false;
+
+		// ★ OnProgressTurn 도중 사망 지연 처리
+		// (Broadcast는 NotifyCombatantIncapacitated에서 이미 완료됨)
+		if (PendingIncapacitatedDuringProgress.Num() > 0)
+		{
+			PendingIncapacitatedDuringProgress.Empty();
+
+			if (CheckCombatEndCondition())
+			{
+				EndCombat();
+				return;
+			}
+		}
 
 		if (Participant->IsIncapacitated())
 		{
@@ -751,6 +787,15 @@ bool UPBCombatManagerSubsystem::CheckCombatEndCondition() const
 
 void UPBCombatManagerSubsystem::HandleIncapacitated(AActor* Combatant)
 {
+	// ★ 재진입 방지: OnProgressTurn 처리 중이면 지연 큐에 추가
+	if (bIsProcessingTurnProgress)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HandleIncapacitated: OnProgressTurn 처리 중 — %s을(를) 지연 큐에 추가"),
+			*GetNameSafe(Combatant));
+		PendingIncapacitatedDuringProgress.AddUnique(Combatant);
+		return;
+	}
+
 	// 현재 턴 소유자인 경우 즉시 턴 종료
 	AActor* CurrentActor = GetCurrentCombatant();
 	if (CurrentActor == Combatant && CombatState == EPBCombatState::TurnInProgress)
