@@ -11,6 +11,7 @@
 #include "ProjectB3/AbilitySystem/Abilities/PBGameplayAbility_Targeted.h"
 #include "ProjectB3/Characters/PBEnemyCharacter.h"
 #include "ProjectB3/AbilitySystem/Attributes/PBTurnResourceAttributeSet.h"
+#include "ProjectB3/AbilitySystem/Attributes/PBCharacterAttributeSet.h"
 #include "ProjectB3/Environment/PBEnvironmentSubsystem.h"
 #include "StateTreeExecutionContext.h"
 #include "VisualLogger/VisualLogger.h"
@@ -593,6 +594,25 @@ EStateTreeRunStatus UPBGenerateSequenceTask::EnterState(
 	InitialContext.RemainingMP = CurrentMovement;
 	InitialContext.AccumulatedMP = 0.0f;
 	InitialContext.LastActionLocation = SelfActor->GetActorLocation();
+
+	// ★ Phase 2a: VirtualHP 스냅샷 — 현재 타겟들의 HP를 캐싱
+	for (const TWeakObjectPtr<AActor>& WeakTarget : CachedClearinghouse->GetCachedTargets())
+	{
+		if (AActor* Target = WeakTarget.Get())
+		{
+			if (const UAbilitySystemComponent* TargetASC =
+					UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Target))
+			{
+				bool bFound = false;
+				const float CurrentHP = TargetASC->GetGameplayAttributeValue(
+					UPBCharacterAttributeSet::GetHPAttribute(), bFound);
+				if (bFound)
+				{
+					InitialContext.VirtualHP.Add(Target, CurrentHP);
+				}
+			}
+		}
+	}
 
 	// 7. DFS 탐색 실행
 	TArray<FPBSequenceAction> CurrentPath;

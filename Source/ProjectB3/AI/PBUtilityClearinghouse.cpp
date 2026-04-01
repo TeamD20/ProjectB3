@@ -2839,6 +2839,12 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 				}
 			}
 
+			// ★ Phase 2a: VirtualHP 사망 예측 타겟 스킵
+			if (Context.IsPredictedDead(Target))
+			{
+				continue;
+			}
+
 			// 어빌리티 사거리 조회 (SpecHandle 기반 — 태그 검색 불필요)
 			float AbilityRange = 0.0f;
 			if (ScoreData.AbilitySpecHandle.IsValid())
@@ -2890,6 +2896,7 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 				AttackAction.Cost.ActionCost = AttackCost.ActionCost;
 				AttackAction.Cost.BonusActionCost = AttackCost.BonusActionCost;
 				AttackAction.CachedActionScore = ScoreData.GetActionScore();
+				AttackAction.CachedExpectedDamage = ScoreData.ExpectedDamage;
 
 				// 사거리 밖이거나 LoS 없으면 이동 필요
 				const bool bOutOfRange = !bInRange && !bUnlimitedRange;
@@ -3106,6 +3113,12 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 				}
 			}
 
+			// ★ Phase 2a: VirtualHP 사망 예측 타겟 스킵
+			if (Context.IsPredictedDead(Target))
+			{
+				continue;
+			}
+
 			if (ScoreData.GetActionScore() <= 0.0f)
 			{
 				continue;
@@ -3161,6 +3174,7 @@ TArray<FPBSequenceAction> UPBUtilityClearinghouse::GetCandidateActions(
 			Action.Cost.ActionCost = Cost.ActionCost;
 			Action.Cost.BonusActionCost = Cost.BonusActionCost;
 			Action.CachedActionScore = ScoreData.GetActionScore();
+			Action.CachedExpectedDamage = ScoreData.ExpectedDamage;
 
 			const bool bEffectOutOfRange = !bInRange && !bUnlimited;
 			const bool bNeedsMove = bEffectOutOfRange || !bHasLoS;
@@ -3560,7 +3574,13 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 
 						// ★ Phase 1 시너지: 밀림 예상 위치 계산
 						const FVector TargetLoc = Candidate.TargetActor->GetActorLocation();
-						const FVector AILoc = BranchContext.LastActionLocation;
+						// AI 추정 위치: LastActionLocation이 타겟과 같으면(이동 후 타겟 옆)
+						// 실제 AI 위치로 폴백하여 방향 벡터 (0,0) 방지
+						FVector AILoc = BranchContext.LastActionLocation;
+						if (FVector::DistSquaredXY(AILoc, TargetLoc) < 1.0f && IsValid(ActiveTurnActor))
+						{
+							AILoc = ActiveTurnActor->GetActorLocation();
+						}
 						const FVector PushDir = (TargetLoc - AILoc).GetSafeNormal2D();
 
 						// CDO에서 밀림 거리 가져오기 (미설정 시 기본 300cm)
@@ -3637,6 +3657,15 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 			&& Context.DisplacedTargets.Contains(Candidate.TargetActor))
 		{
 			ActionScore *= 0.5f;
+		}
+
+		// ★ Phase 2a: 공격 행동 시 VirtualHP 차감 (사망 예측용)
+		// CachedExpectedDamage(순수 기대 데미지)를 사용 — CachedActionScore는 점수라 HP 차감에 부적합
+		if (IsValid(Candidate.TargetActor) && Candidate.CachedExpectedDamage > 0.0f
+			&& Candidate.ActionType == EPBActionType::Attack)
+		{
+			BranchContext.ApplyVirtualDamage(
+				Candidate.TargetActor, Candidate.CachedExpectedDamage);
 		}
 
 		// 경로에 추가 → 재귀 탐색 → 백트래킹

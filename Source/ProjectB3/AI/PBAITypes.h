@@ -107,6 +107,10 @@ struct FPBSequenceAction
 	// AP/BA 혼합 시퀀스에서 어빌리티별 개별 점수를 보존
 	float CachedActionScore = 0.0f;
 
+	// ★ Phase 2a: 순수 기대 데미지 (VirtualHP 차감용)
+	// CachedActionScore는 (ExpDmg × TargetMod + Bonus) × Archetype이라 HP 차감에 부적합
+	float CachedExpectedDamage = 0.0f;
+
 	// MultiTarget 분배 시 사용할 타겟 목록 (중복 허용, 예: [A, A, B])
 	// 비어있으면 단일 TargetActor 사용 (SingleTarget/AoE 등)
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Sequence")
@@ -175,6 +179,30 @@ struct FPBUtilityContext
 			}
 		}
 		return IsValid(Target) ? Target->GetActorLocation() : FVector::ZeroVector;
+	}
+
+	// ★ Phase 2a: 가상 HP — DFS에서 공격 시 타겟 HP를 예측 차감.
+	// 사망 예측(HP ≤ 0) 타겟은 후속 행동 후보에서 제외하여 오버킬 방지.
+	// 값 타입이므로 DFS 분기마다 자동 복사/복원.
+	TMap<TObjectPtr<AActor>, float> VirtualHP;
+
+	// 타겟이 사망 예측인지 확인 (VirtualHP ≤ 0)
+	bool IsPredictedDead(const AActor* Target) const
+	{
+		if (const float* HP = VirtualHP.Find(const_cast<AActor*>(Target)))
+		{
+			return *HP <= 0.0f;
+		}
+		return false;
+	}
+
+	// 타겟의 VirtualHP를 차감
+	void ApplyVirtualDamage(AActor* Target, float Damage)
+	{
+		if (float* HP = VirtualHP.Find(Target))
+		{
+			*HP = FMath::Max(*HP - Damage, 0.0f);
+		}
 	}
 
 	// Cost만큼 자원을 차감한다. 자원이 부족하면 false를 반환하고 차감하지 않는다.
