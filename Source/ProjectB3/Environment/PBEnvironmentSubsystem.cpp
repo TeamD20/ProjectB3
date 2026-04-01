@@ -504,22 +504,7 @@ FPBHazardQueryResult UPBEnvironmentSubsystem::QueryHazardAtPoint(const FVector& 
 		}
 
 		const float Radius = Area->GetAreaRadius();
-		const FVector AreaLoc = Area->GetActorLocation();
-		const float Dist3D = FVector::Dist(Point, AreaLoc);
-		const float DistXY = FVector::DistXY(Point, AreaLoc);
-
-		UE_LOG(LogTemp, Log,
-			TEXT("[Hazard Debug] Area=%s, AreaLoc=(%.0f,%.0f,%.0f), Radius=%.0f, "
-				 "QueryPoint=(%.0f,%.0f,%.0f), Dist3D=%.0f, DistXY=%.0f, InRange3D=%s, InRangeXY=%s"),
-			*Area->GetName(),
-			AreaLoc.X, AreaLoc.Y, AreaLoc.Z,
-			Radius,
-			Point.X, Point.Y, Point.Z,
-			Dist3D, DistXY,
-			(Dist3D <= Radius) ? TEXT("YES") : TEXT("NO"),
-			(DistXY <= Radius) ? TEXT("YES") : TEXT("NO"));
-
-		const float DistSq = FVector::DistSquared(Point, AreaLoc);
+		const float DistSq = FVector::DistSquared(Point, Area->GetActorLocation());
 		if (DistSq <= Radius * Radius)
 		{
 			Result.bIsInHazard = true;
