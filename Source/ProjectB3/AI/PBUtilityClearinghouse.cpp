@@ -3545,8 +3545,16 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 				if (const FGameplayAbilitySpec* Spec =
 						ASC->FindAbilitySpecFromHandle(Candidate.AbilitySpecHandle))
 				{
-					if (Spec->Ability && Spec->Ability->GetAssetTags().HasTag(
-							PBGameplayTags::Ability_Effect_Displacement))
+					const bool bIsDisplacement = Spec->Ability && Spec->Ability->GetAssetTags().HasTag(
+						PBGameplayTags::Ability_Effect_Displacement);
+
+					UE_LOG(LogPBUtility, Log,
+						TEXT("[DFS Debug] 후보 %s → %s, Displacement=%s"),
+						*GetNameSafe(Spec->Ability),
+						*GetNameSafe(Candidate.TargetActor),
+						bIsDisplacement ? TEXT("YES") : TEXT("NO"));
+
+					if (bIsDisplacement)
 					{
 						BranchContext.DisplacedTargets.Add(Candidate.TargetActor);
 
@@ -3565,6 +3573,16 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 
 						const FVector PredictedLoc = TargetLoc + PushDir * PushDist;
 
+						UE_LOG(LogPBUtility, Log,
+							TEXT("[DFS Synergy] 밀림 계산: AI위치=(%.0f,%.0f,%.0f), "
+								 "타겟위치=(%.0f,%.0f,%.0f), 방향=(%.2f,%.2f), "
+								 "거리=%.0f, 예상위치=(%.0f,%.0f,%.0f)"),
+							AILoc.X, AILoc.Y, AILoc.Z,
+							TargetLoc.X, TargetLoc.Y, TargetLoc.Z,
+							PushDir.X, PushDir.Y,
+							PushDist,
+							PredictedLoc.X, PredictedLoc.Y, PredictedLoc.Z);
+
 						// 예상 위치 기록
 						FPBPredictedDisplacement PD;
 						PD.Target = Candidate.TargetActor;
@@ -3577,21 +3595,33 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 						{
 							const FPBHazardQueryResult HazardResult =
 								CachedEnvSubsystem->QueryHazardAtPoint(PredictedLoc);
+
+							UE_LOG(LogPBUtility, Log,
+								TEXT("[DFS Synergy] 장판 체크: 예상위치=(%.0f,%.0f,%.0f), "
+									 "bIsInHazard=%s, TotalExpectedDamage=%.1f"),
+								PredictedLoc.X, PredictedLoc.Y, PredictedLoc.Z,
+								HazardResult.bIsInHazard ? TEXT("YES") : TEXT("NO"),
+								HazardResult.TotalExpectedDamage);
+
 							if (HazardResult.bIsInHazard)
 							{
 								HazardSynergyBonus = HazardResult.TotalExpectedDamage
 									* HazardSynergyMultiplier;
 
 								UE_LOG(LogPBUtility, Log,
-									TEXT("[DFS Synergy] %s → %s 밀치기: "
-										 "예상 위치=(%.0f,%.0f,%.0f), 장판 데미지=%.1f, "
-										 "시너지 보너스=%.1f"),
+									TEXT("[DFS Synergy] ★ 보너스 확정! %s → %s: "
+										 "장판 데미지=%.1f × %.1f = 시너지 보너스=%.1f"),
 									*GetNameSafe(ActiveTurnActor),
 									*GetNameSafe(Candidate.TargetActor),
-									PredictedLoc.X, PredictedLoc.Y, PredictedLoc.Z,
 									HazardResult.TotalExpectedDamage,
+									HazardSynergyMultiplier,
 									HazardSynergyBonus);
 							}
+						}
+						else
+						{
+							UE_LOG(LogPBUtility, Warning,
+								TEXT("[DFS Synergy] CachedEnvSubsystem이 null!"));
 						}
 					}
 				}
