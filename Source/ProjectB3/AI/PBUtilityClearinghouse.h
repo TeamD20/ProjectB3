@@ -459,4 +459,11 @@ protected:
 
 	// AoE 자기 피격 패널티
 	static constexpr float AoESelfHitPenalty = 150.0f;
+
+	// ★ 밀치기 → 장판 시너지 보너스 배율
+	// 장판 예상 데미지 × 이 값 = 시너지 보너스 점수
+	static constexpr float HazardSynergyMultiplier = 1.5f;
+
+	// ★ 시너지 보너스 최대치 (B&B 가지치기에 반영)
+	static constexpr float MaxHazardSynergyBonus = 30.0f;
 };

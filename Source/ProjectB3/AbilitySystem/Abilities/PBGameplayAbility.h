@@ -109,6 +109,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Ability|AI")
 	FGameplayTag GetEffectGrantedTag() const { return EffectGrantedTag; }
 
+	// AI 시너지: 밀치기 예상 거리 (0이면 기본값 300cm 사용)
+	UFUNCTION(BlueprintPure, Category = "Ability|AI")
+	float GetDisplacementDistance() const { return DisplacementDistance > 0.0f ? DisplacementDistance : 300.0f; }
+
 	// 어빌리티 타입 반환. 활성화 중이면 Spec의 DynamicTags 포함, 아니면 AbilityTags만 조회.
 	UFUNCTION(BlueprintPure, Category = "Ability|Definition", meta = (DisplayName = "GetAbilityType"))
 	EPBAbilityType K2_GetAbilityType() const;
@@ -268,6 +272,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|AI",
 		meta = (EditCondition = "AbilityCategory != EPBAbilityCategory::Attack && AbilityCategory != EPBAbilityCategory::None"))
 	FGameplayTag EffectGrantedTag;
+
+	// ★ 밀치기/넉백 어빌리티의 예상 밀림 거리 (cm).
+	// AI DFS에서 밀림 후 예상 위치를 계산하여 장판 시너지 보너스를 산출하는 데 사용.
+	// 0이면 Displacement 어빌리티가 아니거나 거리 미설정 → 기본값 300cm 사용.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|AI",
+		meta = (ClampMin = "0", EditCondition = "AbilityTags.HasTag('Ability.Effect.Displacement')"))
+	float DisplacementDistance = 0.0f;
 
 	// 턴 기반 쿨다운 턴 수 (0이면 쿨다운 없음)
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Ability|Definition",

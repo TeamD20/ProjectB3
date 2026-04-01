@@ -3456,6 +3456,9 @@ float UPBUtilityClearinghouse::CalcMaxSingleScore() const
 		MaxScore = FMath::Max(MaxScore, MT.NetScore);
 	}
 
+	// ★ 시너지 보너스 최대치를 반영 (B&B 조기 커팅 방지)
+	MaxScore += MaxHazardSynergyBonus;
+
 	return MaxScore;
 }
 
@@ -3532,7 +3535,8 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 		}
 
 		// Displacement 어빌리티(넉백/밀치기)를 선택하면 해당 타겟을
-		// DisplacedTargets에 추가하여, 이후 분기에서 근접 공격 후보를 제외한다.
+		// DisplacedTargets에 추가하고, 예상 밀림 위치를 산출한다.
+		float HazardSynergyBonus = 0.0f;
 		if (IsValid(Candidate.TargetActor) && Candidate.AbilitySpecHandle.IsValid())
 		{
 			if (UAbilitySystemComponent* ASC =
@@ -3541,17 +3545,61 @@ void UPBUtilityClearinghouse::SearchBestSequence(
 				if (const FGameplayAbilitySpec* Spec =
 						ASC->FindAbilitySpecFromHandle(Candidate.AbilitySpecHandle))
 				{
-					if (Spec->Ability && Spec->Ability->AbilityTags.HasTag(
+					if (Spec->Ability && Spec->Ability->GetAssetTags().HasTag(
 							PBGameplayTags::Ability_Effect_Displacement))
 					{
 						BranchContext.DisplacedTargets.Add(Candidate.TargetActor);
+
+						// ★ Phase 1 시너지: 밀림 예상 위치 계산
+						const FVector TargetLoc = Candidate.TargetActor->GetActorLocation();
+						const FVector AILoc = BranchContext.LastActionLocation;
+						const FVector PushDir = (TargetLoc - AILoc).GetSafeNormal2D();
+
+						// CDO에서 밀림 거리 가져오기 (미설정 시 기본 300cm)
+						float PushDist = 300.0f;
+						if (const UPBGameplayAbility* AbilityCDO =
+								Cast<UPBGameplayAbility>(Spec->Ability))
+						{
+							PushDist = AbilityCDO->GetDisplacementDistance();
+						}
+
+						const FVector PredictedLoc = TargetLoc + PushDir * PushDist;
+
+						// 예상 위치 기록
+						FPBPredictedDisplacement PD;
+						PD.Target = Candidate.TargetActor;
+						PD.PredictedLocation = PredictedLoc;
+						PD.EstimatedDistance = PushDist;
+						BranchContext.PredictedDisplacements.Add(PD);
+
+						// ★ 장판 시너지 보너스: 밀린 위치가 위험 지역이면 추가 점수
+						if (CachedEnvSubsystem)
+						{
+							const FPBHazardQueryResult HazardResult =
+								CachedEnvSubsystem->QueryHazardAtPoint(PredictedLoc);
+							if (HazardResult.bIsInHazard)
+							{
+								HazardSynergyBonus = HazardResult.TotalExpectedDamage
+									* HazardSynergyMultiplier;
+
+								UE_LOG(LogPBUtility, Log,
+									TEXT("[DFS Synergy] %s → %s 밀치기: "
+										 "예상 위치=(%.0f,%.0f,%.0f), 장판 데미지=%.1f, "
+										 "시너지 보너스=%.1f"),
+									*GetNameSafe(ActiveTurnActor),
+									*GetNameSafe(Candidate.TargetActor),
+									PredictedLoc.X, PredictedLoc.Y, PredictedLoc.Z,
+									HazardResult.TotalExpectedDamage,
+									HazardSynergyBonus);
+							}
+						}
 					}
 				}
 			}
 		}
 
 		// 행동 점수: GetCandidateActions에서 어빌리티별 개별 점수를 캐싱
-		float ActionScore = Candidate.CachedActionScore;
+		float ActionScore = Candidate.CachedActionScore + HazardSynergyBonus;
 
 		// ★ DisplacedTargets 감점: 밀린 타겟에 대한 후속 공격은 50% 감점
 		// → DFS가 "공격 먼저 → 밀치기 나중" 순서를 자연스럽게 선택

@@ -113,6 +113,17 @@ struct FPBSequenceAction
 	TArray<TObjectPtr<AActor>> MultiTargetActors;
 };
 
+// 밀치기 예상 결과 — DFS에서 Displacement 어빌리티 선택 시 산출
+USTRUCT()
+struct FPBPredictedDisplacement
+{
+	GENERATED_BODY()
+
+	TObjectPtr<AActor> Target = nullptr;      // 밀린 타겟
+	FVector PredictedLocation = FVector::ZeroVector; // 밀린 후 예상 위치
+	float EstimatedDistance = 300.0f;          // 예상 밀림 거리 (기본 300cm ≈ D&D 10ft)
+};
+
 // DFS 탐색 시 각 분기에서 잔여 자원 상태를 추적하는 컨텍스트.
 // 값 타입(USTRUCT)이므로 DFS 재귀 호출 시 값 복사로 전달되며,
 // 백트래킹 시 이전 스택 프레임의 값으로 자동 복원된다.
@@ -147,6 +158,24 @@ struct FPBUtilityContext
 	// DFS 분기 내에서 Displacement 어빌리티 사용 후,
 	// 해당 타겟에 대한 근접 공격 후보를 제외하는 데 사용.
 	TSet<TObjectPtr<AActor>> DisplacedTargets;
+
+	// ★ Phase 1 시너지: 밀치기 예상 결과 목록
+	// DFS에서 Displacement 선택 시 밀림 방향 + 거리로 예상 위치를 산출하고,
+	// 예상 위치가 위험 지역(장판)이면 시너지 보너스를 부여한다.
+	TArray<FPBPredictedDisplacement> PredictedDisplacements;
+
+	// 특정 타겟의 예상 위치 반환 (밀림 없으면 현재 위치)
+	FVector GetPredictedLocation(const AActor* Target) const
+	{
+		for (const FPBPredictedDisplacement& PD : PredictedDisplacements)
+		{
+			if (PD.Target == Target)
+			{
+				return PD.PredictedLocation;
+			}
+		}
+		return IsValid(Target) ? Target->GetActorLocation() : FVector::ZeroVector;
+	}
 
 	// Cost만큼 자원을 차감한다. 자원이 부족하면 false를 반환하고 차감하지 않는다.
 	// DFS에서 해당 행동 분기 진입 가능 여부를 판정하는 데 사용.
