@@ -1,4 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (스킬바 위젯 생성, 어빌리티 슬롯 연결)
+// Author: 강리한 (스킬바 레이아웃과 탭 UI 표시)
 
 #pragma once
 

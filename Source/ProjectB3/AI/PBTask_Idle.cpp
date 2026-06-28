@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (AI 대기 행동 처리)
 
 #include "PBTask_Idle.h"
 #include "StateTreeExecutionContext.h"

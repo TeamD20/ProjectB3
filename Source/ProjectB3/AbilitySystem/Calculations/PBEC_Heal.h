@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (회복량 계산 처리)
 
 #pragma once
 

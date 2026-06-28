@@ -1,3 +1,6 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (적 캐릭터의 AI 전투 참여 연결)
+
 #include "PBEnemyCharacter.h"
 #include "Components/StateTreeComponent.h"
 #include "ProjectB3/PBGameplayTags.h"

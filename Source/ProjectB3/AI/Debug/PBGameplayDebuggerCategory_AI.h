@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (AI 의사결정 점수를 디버그 화면에 표시)
 
 #pragma once
 

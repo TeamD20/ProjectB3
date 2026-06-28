@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (턴 자원, 주사위 판정 어빌리티 기본 처리)
 
 #include "PBGameplayAbility.h"
 #include "AbilitySystemComponent.h"

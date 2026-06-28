@@ -1,3 +1,6 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (AI가 공격하려는 현재 대상 위치 전달)
+
 // PBEnvQueryContext_Target.cpp
 
 #include "PBEnvQueryContext_Target.h"

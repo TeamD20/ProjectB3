@@ -1,4 +1,7 @@
-﻿#pragma once
+﻿// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (화면 디버그 메시지 출력 함수 작성)
+
+#pragma once
 
 namespace  DebugUtils
 {

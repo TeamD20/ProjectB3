@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (캐릭터 전투 능력치 테이블 작성)
 
 #pragma once
 

@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (파티원 자동 추적 이동 처리)
 
 #include "PBPartyAIController.h"
 

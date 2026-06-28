@@ -1,4 +1,5 @@
 ﻿// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (Utility AI로 전투 행동 선택)
 
 #include "PBAIController.h"
 #include "Components/StateTreeComponent.h"

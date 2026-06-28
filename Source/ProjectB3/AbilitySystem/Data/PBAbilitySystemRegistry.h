@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (어빌리티와 캐릭터 데이터 등록 처리)
 
 #pragma once
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (UI 계층과 표시 정책 값 작성)
+
 #pragma once
 
 #include "CoreMinimal.h"

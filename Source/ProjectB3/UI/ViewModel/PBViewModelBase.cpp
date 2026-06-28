@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (UI ViewModel 공통 갱신 처리)
 
 #include "PBViewModelBase.h"
 #include "Engine/LocalPlayer.h"

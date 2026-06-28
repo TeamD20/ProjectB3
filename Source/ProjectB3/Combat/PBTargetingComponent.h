@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (스킬 대상 탐색, 선택 처리)
 
 #pragma once
 

@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (캐릭터 어빌리티 부여, 실행 연결)
 
 #include "PBAbilitySystemComponent.h"
 

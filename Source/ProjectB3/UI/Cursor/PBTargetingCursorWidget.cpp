@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (대상 지정 거리와 타겟 수 커서 UI)
 
 #include "PBTargetingCursorWidget.h"
 #include "Components/Image.h"

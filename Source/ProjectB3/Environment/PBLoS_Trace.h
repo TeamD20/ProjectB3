@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (충돌 추적으로 시야를 판정)
 
 #pragma once
 

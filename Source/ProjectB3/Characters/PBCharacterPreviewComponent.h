@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (UI용 캐릭터 미리보기 렌더링)
 
 #pragma once
 

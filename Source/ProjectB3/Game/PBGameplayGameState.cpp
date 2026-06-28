@@ -1,4 +1,5 @@
 ﻿// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (파티 선택 상태와 턴 전투 이벤트 처리)
 
 
 #include "PBGameplayGameState.h"

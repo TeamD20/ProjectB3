@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (전투 상태와 턴 진행 값 작성)
 
 #pragma once
 

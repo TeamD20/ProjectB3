@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (필드 드롭 아이템 표시, 획득 연결)
 
 #pragma once
 

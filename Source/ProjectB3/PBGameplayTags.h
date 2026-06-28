@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (게임플레이 태그 선언과 등록)
 
 #pragma once
 #include "NativeGameplayTags.h"

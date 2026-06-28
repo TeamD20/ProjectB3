@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (AI 스킬을 쓸 위치가 사거리 안인지 평가)
 
 #pragma once
 

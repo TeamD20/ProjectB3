@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (캐릭터 전투 능력치를 ViewModel에 연결)
 
 #pragma once
 

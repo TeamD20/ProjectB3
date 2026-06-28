@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (어빌리티 대상 지정 입력 대기)
 
 #pragma once
 

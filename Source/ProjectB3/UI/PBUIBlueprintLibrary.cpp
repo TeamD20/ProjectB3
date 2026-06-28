@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (UI 위젯 조회, 제어용 BP 헬퍼 작성)
 
 #include "PBUIBlueprintLibrary.h"
 #include "PBUIManagerSubsystem.h"

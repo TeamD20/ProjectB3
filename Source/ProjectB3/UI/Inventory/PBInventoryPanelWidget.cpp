@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (파티 인벤토리 패널 표시 UI)
 
 #include "PBInventoryPanelWidget.h"
 

@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (UI 기능 테스트 환경 작성)
 
 #include "PBUITestGameMode.h"
 

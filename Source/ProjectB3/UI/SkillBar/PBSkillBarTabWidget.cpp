@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (스킬바 탭 선택 UI)
 
 #include "PBSkillBarTabWidget.h"
 #include "PBSkillSlotWidget.h"

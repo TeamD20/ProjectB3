@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (어빌리티 판정값과 대상 선택 값 작성)
 
 #pragma once
 

@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (루팅 패널 표시와 획득 UI)
 
 #pragma once
 

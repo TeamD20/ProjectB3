@@ -1,4 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (장비 슬롯 장착 상태 UI 연결)
+// Author: 강리한 (장비 슬롯 UI 표시 개선)
 
 #include "PBEquipSlotWidget.h"
 

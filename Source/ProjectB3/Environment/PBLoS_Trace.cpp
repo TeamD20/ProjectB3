@@ -1,4 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (충돌 추적으로 시야를 판정)
+// Author: 배유찬 (충돌 추적으로 시야를 판정)
 
 #include "PBLoS_Trace.h"
 #include "Engine/World.h"

@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (현재 턴 진행 표시 UI)
 
 #include "PBTurnIndicatorWidget.h"
 #include "PBTurnPortraitViewModel.h"

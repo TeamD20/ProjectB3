@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (턴 자원 기반 이동 어빌리티)
 
 #include "PBGameplayAbility_Move.h"
 #include "ProjectB3/AbilitySystem/Tasks/PBAbilityTask_MoveToLocation.h"

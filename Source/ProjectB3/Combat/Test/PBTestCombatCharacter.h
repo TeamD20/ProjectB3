@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (전투 기능 검증용 캐릭터)
 
 #pragma once
 

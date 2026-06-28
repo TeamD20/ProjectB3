@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (위험 지형 이동 비용 설정)
 
 #include "PBNavArea_Hazard.h"
 

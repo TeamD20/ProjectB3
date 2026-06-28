@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (어빌리티 시스템 이벤트를 UI에 전달)
 
 #pragma once
 

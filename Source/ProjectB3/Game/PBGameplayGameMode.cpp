@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (파티 스폰과 전투 시작 규칙 작성)
 
 #include "PBGameplayGameMode.h"
 

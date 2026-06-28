@@ -1,4 +1,5 @@
 ﻿// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (장비 아이템 월드 액터 표현)
 
 #pragma once
 

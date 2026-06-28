@@ -1,4 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (장비 스탯과 장착 슬롯 값 작성)
+// Author: 강리한 (장비 스탯과 장착 슬롯 값 작성)
 
 #include "PBEquipmentDataAsset.h"
 #include "ProjectB3/ItemSystem/PBEquipmentActor.h"

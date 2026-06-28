@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (체력과 기본 전투 능력치 처리)
 
 #include "PBCharacterAttributeSet.h"
 #include "GameplayEffectExtension.h"

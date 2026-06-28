@@ -1,3 +1,6 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (AI가 비교할 행동 후보와 점수 구조 작성)
+
 // PBAITypes.h
 #pragma once
 

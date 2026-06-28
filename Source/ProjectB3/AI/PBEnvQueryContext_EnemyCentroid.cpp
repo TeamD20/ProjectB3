@@ -1,3 +1,6 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (광역 공격 판단에 쓸 적 무리 중심 위치 계산)
+
 // PBEnvQueryContext_EnemyCentroid.cpp
 
 #include "PBEnvQueryContext_EnemyCentroid.h"

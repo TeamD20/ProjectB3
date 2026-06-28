@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (행동 자원 묶음 UI 표시)
 
 #include "PBResourceGroupWidget.h"
 #include "PBResourceSlotWidget.h"

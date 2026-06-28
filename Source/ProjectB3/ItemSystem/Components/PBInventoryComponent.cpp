@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (아이템 보관, 슬롯 이동 처리)
 
 #include "PBInventoryComponent.h"
 #include "ProjectB3/ItemSystem/Data/PBItemDataAsset.h"

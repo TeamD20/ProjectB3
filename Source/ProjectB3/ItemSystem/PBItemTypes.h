@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (아이템 분류와 장비 슬롯 값 작성)
 
 #pragma once
 

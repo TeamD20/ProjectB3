@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (전투 행동 인디케이터 상태 연결)
 
 #include "PBActionIndicatorViewModel.h"
 

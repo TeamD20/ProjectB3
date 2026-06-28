@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (전술 카메라 액터 작성)
 
 #include "PBTacticalCameraActor.h"
 #include "Camera/CameraComponent.h"

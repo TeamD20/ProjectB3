@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (대화 대상 바라보기 기능)
 
 #include "PBDNodeFeature_FaceTarget.h"
 

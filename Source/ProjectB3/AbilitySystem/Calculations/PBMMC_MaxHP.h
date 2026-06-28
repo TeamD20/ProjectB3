@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (체력 능력치 기반 최대 체력 계산)
 
 #pragma once
 

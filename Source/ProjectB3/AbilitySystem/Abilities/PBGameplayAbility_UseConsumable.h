@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (소비 아이템 사용 어빌리티)
 
 #pragma once
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (AI 턴에 실행할 행동 순서 생성)
+
 // PBGenerateSequenceTask.cpp
 
 #include "PBGenerateSequenceTask.h"

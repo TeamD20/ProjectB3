@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (스킬 상세 정보 툴팁 UI)
 
 #include "PBSkillTooltipWidget.h"
 #include "PBSkillBarTypes.h"

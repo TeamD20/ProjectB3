@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (UI 위젯 공통 활성화 처리)
 
 #include "PBWidgetBase.h"
 #include "ViewModel/PBViewModelBase.h"

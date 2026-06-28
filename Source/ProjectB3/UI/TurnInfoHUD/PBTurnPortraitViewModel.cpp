@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (턴 순서 초상화 상태 연결)
 
 #include "PBTurnPortraitViewModel.h"
 

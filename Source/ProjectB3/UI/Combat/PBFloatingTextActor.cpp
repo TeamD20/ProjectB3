@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (피해와 회복 플로팅 액터 표시)
 
 #include "PBFloatingTextActor.h"
 #include "PBFloatingTextWidget.h"

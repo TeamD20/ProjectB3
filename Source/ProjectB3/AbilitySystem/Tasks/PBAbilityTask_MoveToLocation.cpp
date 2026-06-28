@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (어빌리티로 위치 이동 실행)
 
 #include "PBAbilityTask_MoveToLocation.h"
 #include "AIController.h"

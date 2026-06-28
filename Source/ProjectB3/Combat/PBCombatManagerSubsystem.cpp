@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (턴제 전투 시작, 턴 순서 진행 처리)
 
 #include "PBCombatManagerSubsystem.h"
 #include "IPBCombatParticipant.h"

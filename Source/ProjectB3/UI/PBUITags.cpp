@@ -1,4 +1,7 @@
-﻿#include "PBUITags.h"
+﻿// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (UI 화면과 위젯 식별 태그 작성)
+
+#include "PBUITags.h"
 
 namespace PBGameplayTags
 {

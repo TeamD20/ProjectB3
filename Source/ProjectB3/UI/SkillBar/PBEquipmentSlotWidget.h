@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (스킬바 장비 슬롯 표시 UI)
 
 #pragma once
 

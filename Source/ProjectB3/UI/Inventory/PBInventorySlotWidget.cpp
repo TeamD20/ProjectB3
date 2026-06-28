@@ -1,4 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (인벤토리 슬롯 값 표시 연결)
+// Author: 강리한 (인벤토리 슬롯 드래그와 컨텍스트 메뉴 UI)
 
 #include "PBInventorySlotWidget.h"
 
