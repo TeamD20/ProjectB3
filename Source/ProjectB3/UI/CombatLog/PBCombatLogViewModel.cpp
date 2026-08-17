@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (전투 로그 메시지 상태 연결)
 
 #include "PBCombatLogViewModel.h"
 

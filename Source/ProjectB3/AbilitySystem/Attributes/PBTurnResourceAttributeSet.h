@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (턴 행동 자원 속성 처리)
 
 #pragma once
 

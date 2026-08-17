@@ -1,4 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (스킬 슬롯 어빌리티 값 연결)
+// Author: 강리한 (스킬 슬롯 툴팁과 입력 UI 표시)
 
 #pragma once
 

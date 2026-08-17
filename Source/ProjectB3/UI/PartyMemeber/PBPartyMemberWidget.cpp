@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (파티 멤버 단일 상태 표시 UI)
 
 
 #include "PBPartyMemberWidget.h"

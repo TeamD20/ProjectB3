@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (턴 순서 정보 표시 UI)
 
 #pragma once
 

@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (인벤토리 슬롯 표시값 작성)
 
 #pragma once
 

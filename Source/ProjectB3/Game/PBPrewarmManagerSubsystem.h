@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (Niagara와 Sound 에셋을 미리 불러오는 시스템 작성)
 
 #pragma once
 

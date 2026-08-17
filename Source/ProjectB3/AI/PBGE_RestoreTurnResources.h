@@ -1,3 +1,6 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (AI 턴 자원 회복 효과 작성)
+
 // PBGE_RestoreTurnResources.h
 #pragma once
 

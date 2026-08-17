@@ -1,3 +1,6 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (AI가 선택한 행동 순서 실행)
+
 // PBExecuteSequenceTask.h
 #pragma once
 

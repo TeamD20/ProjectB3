@@ -1,3 +1,6 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (AI 성향별 행동 우선순위 값 작성)
+
 // PBAIArchetypeData.h
 // AI 아키타입별 행동 가중치를 정의하는 DataAsset.
 // Aggressive / Defensive / Support / Disruptor 등 개성을 부여한다.

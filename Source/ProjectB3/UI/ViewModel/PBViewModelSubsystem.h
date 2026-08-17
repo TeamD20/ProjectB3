@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (ViewModel 생성과 생명주기 처리)
 
 #pragma once
 

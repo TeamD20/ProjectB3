@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (명중 판정, 피해량 계산 처리)
 
 #pragma once
 

@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (아이템 툴팁 표시값 작성)
 
 #pragma once
 

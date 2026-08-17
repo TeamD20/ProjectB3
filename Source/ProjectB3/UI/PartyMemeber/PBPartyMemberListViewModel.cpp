@@ -1,4 +1,7 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (파티 멤버 목록 ViewModel 연결)
+// Author: 강리한 (파티 멤버 툴팁 표시값 보강)
+
 #include "PBPartyMemberListViewModel.h"
 #include "ProjectB3/UI/PBUIBlueprintLibrary.h"
 #include "PBPartyMemberViewModel.h"

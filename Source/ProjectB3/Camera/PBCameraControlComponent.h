@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (플레이어 카메라 입력 제어)
 
 #pragma once
 

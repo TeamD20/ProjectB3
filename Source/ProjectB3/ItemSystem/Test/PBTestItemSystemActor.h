@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (아이템 시스템 테스트 액터)
 
 #pragma once
 

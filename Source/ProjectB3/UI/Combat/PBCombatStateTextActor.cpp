@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (전투 상태 전환 텍스트 액터 표시)
 
 #include "PBCombatStateTextActor.h"
 #include "PBCombatStateTextWidget.h"

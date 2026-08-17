@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (플레이어 테스트용 치트 명령)
 
 #pragma once
 

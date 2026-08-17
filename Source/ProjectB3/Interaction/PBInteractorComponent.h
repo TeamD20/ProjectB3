@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (플레이어 시선 기반 상호작용 탐색)
 
 #pragma once
 

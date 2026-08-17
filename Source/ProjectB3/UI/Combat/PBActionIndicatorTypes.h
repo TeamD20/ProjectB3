@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (전투 행동 인디케이터 표시값 작성)
 
 #pragma once
 

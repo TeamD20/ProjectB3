@@ -1,4 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (EQS 평가에서 전투 시야 판정 사용)
+// Author: 최승현 (AI 공격 위치에서 대상이 보이는지 평가)
 
 #include "PBEnvQueryTest_LineOfSight.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"

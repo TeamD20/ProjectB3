@@ -1,4 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (HUD 위젯 초기화, 파티와 전투 이벤트 표시 연결)
+// Author: 강리한 (전투 행동 인디케이터를 HUD에 표시)
 
 #pragma once
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (AI 턴 시작 상태 초기화)
+
 // PBInitializeTurnTask.cpp
 
 #include "PBInitializeTurnTask.h"

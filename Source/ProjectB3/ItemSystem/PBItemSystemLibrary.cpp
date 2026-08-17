@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (아이템 데이터 조회, 장비 판별 함수 작성)
 
 #include "PBItemSystemLibrary.h"
 #include "Components/PBInventoryComponent.h"

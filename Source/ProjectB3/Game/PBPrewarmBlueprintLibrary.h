@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (프리워밍 시스템 전용 BP 헬퍼 작성)
 
 #pragma once
 

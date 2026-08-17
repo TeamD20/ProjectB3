@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (AI 이동 후보가 위험 지형을 피하는지 평가)
 
 #pragma once
 

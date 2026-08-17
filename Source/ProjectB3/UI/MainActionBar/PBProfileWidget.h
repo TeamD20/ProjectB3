@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (선택 캐릭터 프로필 표시 UI)
 
 #pragma once
 

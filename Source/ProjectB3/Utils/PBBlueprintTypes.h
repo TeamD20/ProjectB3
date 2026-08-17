@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (블루프린트에서 쓰는 유효성 결과 타입 작성)
 
 #pragma once
 

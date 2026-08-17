@@ -1,4 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (스킬바 탭과 장비 슬롯 상태 맞춤)
+// Author: 배유찬 (스킬바 어빌리티 목록을 ViewModel에 연결)
 
 #include "PBSkillBarViewModel.h"
 #include "AbilitySystemComponent.h"

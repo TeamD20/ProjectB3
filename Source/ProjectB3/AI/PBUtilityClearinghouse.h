@@ -1,3 +1,6 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (AI 행동 후보 점수 계산, 최종 행동 선택)
+
 // PBUtilityClearinghouse.h
 #pragma once
 

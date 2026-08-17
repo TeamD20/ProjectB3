@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (아이템 상세 툴팁 UI)
 
 #pragma once
 

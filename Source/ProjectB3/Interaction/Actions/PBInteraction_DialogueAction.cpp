@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (대화 시작 상호작용)
 
 #include "PBInteraction_DialogueAction.h"
 

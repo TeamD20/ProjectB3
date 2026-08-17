@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (프로젝트 모듈 시작 코드 작성)
 
 #pragma once
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (점프 이동 경로 연결 처리)
+
 #include "PBNavLinkProxy_Jump.h"
 
 #include "GameFramework/Character.h"

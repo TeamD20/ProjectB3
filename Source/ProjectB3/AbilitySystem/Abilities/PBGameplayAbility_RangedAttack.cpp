@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (원거리 공격과 투사체 발사 어빌리티)
 
 #include "PBGameplayAbility_RangedAttack.h"
 

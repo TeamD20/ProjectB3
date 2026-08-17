@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (상호작용 가능 상태, 액션 목록 처리)
 
 #pragma once
 

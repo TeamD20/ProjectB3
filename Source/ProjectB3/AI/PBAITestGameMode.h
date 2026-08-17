@@ -1,3 +1,6 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (AI 전투 테스트 환경 작성)
+
 // PBAITestGameMode.h
 // AI 턴 시스템 테스트 전용 GameMode.
 // 레벨에 배치된 PBEnemyCharacter + Player를 자동 수집하여 전투를 개시한다.

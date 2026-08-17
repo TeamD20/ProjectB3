@@ -1,4 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (메인 액션바 HUD와 게임 상태 연결)
+// Author: 강리한 (메인 액션바 자원바와 프로필 UI 작성)
 
 #include "ProjectB3/UI/MainActionBar/PBMainActionBarHUD.h"
 #include "ProjectB3/UI/SkillBar/PBSkillBarViewModel.h"

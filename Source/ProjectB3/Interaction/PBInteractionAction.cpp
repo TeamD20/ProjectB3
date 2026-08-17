@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (상호작용 액션 기본 처리)
 
 #include "PBInteractionAction.h"
 #include "GameFramework/Controller.h"

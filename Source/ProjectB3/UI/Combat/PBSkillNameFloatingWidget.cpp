@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (스킬명 플로팅 텍스트 UI)
 
 #include "PBSkillNameFloatingWidget.h"
 #include "Components/TextBlock.h"

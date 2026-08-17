@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (반응 스킬 표시 UI)
 
 #include "ProjectB3/UI/MainActionBar/PBResponseSkillWidget.h"
 #include "ProjectB3/UI/SkillBar/PBSkillBarViewModel.h"

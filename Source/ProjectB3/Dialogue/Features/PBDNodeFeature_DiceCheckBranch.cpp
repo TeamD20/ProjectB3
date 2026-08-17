@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (주사위 판정으로 대화 분기 처리)
 
 #include "PBDNodeFeature_DiceCheckBranch.h"
 

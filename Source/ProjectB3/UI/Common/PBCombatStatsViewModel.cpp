@@ -1,4 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (캐릭터 전투 능력치를 ViewModel에 연결)
+// Author: 강리한 (전투 능력치 툴팁 표시값 보강)
 
 #include "ProjectB3/UI/Common/PBCombatStatsViewModel.h"
 

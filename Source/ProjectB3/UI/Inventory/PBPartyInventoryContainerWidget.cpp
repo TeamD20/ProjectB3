@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (파티 공용 인벤토리 컨테이너 UI 작성)
 
 #include "PBPartyInventoryContainerWidget.h"
 

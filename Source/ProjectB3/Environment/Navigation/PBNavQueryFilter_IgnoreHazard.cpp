@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (위험 지형을 피하는 이동 필터 작성)
 
 #include "PBNavQueryFilter_IgnoreHazard.h"
 #include "PBNavArea_Hazard.h"

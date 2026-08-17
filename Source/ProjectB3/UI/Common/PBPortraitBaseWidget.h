@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (캐릭터 초상화 공통 표시 UI)
 
 #pragma once
 

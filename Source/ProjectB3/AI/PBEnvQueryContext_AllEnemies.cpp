@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (AI가 고를 수 있는 모든 적 위치 수집)
 
 #include "PBEnvQueryContext_AllEnemies.h"
 #include "EnvironmentQuery/EnvQueryTypes.h"

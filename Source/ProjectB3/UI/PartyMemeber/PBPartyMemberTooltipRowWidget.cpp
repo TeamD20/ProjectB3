@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (파티 멤버 툴팁 항목 표시 UI)
 
 #include "PBPartyMemberTooltipRowWidget.h"
 #include "Components/Image.h"

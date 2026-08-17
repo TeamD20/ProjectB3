@@ -1,3 +1,6 @@
+// Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 최승현 (AI 성향별 행동 우선순위 값 작성)
+
 // PBAIArchetypeData.cpp
 #include "PBAIArchetypeData.h"
 

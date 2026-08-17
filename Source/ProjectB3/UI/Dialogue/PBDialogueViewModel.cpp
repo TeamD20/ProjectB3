@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (대화 텍스트와 선택지 상태 연결)
 
 #include "PBDialogueViewModel.h"
 #include "ProjectB3/Dialogue/PBDialogueManagerComponent.h"

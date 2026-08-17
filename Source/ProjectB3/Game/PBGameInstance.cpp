@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (게임 시작 시 에셋 번들 로딩 연결)
 
 #include "PBGameInstance.h"
 #include "Engine/AssetManager.h"

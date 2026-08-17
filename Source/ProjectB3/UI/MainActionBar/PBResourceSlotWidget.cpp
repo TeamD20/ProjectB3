@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (행동 자원 슬롯 UI 표시)
 
 #include "PBResourceSlotWidget.h"
 #include "Components/Image.h"

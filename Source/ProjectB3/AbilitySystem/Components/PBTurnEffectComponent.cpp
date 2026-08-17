@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (턴마다 지속 효과 적용, 만료 처리)
 
 #include "PBTurnEffectComponent.h"
 

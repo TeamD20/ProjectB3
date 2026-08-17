@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (대화 선택지 항목 UI)
 
 #include "PBDialogueChoiceEntryWidget.h"
 #include "Components/Button.h"

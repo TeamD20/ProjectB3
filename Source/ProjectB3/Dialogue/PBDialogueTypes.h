@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (대화 노드와 선택지 값 작성)
 
 #pragma once
 

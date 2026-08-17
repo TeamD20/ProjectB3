@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (대상 지정형 어빌리티 기본 처리)
 
 #pragma once
 

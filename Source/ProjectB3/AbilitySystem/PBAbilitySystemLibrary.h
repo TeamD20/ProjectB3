@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (어빌리티 대상 값 생성, 효과 적용 함수 작성)
 
 #pragma once
 

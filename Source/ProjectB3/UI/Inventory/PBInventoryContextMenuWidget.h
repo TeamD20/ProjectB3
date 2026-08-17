@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (인벤토리 아이템 우클릭 메뉴 UI)
 
 #pragma once
 

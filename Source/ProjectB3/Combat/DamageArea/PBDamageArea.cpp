@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (지속 피해 영역, 위험 지형 연결)
 
 #include "PBDamageArea.h"
 

@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (루팅 패널 열기 상호작용)
 
 #pragma once
 

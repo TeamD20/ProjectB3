@@ -1,4 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 강리한 (턴 순서 버프와 디버프 상태 표시)
+// Author: 배유찬 (턴 순서 목록을 ViewModel에 연결)
 
 #include "PBTurnOrderViewModel.h"
 

@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (카메라 전환과 연출 값 작성)
 
 #pragma once
 

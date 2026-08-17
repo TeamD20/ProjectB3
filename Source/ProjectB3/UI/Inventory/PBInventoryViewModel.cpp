@@ -1,4 +1,6 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (인벤토리와 장비 값을 ViewModel에 연결)
+// Author: 강리한 (인벤토리 툴팁, 장비 슬롯 UI 상태 연결)
 
 #include "PBInventoryViewModel.h"
 

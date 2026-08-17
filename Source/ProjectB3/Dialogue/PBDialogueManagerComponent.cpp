@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (대화 노드 진행, 선택지 처리)
 
 #include "PBDialogueManagerComponent.h"
 

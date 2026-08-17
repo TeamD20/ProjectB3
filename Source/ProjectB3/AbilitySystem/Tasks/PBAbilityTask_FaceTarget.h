@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (어빌리티 시전자가 대상을 바라보게 처리)
 
 #pragma once
 

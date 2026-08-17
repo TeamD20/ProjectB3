@@ -1,4 +1,5 @@
 // Copyright (c) 2026 TeamD20. All Rights Reserved.
+// Author: 배유찬 (플레이어 이동 경로 시각화)
 
 #include "PBPathDisplayComponent.h"
 #include "Components/SplineMeshComponent.h"
