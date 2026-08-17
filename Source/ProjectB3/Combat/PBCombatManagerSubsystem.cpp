@@ -577,7 +577,7 @@ void UPBCombatManagerSubsystem::AdvanceToNextTurn()
 
 void UPBCombatManagerSubsystem::BeginTurnForCurrentEntry()
 {
-	UE_LOG(LogTemp, Warning, TEXT("ROUND : %d"), CurrentRound);
+	UE_LOG(LogTemp, Display, TEXT("ROUND : %d"), CurrentRound);
 	if (!InitiativeOrder.IsValidIndex(CurrentTurnIndex))
 	{
 		return;
@@ -791,24 +791,25 @@ void UPBCombatManagerSubsystem::HandleIncapacitated(AActor* Combatant)
 	// ★ 재진입 방지: OnProgressTurn 처리 중이면 지연 큐에 추가
 	if (bIsProcessingTurnProgress)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("HandleIncapacitated: OnProgressTurn 처리 중 — %s을(를) 지연 큐에 추가"),
+		UE_LOG(LogTemp, Log, TEXT("HandleIncapacitated: OnProgressTurn 처리 중 — %s을(를) 지연 큐에 추가"),
 			*GetNameSafe(Combatant));
 		PendingIncapacitatedDuringProgress.AddUnique(Combatant);
 		return;
 	}
 
-	// 현재 턴 소유자인 경우 즉시 턴 종료
+	// 전투 종료 조건 우선 확인 — 전멸이면 현재 턴 소유자 여부와 무관하게 즉시 종료
+	// (현재 턴 소유자가 행동불능이 되며 진영이 전멸하는 경우를 놓치지 않도록 EndCurrentTurn보다 먼저 검사)
+	if (CheckCombatEndCondition())
+	{
+		EndCombat();
+		return;
+	}
+
+	// 전투가 계속되는 경우, 현재 턴 소유자가 행동불능이면 즉시 턴 종료
 	AActor* CurrentActor = GetCurrentCombatant();
 	if (CurrentActor == Combatant && CombatState == EPBCombatState::TurnInProgress)
 	{
 		EndCurrentTurn();
-		return;
-	}
-
-	// 전투 종료 조건 확인
-	if (CheckCombatEndCondition())
-	{
-		EndCombat();
 	}
 }
 
